@@ -166,11 +166,14 @@ elseif (WIN32)
   set(CUSTOM_SHELL_BIN "")
 endif()
 
+find_package(Proj)
+
 if (C_CLANG OR C_GCC)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wunused-variable -D_GNU_SOURCE ${EXTRA_FLAGS}")
   #
   # -lm is needed for functions in math.h
   if(PROJ_FOUND)
+    message("Linking with libproj")
     link_libraries("-lproj -lm")
   else()
     link_libraries("-lm")
@@ -208,7 +211,6 @@ endif(WIN32 OR CYGWIN)
 
 # requirements
 
-find_package(Proj)
 if(PROJ_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DENABLE_PROJ")
 else()
