@@ -1,4 +1,4 @@
-name: CMake-Linux
+name: CMake-Windows
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     # runs-on: [ubuntu-latest, windows-latest]
 
     steps:
@@ -30,5 +30,10 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
+    - name: Archive binary output
+      uses: actions/upload-artifact@v2
+      with:
+        name: wbms_georef_windows_binary
+        path: build/src/wbms_georef.exe
 
       
