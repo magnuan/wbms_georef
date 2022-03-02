@@ -1,0 +1,3 @@
+if(NOT (WIN32 OR CYGWIN))
+  install(FILES "${CUSTOM_MAN_DIR}/wbms_georef.1" DESTINATION ${INSTALL_MAN_DIR})
+endif(NOT (WIN32 OR CYGWIN))
