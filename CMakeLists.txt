@@ -167,51 +167,13 @@ elseif (WIN32)
 endif()
 
 if (C_CLANG OR C_GCC)
-  # _BSD_SOURCE is deprecated we need to use _DEFAULT_SOURCE.
-  #
-  # That works find for more modern compilers but we have issues with:
-  #	Centos 7, gcc 4.8.5, glibc 2.17
-  #	Centos 6, gcc 4.4.7, glibc 2.12
-  #
-  # CentOS 6 & 7:  Without -D_BSD_SOURCE, we get Warning: Implicit declaration of
-  # functions alloca, cfmakeraw, scandir, setlinebuf, strcasecmp, strncasecmp, and strsep.
-  # When a function (like strsep) returns a pointer, the compiler instead assumes a 32 bit
-  # int and sign extends it out to be a 64 bit pointer.  Use the pointer and Kaboom!
-  #
-  # CentOS 6: We have additional problem.  Without -D_POSIX_C_SOURCE=199309L, we get
-  # implicit declaration of function clock_gettime and the linker can't find it.
-  #
-  # It turns out that -D_GNU_SOURCE can be used instead of both of those.  For more information, 
-  # see https://www.gnu.org/software/libc/manual/html_node/Feature-Test-Macros.html
-  #
-  # Why was this not an issue before?  If gcc is used without the -std=c99 option, 
-  # it is perfectly happy with clock_gettime, strsep, etc. but with the c99 option, it no longer
-  # recognizes a bunch of commonly used functions.  Using _GNU_SOURCE, rather than _DEFAULT_SOURCE
-  # solves the problem for CentOS 6 & 7.  This also makes -D_XOPEN_SOURCE= unnecessary.
-  # I hope it doesn't break with newer versions of glibc.
-  #
-  # I also took out -Wextra because it spews out so much noise a serious problem was not noticed.
-  # It might go back in someday when I have more patience to clean up all the warnings.
-  #
-  ###set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wvla -ffast-math -ftree-vectorize -D_XOPEN_SOURCE=600 -D_DEFAULT_SOURCE ${EXTRA_FLAGS}")
-  if(FREEBSD)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wvla -ffast-math -ftree-vectorize -D_DEFAULT_SOURCE ${EXTRA_FLAGS}")
-  else()
-    #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wvla -ffast-math -ftree-vectorize -D_GNU_SOURCE ${EXTRA_FLAGS}")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wunused-variable -D_GNU_SOURCE ${EXTRA_FLAGS}")
-  endif()
-  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wunused-variable -D_GNU_SOURCE ${EXTRA_FLAGS}")
   #
   # -lm is needed for functions in math.h
-  if (LINUX)
-    # We have another problem with CentOS 6.  clock_gettime() is in librt so we need -lrt.
-    # The clock_* functions were moved into gnu libc for version 2.17.
-    #   https://sourceware.org/ml/libc-announce/2012/msg00001.html
-    # If using gnu libc 2.17, or later, the -lrt is no longer needed but doesn't hurt.
-    # I'm making this conditional on LINUX because it is not needed for BSD and MacOSX.
+  if(PROJ_FOUND)
     link_libraries("-lproj -lm")
   else()
-    link_libraries("-lproj -lm")
+    link_libraries("-lm")
   endif()
 elseif (C_MSVC)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -W3 -MP ${EXTRA_FLAGS}")
