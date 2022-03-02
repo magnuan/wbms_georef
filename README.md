@@ -42,6 +42,5 @@ Then on any flavor of Linux:
 	cmake ..
 	make -j4
 	sudo make install
-	make install-conf
 
 
