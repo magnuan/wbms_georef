@@ -281,7 +281,10 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"#  Ray tracing mode 3: Variable depth, Direct. Using  direct ray tracing. Assuming sensor at variable depth based on navigation (nav+offset+sonar_mounting_depth) wrt SV-profile 0\n");
 	fprintf(fp,"ray_tracing_mode 1\n");
 	fprintf(fp,"# Sensor mounting depth im meters. With respect to SV-profile depth value\n");
-	fprintf(fp,"sensor_mounting_depth 1\n\n");
+	fprintf(fp,"sensor_mounting_depth 1\n");
+	fprintf(fp,"# Which sv value to use for initial ray parameter when doing raytracing\n");
+	fprintf(fp,"raytrace_use_sonar_sv\n");
+	fprintf(fp,"#raytrace_use_table_sv\n\n");
 
 
 	fprintf(fp,"#### INTENSITY CORRECTION PARAMETERS ####\n");
@@ -485,6 +488,9 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"sensor_sv_offset",16)==0)  sensor_params.sv_offset = (float)atof(c+16);
 			if (strncmp(c,"alt_mode",8)==0) alt_mode = atoi(c+8);	
 			if (strncmp(c,"vert_offset",11)==0) z_off = (float)atof(c+11);
+			
+            if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
+            if (strncmp(c,"raytrace_use_table_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(0);
 			
 			if (strncmp(c,"sensor_x_offset",15)==0) soff->x = (float)atof(c+15);	// Reading in sensor x offset
 			if (strncmp(c,"sensor_y_offset",15)==0) soff->y = (float)atof(c+15);	// Reading in sensor y offset

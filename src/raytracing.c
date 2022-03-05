@@ -419,6 +419,7 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
 
 //Calculate ray bending directly, by processing every beam without LUT lookup
 // Doing this we can take into acount that the sonar is not at (or close to) 0 meter depth when doing raytracing
+// Setting input SoS (c==0), will use sv from table at sonar depth instead of measured sv for ray tracing
 void apply_ray_bending_direct(float* X,float* Y,float* Z,int N, float c, float z0){
 	int n;
 	float x,y,z,a_obs,r_obs,d_obs,t_obs,t;
@@ -445,7 +446,6 @@ void apply_ray_bending_direct(float* X,float* Y,float* Z,int N, float c, float z
 		t_obs = d_obs / c;							//Calculate observed one way travel time
 		if (t_obs==0) continue;
 
-		xi = cosf(a_obs)/c;				//Ray parameter for beam, based on initial pointing angle and sound velocity
 
 		//Now we start with horizontal and vertical distance = 0 (all relative to sonar) and trace the beam until it has propagated more than the observed one way travel time
 		t = 0;
@@ -453,7 +453,13 @@ void apply_ray_bending_direct(float* X,float* Y,float* Z,int N, float c, float z
 		z_true = 0; 	
 		zix = roundf(z0/DZ);				//Start with sound velocity measured at depth equal to sonar depth
 		zix = LIMIT(zix, 0,NZ-1);
-		do{
+        //Find initial ray parameter
+        if (c==0){
+            c = sv_table[0];				//If input c is 0, use c from sv_table at sonar depth (always index 0) instead 
+        }
+        xi = cosf(a_obs)/c;				//Ray parameter for beam, based on initial pointing angle and sound velocity
+		
+        do{
 			invalid = calc_dr_dt_rev_hovem(xi,sv_table[zix],sv_table[zix+1],DZ,&dr, &dt);
 			if (invalid) break;
 			t += dt;
@@ -489,13 +495,18 @@ void apply_ray_bending_direct(float* X,float* Y,float* Z,int N, float c, float z
 
 #ifndef INTERPOL_COR_TABLE
 //Apply ray bending corrections to coordinates in place
+// Setting input SoS (c==0), will use sv from table at sonar depth instead of measured sv for ray tracing
 void apply_ray_bending(float* X,float* Y,float* Z,int N, float c){
 	int n;
 	float x,y,z,a,r,d;
 	float xc,yc,zc,ac,rc,dc;
 	int cix,aix,zix;
 	if(has_corr==0) return;		//Dont do anything if correction table has not been calculated
-	cix = roundf((c - MINIMUM_C)/DC); 	//Index along sound velocity axis in correction table
+    if (c==0){
+        c = sv_table[0];				//If input c is 0, use c from sv_table at sonar depth (always index 0) instead 
+	}
+
+    cix = roundf((c - MINIMUM_C)/DC); 	//Index along sound velocity axis in correction table
 	
 	for (n = 0;n<N;n++){
 		x = X[n];
@@ -531,6 +542,7 @@ void apply_ray_bending(float* X,float* Y,float* Z,int N, float c){
 }
 #else
 
+// Setting input SoS (c==0), will use sv from table at sonar depth instead of measured sv for ray tracing
 void apply_ray_bending(float* X,float* Y,float* Z,int N, float c){
 	int n;
 	float x,y,z,a,r,d;
@@ -540,7 +552,11 @@ void apply_ray_bending(float* X,float* Y,float* Z,int N, float c){
 	float fcix1, faix1, fzix1;
 	float c_angle, c_range;
 	if(has_corr==0) return;		//Dont do anything if correction table has not been calculated
-	fcix1 = (c - MINIMUM_C)/DC; 	//Index along sound velocity axis in correction table
+    if (c==0){
+        c = sv_table[0];				//If input c is 0, use c from sv_table at sonar depth (always index 0) instead 
+    }
+	
+    fcix1 = (c - MINIMUM_C)/DC; 	//Index along sound velocity axis in correction table
 	cix = (int) floorf(fcix1); cix = LIMIT(cix,0,NC-2);fcix1 -= (float)cix; fcix0=1.f-fcix1;
 	
 	for (n = 0;n<N;n++){
