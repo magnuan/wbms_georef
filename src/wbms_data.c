@@ -137,7 +137,7 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out){
 	switch (wbms_packet_header->type){
 		case PACKET_TYPE_BATH_DATA: 
 			wbms_bath_packet = (bath_data_packet_t*) databuffer;
-			if (verbose){
+			if (verbose>2){
 				//sprintf_unix_time(str_buf, wbms_bath_packet->sub_header.time);
 				fprintf(stderr,"WBMS bathy: ver=%d ping=%7d  multi ping=%2d/%2d tx=%5.1fdeg %s\n",
                         wbms_bath_packet->header.version,
@@ -156,19 +156,19 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out){
 			#endif
 			return PACKET_TYPE_BATH_DATA;
 		case PACKET_TYPE_WATERCOL_DATA: 
-			if(verbose) fprintf(stderr,"Received WBMS watercol data, Discarding!\n");
+			if(verbose>2) fprintf(stderr,"Received WBMS watercol data, Discarding!\n");
 			return 0;
 		case PACKET_TYPE_SNIPPET_DATA: 
-			if(verbose) fprintf(stderr,"Received WBMS snippet data, Discarding!\n");
+			if(verbose>2) fprintf(stderr,"Received WBMS snippet data, Discarding!\n");
 			return 0;
 		case PACKET_TYPE_SIDESCAN_DATA: 
-			if(verbose) fprintf(stderr,"Received WBMS sidescan data, Discarding!\n");
+			if(verbose>2) fprintf(stderr,"Received WBMS sidescan data, Discarding!\n");
 			return 0;
 		case PACKET_TYPE_GEOREF_SIDESCAN_DATA: 
-			if(verbose) fprintf(stderr,"Received WBMS georef sidescan data, Discarding!\n");
+			if(verbose>2) fprintf(stderr,"Received WBMS georef sidescan data, Discarding!\n");
 			return 0;
 		default:
-			if(verbose) fprintf(stderr,"Received unknown WBMS data, Discarding!\n");
+			if(verbose>2) fprintf(stderr,"Received unknown WBMS data, Discarding!\n");
 			return 0;
 		}
 	return 0;
@@ -315,7 +315,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     *tx_freq_out = tx_freq;
 	float div_Fs = 1.f/Fs;
 	float c_div_2Fs = c/(2*Fs);
-    //printf("ping_number=%9d, multiping= %2d/%d tx_angle=%5.1f multifreq_index=%d\n", ping_number, multiping_seq_nr,multiping,tx_angle*180/M_PI, multifreq_index);
+    /*printf("ping_number=%9d, multiping= %d tx_angle=%5.1f multifreq_index=%d\n", 
+    ping_number, multiping_index,tx_angle*180/M_PI, multifreq_index);*/
     //printf("tx_angle=%f, Fs=%f, c=%f, Nin=%d, multifreq_index=%d\n", tx_angle,  Fs,  c,  Nin,  multifreq_index);
 
     //Skip whole dataset condition
@@ -327,9 +328,6 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         return(0);
     }
 
-    float *xs = malloc(MAX_DP*sizeof(float));
-    float *ys = malloc(MAX_DP*sizeof(float));
-    float *zs = malloc(MAX_DP*sizeof(float));
 
     
     //Find nav data for tx instant
@@ -339,7 +337,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     //Sort bath->dp[n] based on bath->dp[n].angle for n in 0-Nin
     if (bath_version < 5){
         if (calc_interpolated_nav_data( posdata, pos_ix, bath->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){
-            free(xs);free(ys);free(zs);
+            if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
             return 0;
         }
         calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath->sub_header.time+sensor_offset->time_offset, (1.f/bath->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
@@ -349,7 +347,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     }
     else if(bath_version==104){ //Same, but for v104 packets
         if (calc_interpolated_nav_data( posdata, pos_ix, bath_v104->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){
-            free(xs);free(ys);free(zs);
+            if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
             return 0;
         }
         calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath_v104->sub_header.time+sensor_offset->time_offset, (1.f/bath_v104->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
@@ -359,7 +357,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     }
     else if ((bath_version==5)||(bath_version==6)){ //Same, but for v5 packets
         if (calc_interpolated_nav_data( posdata, pos_ix, bath_v5->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){ 
-            free(xs);free(ys);free(zs);
+            if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
             return 0;
         }
         calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath_v5->sub_header.time+sensor_offset->time_offset, (1.f/bath_v5->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
@@ -369,7 +367,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     }
     else if (bath_version==7){ //Same, but for v7 packets
         if (calc_interpolated_nav_data( posdata, pos_ix, bath_v7->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){ 
-            free(xs);free(ys);free(zs);
+            if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
             return 0;
         }
         calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath_v7->sub_header.time+sensor_offset->time_offset, (1.f/bath_v5->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
@@ -379,7 +377,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     }
     else {//if (bath_version==8){ //Same, but for v8 packets
         if (calc_interpolated_nav_data( posdata, pos_ix, bath_v8->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){ 
-            free(xs);free(ys);free(zs);
+            if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
             return 0;
         }
         calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath_v8->sub_header.time+sensor_offset->time_offset, (1.f/bath_v5->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
@@ -387,6 +385,10 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             qsort(bath_v8->dp, Nin, sizeof(detectionpoint_v5_t), cmp_wbms_v5_dp_on_angle_func);
         }
     }
+    
+    float *xs = malloc(MAX_DP*sizeof(float));
+    float *ys = malloc(MAX_DP*sizeof(float));
+    float *zs = malloc(MAX_DP*sizeof(float));
 
 	// Populate r,az,el and t with data from bath data
 	float prev_sensor_r = 0.;
