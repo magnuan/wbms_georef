@@ -132,12 +132,8 @@ int r7k_fetch_next_packet(char * data, int fd){
 	dp = &(data[8]);                                //Read in 8 bytes allready 4-bytes before sync and 4 bytes sync
 	n = read(fd, dp,4);dp +=4;                        //Read in four more bytes, containing packet size
 	uint32_t s7k_size = ((uint32_t*) data)[2];
-	/*
-    uint16_t s7k_version = ((uint16_t*) data)[0];
-	uint16_t s7k_offset = ((uint16_t*) data)[1];
-    uint32_t s7k_record_id = ((uint32_t*) data)[8];
-	fprintf(stderr, "S7K ver = %d, S7K off = %d,  size = %d recordID = %d\n",s7k_version,s7k_offset, s7k_size, s7k_record_id);
-    */
+	
+    
 	rem = s7k_size-12;                                //Remaining bytes - the 12 we allready have      
 	while (rem>0){ 
         n= read(fd,dp,rem);		
@@ -146,7 +142,13 @@ int r7k_fetch_next_packet(char * data, int fd){
         rem -= n; dp+=n;
 
 	}
-	return s7k_size;
+    
+    /*uint16_t s7k_version = ((uint16_t*) data)[0];
+	uint16_t s7k_offset = ((uint16_t*) data)[1];
+    uint32_t s7k_record_id = ((uint32_t*) data)[8];
+	fprintf(stderr, "FETCH: S7K ver = %d, S7K off = %d,  size = %d recordID = %d\n",s7k_version,s7k_offset, s7k_size, s7k_record_id);
+	*/
+    return s7k_size;
 }
 
 int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
@@ -157,7 +159,7 @@ int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
 	//union r7k_RecordTypeHeader rth;
 	//rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (databuffer+4+(drf->offset));
 	
-    //fprintf(stderr,"S7K record  id:%d dev:%d  Y=%d doy=%d  %02d:%02d:%09.6f   ts = %f\n",drf->record_id,drf->dev_id,drf->time.year,drf->time.day,drf->time.hour,drf->time.min,drf->time.sec,ts);
+    //fprintf(stderr,"IDENTIFY: len:%d S7K record  id:%d dev:%d  Y=%d doy=%d  %02d:%02d:%09.6f   ts = %f\n",len, drf->record_id,drf->dev_id,drf->time.year,drf->time.day,drf->time.hour,drf->time.min,drf->time.sec,ts);
 	return drf->record_id;
 }
 
@@ -215,7 +217,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			break;
 		case 1015:	// Navigation
 			have_pos = 1;
-			if (verbose) fprintf(stderr,"1015 Vert_ref=%d Lat=%f Lon=%f Height=%f Accuracy=%f, %f, SoG=%f, Cog=%f Heading=%f\n ", \
+			if (verbose>2) fprintf(stderr,"1015 Vert_ref=%d Lat=%f Lon=%f Height=%f Accuracy=%f, %f, SoG=%f, Cog=%f Heading=%f\n ", \
 					rth.r1015->vert_ref,rth.r1015->lat*180/M_PI, rth.r1015->lon*180/M_PI, rth.r1015->height,  \
 					rth.r1015->hor_accuracy, rth.r1015->vert_accuracy, rth.r1015->speed_over_ground, rth.r1015->course_over_ground*180/M_PI, rth.r1015->heading*180/M_PI);
 
@@ -245,7 +247,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			break;
 		case 1016:	// Attitude
 			have_attitude = 1;
-			if (verbose) fprintf(stderr,"1016 t_off=%dms roll=%f pitch=%f heading=%f heave=%f\n"\
+			if (verbose>2) fprintf(stderr,"1016 t_off=%dms roll=%f pitch=%f heading=%f heave=%f\n"\
 			,rth.r1016->entry[0].t_off_ms,rth.r1016->entry[0].roll*180/M_PI,rth.r1016->entry[0].pitch*180/M_PI, rth.r1016->entry[0].heading*180/M_PI, rth.r1016->entry[0].heave);
 			
 			navdata_collector.roll = rth.r1016->entry[0].roll;
@@ -338,12 +340,13 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         float c_div_2Fs = c/(2*Fs);
         uint32_t dfs = rth.r7027->data_field_size;
         uint8_t* rd_ptr = (((uint8_t*) rth.r7610) + sizeof(r7k_RecordTypeHeader_7027_t));
-        //fprintf(stderr, "Serial=%d ping_nr=%d Nin=%d dfs=%d\n",rth.r7027->serial, rth.r7027->ping_nr,Nin,dfs);
+        fprintf(stderr, "GEOREF: Serial=%ld ping_nr=%d Nin=%d dfs=%d\n",rth.r7027->serial, rth.r7027->ping_nr,Nin,dfs);
 
         //Calculate navigation data at tx instant
         double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/
 	    float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
         if (calc_interpolated_nav_data( posdata, pos_ix, ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){
+            if(verbose) fprintf(stderr, "Could not find navigation data for s7k 7027 record at time %f\n",ts);
             return 0;
         }
         
