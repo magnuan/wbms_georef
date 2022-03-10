@@ -11,7 +11,7 @@ wbms_georef \- Georeferencer for sonar data and lidar data
 
 
 .SH DESCRIPTION
-\fBwbms_georef\fR  is a georeferencer primarily designed for Norbit WBMS sonar data.   
+\fBwbms_georef\fR  is a command line georeferencer primarily designed for Norbit WBMS sonar data.   
 It combines position and attitude data from a navigation system, with sensor data from sonar or lidar, and generates a georeferenced point cloud.
 Supports ray tracing of sonar data if speed-of-sound profile file is provided.
 Output is either CSV files or CloudCompare .sbf (simple binary format)
@@ -25,6 +25,10 @@ Read configuration file from specified location
 .TP
 .BI "-x "
 Generate a template config file with default values (wbms_georef.conf.template)
+
+.TP
+.BI "-i " "common_data"
+Filename for file containing sensor and navigation data. Typically s7k. 
 
 .TP
 .BI "-s " "sensor_data"
