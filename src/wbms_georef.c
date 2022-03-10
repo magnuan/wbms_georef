@@ -197,6 +197,7 @@ void showUsage(char *pgmname)
 			//"UDP ports are entered: Ex. 192.168.53.100#5602\n"
 			//"File is entered as filename.dump\n"
 			//"Std in/out is denoted with dash (-)\n"
+			"\t-i source\t Common data source\n"  
 			"\t-s source\t Sensor data source\n"  
 			"\t-S mode\t Sensor mode: 1=WBMS 2=WBMS_V5 3=Velodyne 5=S7K 10=Autodetect (default) \n"
 			"\t-p source\t Pos data source (PosMv:5602)\n"
@@ -330,7 +331,7 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# projection_input +proj=utm +zone=33 +ellps=WGS84\n\n\n");
 	
 	fprintf(fp,"#### DATA SOURCE ####\n");
-	fprintf(fp,"# Normally given as input argument with -p and -s, but can also be specified here\n");
+	fprintf(fp,"# Normally given as input argument with -i or -p and -s, but can also be specified here\n");
 	fprintf(fp,"# Define source and output drain: '-' for stdin/stdout ':' separated TCP ip/port '#' separated UDP ip/port else filename\n");
 	fprintf(fp,"# sensor_source localhost:2210\n");
 	fprintf(fp,"# navigation_source localhost#5602\n");
@@ -923,10 +924,14 @@ int main(int argc,char *argv[])
     sensor_params_default(&sensor_params);
 
 	/**** PARSING COMMAND LINE OPTIONS ****/
-        while ((c = getopt (argc, argv, "c:s:p:P:S:F:w:y:o:?hVxC5")) != -1) {
+        while ((c = getopt (argc, argv, "c:i:s:p:P:S:F:w:y:o:?hVxC5")) != -1) {
 		switch (c) {
 			case 'c':
 				read_config_from_file(optarg);
+				break;
+			case 'i':
+				input_sensor_source_string= optarg;
+				input_navigation_source_string= optarg;
 				break;
 			case 's':
 				input_sensor_source_string= optarg;
