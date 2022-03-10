@@ -246,7 +246,7 @@ void generate_template_config_file(char* fname){
 	
     fprintf(fp,"#### SENSOR DATA FILTERS ####\n");
 	fprintf(fp, "# Sounding quality limits\n");
-	fprintf(fp,"sensor_min_quality_flag 0\n");
+	fprintf(fp,"sensor_min_quality_flag 3\n");
 	fprintf(fp,"sensor_max_quality_flag 4\n");
 	fprintf(fp, "# Sounding priority limits\n");
 	fprintf(fp,"sensor_min_priority_flag 0\n");
