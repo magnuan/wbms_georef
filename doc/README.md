@@ -47,9 +47,28 @@ To generate a template with "default" values run:
  
 This will generate a file named *wbms_georef.conf.template* containing default settings, and some basic information about what the different parameters does.
 
-[Here](https://github.com/magnuan/wbms_georef/blob/main/doc/wbms_georef.conf.template) is an example of such a file for reference, but to get the latest version, please generate it with *wbms_georef" instead.
+[Here](https://github.com/magnuan/wbms_georef/blob/main/doc/wbms_georef.conf.template) is an example of such a file for reference, but to get the latest version, please generate it with *wbms_georef* instead.
 
+### Config file sections ###
+#### SENSOR MOUNTING ####
+6 parameters to define the reference frame of the sensor (sonar/lidar) relative to navigation reference frame origin.  
+Translations is done in navigation reference frame **before** rotations.  
+Rotations are done in the order **yaw**, **pitch**, **roll**.  
 
+Sonar default orientation [
+
+```bash
+# Linear offsets are given in meters X=pos.forward, Y=pos.starboard, Z=pos.down
+# Rotation offsets are given in degrees, Yaw=pos.turning starboard, Pitch=pos.tilting up, Roll=Rotating CW
+
+# Sonar offset and roll relative to Navigation origo. 0,0,0 attitude is Rx facing downwards, Tx pointing aft
+sensor_x_offset 0.0
+sensor_y_offset 0.0
+sensor_z_offset 0.0
+sensor_yaw_offset 0.0
+sensor_pitch_offset 0.0
+sensor_roll_offset 0.0
+```
 
 
 [Stable Version](https://github.com/magnuan/wbms_georef/tree/master/doc)
