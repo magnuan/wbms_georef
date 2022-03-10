@@ -340,7 +340,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         float c_div_2Fs = c/(2*Fs);
         uint32_t dfs = rth.r7027->data_field_size;
         uint8_t* rd_ptr = (((uint8_t*) rth.r7610) + sizeof(r7k_RecordTypeHeader_7027_t));
-        fprintf(stderr, "GEOREF: Serial=%ld ping_nr=%d Nin=%d dfs=%d\n",rth.r7027->serial, rth.r7027->ping_nr,Nin,dfs);
+        //fprintf(stderr, "GEOREF: Serial=%ld ping_nr=%d Nin=%d dfs=%d\n",rth.r7027->serial, rth.r7027->ping_nr,Nin,dfs);
 
         //Calculate navigation data at tx instant
         double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/
