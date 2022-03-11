@@ -47,7 +47,7 @@ To generate a template with "default" values run:
  
 This will generate a file named *wbms_georef.conf.template* containing default settings, and some basic information about what the different parameters does.
 
-[Here](https://github.com/magnuan/wbms_georef/blob/main/doc/wbms_georef.conf.template) is an example of such a file for reference, but to get the latest version, please generate it with *wbms_georef* instead.
+[Here (Markdown wrapped)](https://github.com/magnuan/wbms_georef/blob/main/doc/wbms_georef.conf.md) [(raw)](https://github.com/magnuan/wbms_georef/blob/main/doc/wbms_georef.conf.template) is an example of such a file for reference, but to get the latest version, please generate it with *wbms_georef* instead.
 
 ### Config file sections ###
 #### SENSOR MOUNTING ####
@@ -65,7 +65,6 @@ Rotations are done in the order **yaw**, **pitch**, **roll**.
 * **yaw** around **Z**
     
  <img src="https://github.com/magnuan/wbms_georef/blob/main/doc/cord_system.png" width="300" height="300">
-
 
 ##### Sonar default orientation: #####
 * Scanning (primarily) in YZ-plane, vessel moving in X-direction
@@ -95,7 +94,20 @@ sensor_yaw_offset 0.0
 sensor_pitch_offset 0.0
 sensor_roll_offset 0.0
 ```
+#### SENSOR ERROR COMPENSATION ####
+The sensor error compensation values can be uncommented and set to test or compensate any known static offsets in sensor data.
+E.g.:
+* If the sensor for some reason reports time, exactly one hour less (timezone issue) than the navigation system, **sensor_time_offset** can be set to 3600.0 
+* If a sonar measures SV 1m/s to low, set **sensor_sv_offset** to 1.0
 
+```bash
+# Add a fixed range adjustment to sonar data
+sensor_r_error 0.0
+# Add a time offset to sensor data timestamp
+sensor_time_offset 0.0
+# Add a correction value to sonar SV measurement
+sensor_sv_offset 0.0
+```
 
 [Stable Version](https://github.com/magnuan/wbms_georef/tree/master/doc)
 
