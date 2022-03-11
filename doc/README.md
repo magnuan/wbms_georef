@@ -55,7 +55,7 @@ This will generate a file named *wbms_georef.conf.template* containing default s
 Translations is done in navigation reference frame **before** rotations.  
 Rotations are done in the order **yaw**, **pitch**, **roll**.  
 
-Coordinate system is deifned: 
+##### Coordinate system is defined: ##### 
 * Right hand system
 * **X** forward
 * **Y** Starboard
@@ -67,18 +67,21 @@ Coordinate system is deifned:
  <img src="https://github.com/magnuan/wbms_georef/blob/main/doc/cord_system.png" width="300" height="300">
 
 
-Sonar default orientation:
+##### Sonar default orientation: #####
 * Scanning (primarily) in YZ-plane, vessel moving in X-direction
 * Pointing downwards, azimuth=0, elevation=0  pointing in Z-direction
 * Positive azimuth direction in negative roll direction, from nadir to starboard
 * Positive elevation in positive pitch direction from nadir to forward
 
-Lidar default orientation:
+![Sonar default mounting](https://github.com/magnuan/wbms_georef/blob/main/doc/Sonar_default_mounting.png "Sonar default mounting")
+
+##### Lidar default orientation: #####
  * Scanning (primarily) in YZ-plane, vessel moving in X-direction
  * Pointing upwards, azimuth=0, elevation=0  pointing in negative Z-direction
  * Positive azimuth direction in negative roll direction, from zenith to port
  * Positive elevation direction in negative pitch direction, from zenith to forward
 
+![Lidar default mounting](https://github.com/magnuan/wbms_georef/blob/main/doc/Lidar_default_mounting.png "Lidar default mounting")
 
 ```bash
 # Linear offsets are given in meters X=pos.forward, Y=pos.starboard, Z=pos.down
