@@ -135,6 +135,7 @@ uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
 	uint8_t* dp;
 	double nav_x, nav_y, nav_z; 			/*Position in global coordinates (east,north,up)*/
 	float nav_yaw,  nav_pitch,  nav_roll; /*Rotations of posmv coordinates*/
+    float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
 
 	uint16_t Nout;
 	uint16_t ix_out;
@@ -144,7 +145,7 @@ uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
 	if((lidar_ts-(pos->ts))>(1800.)) lidar_ts -= 3600.;	/* If lidar_ts now is more than 30 min ahead of pos_ts, we probably had lidar right before hour mark when pos passed, subtract one hour*/
     lidar_ts += sensor_offset->time_offset;
     
-    if (calc_interpolated_nav_data( posdata, pos_ix, lidar_ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)) return 0;
+    if (calc_interpolated_nav_data( posdata, pos_ix, lidar_ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt )) return 0;
 	
 	uint16_t block,ch,set;
 	float azimuth;

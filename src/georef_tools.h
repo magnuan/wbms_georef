@@ -14,7 +14,7 @@ int georef_to_global_frame(
 					);
 
 size_t find_closest_index_in_posdata(navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, double ts);
-int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, double ts,/*OUTPUT*/ double* nav_x, double* nav_y, double* nav_z, float* nav_yaw, float* nav_pitch, float* nav_roll);
+int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, double ts,/*OUTPUT*/ double* nav_x, double* nav_y, double* nav_z, float* nav_yaw, float* nav_pitch, float* nav_roll, float* nav_dyaw_dt, float* nav_dpitch_dt, float* nav_droll_dt);
 int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], size_t  pos_ix, double ts, float t_dur, float fs, size_t N, /*output*/ float* roll_vector, float* z_vector);
 void set_time_diff_limit(float t);
 void set_use_sonar_sv_for_initial_ray_parameter(uint8_t val);

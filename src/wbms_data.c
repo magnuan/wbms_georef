@@ -203,6 +203,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
      double* x = &(outbuf->x[0]);
      double* y = &(outbuf->y[0]);
      double* z = &(outbuf->z[0]);
+     float* z_var = &(outbuf->z_var[0]);
      float* intensity = &(outbuf->i[0]);
      float* beam_range = &(outbuf->range[0]);
      float* beam_angle = &(outbuf->teta[0]);
@@ -232,6 +233,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 
 	double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/
 	float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
+    float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
     uint32_t bath_version =  bath->header.version;
     bath_data_packet_v5_t* bath_v5 = (bath_data_packet_v5_t*) bath; /* Cast to v5/v6 packet, could use an union type here as well */
     bath_data_packet_v7_t* bath_v7 = (bath_data_packet_v7_t*) bath; /* Cast to v7 packet, could use an union type here as well */
@@ -336,7 +338,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     //To calculate angle-of insidence, we must sort beams on angle (Strictly only neccessary for ISS data)
     //Sort bath->dp[n] based on bath->dp[n].angle for n in 0-Nin
     if (bath_version < 5){
-        if (calc_interpolated_nav_data( posdata, pos_ix, bath->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){
+        if (calc_interpolated_nav_data( posdata, pos_ix, bath->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){
             if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
             return 0;
         }
@@ -346,7 +348,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         }
     }
     else if(bath_version==104){ //Same, but for v104 packets
-        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v104->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){
+        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v104->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){
             if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
             return 0;
         }
@@ -356,7 +358,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         }
     }
     else if ((bath_version==5)||(bath_version==6)){ //Same, but for v5 packets
-        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v5->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){ 
+        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v5->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
             if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
             return 0;
         }
@@ -366,7 +368,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         }
     }
     else if (bath_version==7){ //Same, but for v7 packets
-        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v7->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){ 
+        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v7->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
             if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
             return 0;
         }
@@ -376,7 +378,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         }
     }
     else {//if (bath_version==8){ //Same, but for v8 packets
-        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v8->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){ 
+        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v8->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
             if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
             return 0;
         }
@@ -518,7 +520,6 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         // Add correction for roll during tx2rx period for each beam individually
         sensor_az_tx2rx_corr = -roll_vector[(size_t) round(sensor_t*ROLL_VECTOR_RATE)]; //Roll is given in opposite angles than sonar azimuth
         sensor_z_tx2rx_corr = z_vector[(size_t) round((sensor_t/2)*ROLL_VECTOR_RATE)]; // Z correction is for half tx to rx time
-        //fprintf(stderr, "dt=%fms, ix=%d, corr=%fdeg\n", sensor_t*1e3, (size_t) round(sensor_t*ROLL_VECTOR_RATE), roll_vector[(size_t) round(sensor_t*ROLL_VECTOR_RATE)]);
         //printf("quality_flags=%d,  sensor_params->min_priority_flag=%d, sensor_az=%fdeg, sensor_el=%fdeg\n",quality_flags,((flags)>>9) & (0x0F),sensor_az*180/M_PI, sensor_el*180/M_PI);
         //printf("sonar_min_quality_flag=%d, sensor_params->max_quality_flag=%d, sensor_params->min_priority_flag=%d, sensor_params->max_priority_flag=%d\n",sensor_params->min_quality_flag,sensor_params->max_quality_flag,sensor_params->min_priority_flag,sensor_params->max_priority_flag);
 		if (	(quality_flags >= sensor_params->min_quality_flag) && 
@@ -578,6 +579,19 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 			#endif
             zs[ix_out] += sensor_z_tx2rx_corr;
 
+
+            //TODO insert uncertainty model here
+            float beam_width = (0.1*M_PI/180.) / cosf(0.85*sensor_az);
+            float sigma_teta =  M_SQRT2 * beam_width;
+            const float sigma_range = M_SQRT2 * 1450./80e3;
+            const float sigma_t = M_SQRT2 * 0.005;
+            float sigma_z_teta  = sigma_teta*sensor_r*sinf(sensor_az);
+            float sigma_z_range = sigma_range*cosf(sensor_az);
+            float sigma_z_roll = nav_droll_dt * sigma_t *sensor_r*cosf(sensor_az);
+            float sigma_z_pitch = nav_dpitch_dt * sigma_t *sensor_r*cosf(sensor_az);
+            z_var[ix_out] =  sigma_z_teta*sigma_z_teta + sigma_z_range*sigma_z_range + sigma_z_roll*sigma_z_roll + sigma_z_pitch*sigma_z_pitch;
+            //z_var[ix_out] =  sigma_z_pitch*sigma_z_pitch;
+
 			ix_out++;
 			
 			prev_sensor_r = sensor_r;
@@ -608,6 +622,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 		x[ix_out] = x[ix_in];
 		y[ix_out] = y[ix_in];
 		z[ix_out] = z[ix_in];
+        z_var[ix_out] = z_var[ix_in];
 		intensity[ix_out] = intensity[ix_in];
 		beam_angle[ix_out] = beam_angle[ix_in];
 		swath_y[ix_out] = swath_y[ix_in];

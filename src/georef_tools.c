@@ -177,8 +177,9 @@ size_t find_closest_index_in_posdata(navdata_t posdata[NAVDATA_BUFFER_LEN],size_
 / OUTPUT:
 / nav_x, nav_y, nav_z Output navigation position
 / nav_yaw, nav_pitch, nav_roll Output navigation attitude
+/ nav_dyaw_dt, nav_dpitch_dt, nav_droll_dt Output navigation attitude time derivates
 */
-int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, double ts,/*OUTPUT*/ double* nav_x, double* nav_y, double* nav_z, float* nav_yaw, float* nav_pitch, float* nav_roll){
+int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, double ts,/*OUTPUT*/ double* nav_x, double* nav_y, double* nav_z, float* nav_yaw, float* nav_pitch, float* nav_roll, float* nav_dyaw_dt, float* nav_dpitch_dt, float* nav_droll_dt){
     
     navdata_t *pos0, *pos1;      //Navdata last before and firs after tx instant
 	double ts_offset0, ts_offset1, max_ts_offset;
@@ -222,6 +223,12 @@ int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos
 	*nav_yaw = (float)((scaling0 * pos0->yaw) + (scaling1 * pos1->yaw));          //Rotation around vessel Z axis (downwards) positive turning right. 0,0,0 means vessel X (forward) pointing towards north horizonth,  vessel Y (Starbord) towards east horizonth
 	*nav_pitch = (float)((scaling0 * pos0->pitch) + (scaling1 * pos1->pitch));    //Rotation around vessel Y axis (starbord) positive pitching up.
 	*nav_roll = (float)((scaling0 * pos0->roll) + (scaling1 * pos1->roll));       //Rotation around vessel X axix (forward) positive rolling clockwise
+
+    float dt = (pos1->ts - pos0->ts);
+    *nav_dyaw_dt = (pos1->yaw - pos0->yaw)/dt;
+    *nav_dpitch_dt = (pos1->pitch - pos0->pitch)/dt;
+    *nav_droll_dt = (pos1->roll - pos0->roll)/dt;
+
 	//fprintf(stderr,"Nav roll = %8.3fdeg, pitch = %8.3fdeg, yaw = %8.3fdeg\n",nav_roll*180/M_PI, nav_pitch*180/M_PI, nav_yaw*180/M_PI);
     return 0;
 }

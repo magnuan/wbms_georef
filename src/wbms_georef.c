@@ -354,6 +354,7 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"# Output format string for SBF and CSV files\n");
     fprintf(fp,"#  time stamp:                t\n");
     fprintf(fp,"#  detection coordinates:     x,y,z\n");
+    fprintf(fp,"#  detection variance:        z_var, z_stddev\n");
     fprintf(fp,"#  detection beam angle:      teta\n");
     fprintf(fp,"#  detection range :          range\n");
     fprintf(fp,"#  beam number :              beam\n");

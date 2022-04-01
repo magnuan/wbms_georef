@@ -114,6 +114,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     double* x_val = &(data->x[0]);
     double* y_val = &(data->y[0]);
     double* z_val = &(data->z[0]);
+    float* z_var_val = &(data->z_var[0]);
     float* intensity_val = &(data->i[0]);
     float* quality_val = &(data->quality[0]);
     float* strength_val = &(data->strength[0]);
@@ -144,6 +145,8 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case y: write_f32_unaligned_bswap((uint8_t*)dp,(float)(x_val[ii]-x_offset)); dp+=4;break;
                 case z: write_f32_unaligned_bswap((uint8_t*)dp,(float)(-(z_val[ii]-z_offset))); dp+=4;break;
                 
+                case z_var: write_f32_unaligned_bswap((uint8_t*)dp,(float)(z_var_val[ii])); dp+=4;break;
+                case z_stddev: write_f32_unaligned_bswap((uint8_t*)dp,(float)(sqrtf(z_var_val[ii]))); dp+=4;break;
                 #ifdef OUTPUT_ANGLES_IN_DEGREES
                 case teta: write_f32_unaligned_bswap((uint8_t*)dp,(float)(teta_val[ii]*180/M_PI)); dp+=4;break;
                 case steer: write_f32_unaligned_bswap((uint8_t*)dp,(float)(steer_val[ii]*180/M_PI)); dp+=4;break;

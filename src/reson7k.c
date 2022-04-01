@@ -281,6 +281,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     double* x = &(outbuf->x[0]);
     double* y = &(outbuf->y[0]);
     double* z = &(outbuf->z[0]);
+    float* z_var = &(outbuf->z_var[0]);
     float* intensity = &(outbuf->i[0]);
     float* beam_range = &(outbuf->range[0]);
     float* beam_angle = &(outbuf->teta[0]);
@@ -345,7 +346,8 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         //Calculate navigation data at tx instant
         double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/
 	    float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
-        if (calc_interpolated_nav_data( posdata, pos_ix, ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll)){
+        float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
+        if (calc_interpolated_nav_data( posdata, pos_ix, ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){
             if(verbose) fprintf(stderr, "Could not find navigation data for s7k 7027 record at time %f\n",ts);
             return 0;
         }
@@ -483,6 +485,8 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 }
                 intensity[ix_out] = inten;
       
+                //TODO insert uncertainty model here
+                z_var[ix_out] = 0.0f;
 
                 ix_out++;
 
@@ -509,6 +513,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
             x[ix_out] = x[ix_in];
             y[ix_out] = y[ix_in];
             z[ix_out] = z[ix_in];
+            z_var[ix_out] = z_var[ix_in];
             intensity[ix_out] = intensity[ix_in];
             beam_angle[ix_out] = beam_angle[ix_in];
             swath_y[ix_out] = swath_y[ix_in];
