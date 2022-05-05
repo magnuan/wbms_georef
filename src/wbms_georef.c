@@ -501,7 +501,7 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"sensor_yaw_offset",17)==0) soff->yaw = ((float)atof(c+17)* (float)M_PI/180);	// Reading in sensor yaw offset
 			if (strncmp(c,"sensor_pitch_offset",19)==0) soff->pitch = ((float)atof(c+19)* (float)M_PI/180);	// Reading in sensor pitch offset
 			if (strncmp(c,"sensor_roll_offset",18)==0) soff->roll = ((float)atof(c+18)* (float)M_PI/180);	// Reading in sensor roll offset
-			if (strncmp(c,"sensor_time_offset",19)==0)  soff->time_offset = (float)atof(c+19);
+			if (strncmp(c,"sensor_time_offset",18)==0)  soff->time_offset = (float)atof(c+19);
 
 			if (strncmp(c,"sensor_min_quality_flag",23)==0) sensor_params.min_quality_flag = (atoi(c+23));	
 			if (strncmp(c,"sensor_max_quality_flag",23)==0) sensor_params.max_quality_flag = (atoi(c+23));	
@@ -1590,6 +1590,7 @@ int main(int argc,char *argv[])
 					sensor_total_data += sensor_data_buffer_len;
 					sensor_total_packets++;
 					new_sensor_data = sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &ts_sensor, sensor_mode);
+                    ts_sensor += sensor_offset.time_offset;
 				    //if(new_sensor_data) fprintf(stderr,"new_sensor_data = %d\n", new_sensor_data);
 			
 
