@@ -549,8 +549,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             }
             aoi = ABS(aoi);
             if (sensor_params->intensity_range_comp){
-                inten *= sensor_r;     //Only comp one-way spreading loss     
-                inten *= sensor_r;     //Only comp one-way spreading loss     
+                inten *= sensor_r*sensor_r;                  //Only comp one-way spreading loss     
+                inten *= powf(100000.f,(sensor_r/1000.));  //100dB/km damping loss  
             }
             if (sensor_params->intensity_aoi_comp){
                 if(sensor_params->use_intensity_angle_corr_table){
@@ -559,7 +559,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
                     inten *= intenity_angle_corr_table[ix].intensity_scale;
                 }
                 else{
-                    inten = inten/((MAX(cosf(aoi),0.1f)));
+                    inten = inten/((MAX(cosf(aoi),0.01f)));
                 }
             }
             intensity[ix_out] = inten;
