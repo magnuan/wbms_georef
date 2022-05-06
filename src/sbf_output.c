@@ -164,9 +164,12 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case strength: write_f32_unaligned_bswap((uint8_t*)dp,(float)(strength_val[ii])); dp+=4;break;
                 
                 case cgate: write_f32_unaligned_bswap((uint8_t*)dp,(float)((range_val[ii]-0.5*(low_gate[ii]+up_gate[ii]))*200/(low_gate[ii]+up_gate[ii]))); dp+=4;break;
-                case ugate: write_f32_unaligned_bswap((uint8_t*)dp,(float)((range_val[ii]-up_gate[ii])*100/range_val[ii])); dp+=4;break;
-                case lgate: write_f32_unaligned_bswap((uint8_t*)dp,(float)((low_gate[ii]-range_val[ii])*100/range_val[ii])); dp+=4;break;
-                case gatew: write_f32_unaligned_bswap((uint8_t*)dp,(float)((low_gate[ii]-up_gate[ii])*200/(low_gate[ii]+up_gate[ii]))); dp+=4;break;
+                //case ugate: write_f32_unaligned_bswap((uint8_t*)dp,(float)((range_val[ii]-up_gate[ii])*100/range_val[ii])); dp+=4;break;
+                //case lgate: write_f32_unaligned_bswap((uint8_t*)dp,(float)((low_gate[ii]-range_val[ii])*100/range_val[ii])); dp+=4;break;
+                //case gatew: write_f32_unaligned_bswap((uint8_t*)dp,(float)((low_gate[ii]-up_gate[ii])*200/(low_gate[ii]+up_gate[ii]))); dp+=4;break;
+                case ugate: write_f32_unaligned_bswap((uint8_t*)dp,(float)up_gate[ii]); dp+=4;break;
+                case lgate: write_f32_unaligned_bswap((uint8_t*)dp,(float)low_gate[ii]); dp+=4;break;
+                case gatew: write_f32_unaligned_bswap((uint8_t*)dp,(float)(low_gate[ii]-up_gate[ii])); dp+=4;break;
                 
                 case t: write_f32_unaligned_bswap((uint8_t*)dp,(float)(ts-ts_offset)); dp+=4;break;
                 case c: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*sv)); dp+=4;break;
