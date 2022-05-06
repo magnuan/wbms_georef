@@ -480,8 +480,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             else
                 sample_number = bath_v7->dp[ix_in].sample_number;
             sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
-            sensor_ug = bath_v7->dp[ix_in].upper_gate*c_div_2Fs;
-            sensor_lg = bath_v7->dp[ix_in].lower_gate*c_div_2Fs;
+            sensor_ug = (float)(bath_v7->dp[ix_in].upper_gate)*c_div_2Fs;
+            sensor_lg = (float)(bath_v7->dp[ix_in].lower_gate)*c_div_2Fs;
             sensor_quality = (float)(bath_v7->dp[ix_in].quality_val);
             sensor_strength = 0.0f;
             sensor_t = sample_number*div_Fs;		//Calculate tx to rx time for each point 
