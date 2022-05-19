@@ -1,5 +1,4 @@
 #include <stdio.h>
-        float max_time_interval = 0;
 #include <stdlib.h>
 #include <sys/types.h>
 //#include <sys/time.h>
