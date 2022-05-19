@@ -1,19 +1,33 @@
-
 # Revision History #
 
 
-## Version 1.0  --  Under Development ('dev' branch) ##
+## Version 1.0.0  ##
+
+## Version 1.1.0  ##
 
 
 ### New Features: ###
 
-- Bla
+- Add export of AOI estimator value
 
-- Bla
+- Add support for nmea navigation data input
 
-- Ukeblad
+- Adding export of z variance and std. dev. From rudamentary uncertainty model
 
-- Resten står i avisa
+### Bug fixes: ###
+
+- Fixing so that sensor_time_offset from config file is parsed and used
+
+- Time_offset must be kept as a double to have sufficient precission
+
+- Ensure that converting sample number to range is done with floating point arithmetics
+
+### Other Changes ###
+
+- Trying to improve intensity range compensation model
+
+- Output actual value for ugate lgate and gatew, not relative values
+
 
 ### New Build Procedure: ###
 
@@ -28,15 +42,4 @@
 
 - Drink some beer
 
------------
-
-## Version 0.5 -- March 2022 ##
-
-- No fun
-
------------
-
-## Version 0.4 -- September 2011 ##
-
-- All work
 
