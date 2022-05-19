@@ -74,6 +74,11 @@ int wbms_seek_next_header(int fd){
 		if(n>0){
 			//fprintf(stderr,"%02x ",v);
 			dump += 1;
+            
+            // Debug: dump all data that is not wbms-data
+            /*if ( ( (state==0) && ((v!=0xef) )) || ( (state==1) && ((v!=0xbe) )) || ( (state==2) && ((v!=0xad) )) || ( (state==3) && ((v!=0xde) ))){
+			    fprintf(stderr,"%c",v);
+            }*/
 			switch (state){
 				case 0: state = (v==0xef)?1:0;break;
 				case 1: state = (v==0xbe)?2:0;break;
@@ -83,7 +88,7 @@ int wbms_seek_next_header(int fd){
 			if (state==4){
 				dump-=4;
 				if(dump>0)  {
-					fprintf(stderr,"WBMS seek dump %d bytes\n",dump);
+					//fprintf(stderr,"WBMS seek dump %d bytes\n",dump);
 					//sleep(1);
 				}
                 //printf("wbms_seek_next_header end 0\n");
