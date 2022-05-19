@@ -4,8 +4,8 @@ project(wbms_georef)
 
 # configure version
 set(wbms_georef_VERSION_MAJOR "1")
-set(wbms_georef_VERSION_MINOR "0")
-set(wbms_georef_VERSION_PATCH "1")
+set(wbms_georef_VERSION_MINOR "1")
+set(wbms_georef_VERSION_PATCH "0")
 set(wbms_georef_VERSION_SUFFIX "Development")
 
 # options
