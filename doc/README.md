@@ -47,7 +47,7 @@ To generate a template with "default" values run:
  
 This will generate a file named *wbms_georef.conf.template* containing default settings, and some basic information about what the different parameters does.
 
-[Here](https://github.com/magnuan/wbms_georef/blob/main/doc/wbms_georef.conf.template) is an example of such a file for reference, but to get the latest version, please generate it with *wbms_georef* instead.
+[Here (Markdown wrapped)](https://github.com/magnuan/wbms_georef/blob/main/doc/wbms_georef.conf.md) [(raw)](https://github.com/magnuan/wbms_georef/blob/main/doc/wbms_georef.conf.template) is an example of such a file for reference, but to get the latest version, please generate it with *wbms_georef* instead.
 
 ### Config file sections ###
 #### SENSOR MOUNTING ####
@@ -55,7 +55,7 @@ This will generate a file named *wbms_georef.conf.template* containing default s
 Translations is done in navigation reference frame **before** rotations.  
 Rotations are done in the order **yaw**, **pitch**, **roll**.  
 
-Coordinate system is deifned: 
+##### Coordinate system is defined: ##### 
 * Right hand system
 * **X** forward
 * **Y** Starboard
@@ -66,19 +66,21 @@ Coordinate system is deifned:
     
  <img src="https://github.com/magnuan/wbms_georef/blob/main/doc/cord_system.png" width="300" height="300">
 
-
-Sonar default orientation:
+##### Sonar default orientation: #####
 * Scanning (primarily) in YZ-plane, vessel moving in X-direction
 * Pointing downwards, azimuth=0, elevation=0  pointing in Z-direction
 * Positive azimuth direction in negative roll direction, from nadir to starboard
 * Positive elevation in positive pitch direction from nadir to forward
 
-Lidar default orientation:
+![Sonar default mounting](https://github.com/magnuan/wbms_georef/blob/main/doc/Sonar_default_mounting.png "Sonar default mounting")
+
+##### Lidar default orientation: #####
  * Scanning (primarily) in YZ-plane, vessel moving in X-direction
  * Pointing upwards, azimuth=0, elevation=0  pointing in negative Z-direction
  * Positive azimuth direction in negative roll direction, from zenith to port
  * Positive elevation direction in negative pitch direction, from zenith to forward
 
+![Lidar default mounting](https://github.com/magnuan/wbms_georef/blob/main/doc/Lidar_default_mounting.png "Lidar default mounting")
 
 ```bash
 # Linear offsets are given in meters X=pos.forward, Y=pos.starboard, Z=pos.down
@@ -92,7 +94,20 @@ sensor_yaw_offset 0.0
 sensor_pitch_offset 0.0
 sensor_roll_offset 0.0
 ```
+#### SENSOR ERROR COMPENSATION ####
+The sensor error compensation values can be uncommented and set to test or compensate any known static offsets in sensor data.
+E.g.:
+* If the sensor for some reason reports time, exactly one hour less (timezone issue) than the navigation system, **sensor_time_offset** can be set to 3600.0 
+* If a sonar measures SV 1m/s to low, set **sensor_sv_offset** to 1.0
 
+```bash
+# Add a fixed range adjustment to sonar data
+sensor_r_error 0.0
+# Add a time offset to sensor data timestamp
+sensor_time_offset 0.0
+# Add a correction value to sonar SV measurement
+sensor_sv_offset 0.0
+```
 
 [Stable Version](https://github.com/magnuan/wbms_georef/tree/master/doc)
 

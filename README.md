@@ -1,11 +1,10 @@
 # WBMS georef #
 
-### Lots of bla bla here ###
-
-Yada Yada
-
-![](example_picture.png)
-
+## Introduction ##
+**wbms_georef** is a command line georeferencer primarily designed for Norbit WBMS sonar data.
+It combines position and attitude data from a navigation system, with sensor data from sonar or lidar, and generates a georeferenced point cloud.
+Supports ray tracing of sonar data if speed-of-sound profile file is provided.
+Output is either CSV files or CloudCompare .sbf (simple binary format)
 
 ## Documentation ##
 
