@@ -30,6 +30,7 @@
 #include "xtf_nav.h"
 #include "sim_nav.h"
 #include "sbet_nav.h"
+#include "nmea_nav.h"
 #include "wbm_tool_nav.h"
 #include "sbf_output.h"
 #include "csv_output.h"
@@ -100,7 +101,7 @@ output_format_e output_format[MAX_OUTPUT_FIELDS];
 
 static PJ *proj_latlon_to_output_utm;
 
-typedef enum  { pos_mode_posmv=0, pos_mode_xtf=1,pos_mode_wbm_tool=2, pos_mode_sbet=3, pos_mode_sim=4, pos_mode_s7k=5, pos_mode_autodetect=10,pos_mode_unknown=11} pos_mode_e; 
+typedef enum  { pos_mode_posmv=0, pos_mode_xtf=1,pos_mode_wbm_tool=2, pos_mode_sbet=3, pos_mode_sim=4, pos_mode_s7k=5, pos_mode_nmea=6, pos_mode_autodetect=10,pos_mode_unknown=11} pos_mode_e; 
 pos_mode_e pos_mode = pos_mode_autodetect;
 static const char *pos_mode_names[] = {
 	"Posmv102",
@@ -109,7 +110,7 @@ static const char *pos_mode_names[] = {
     "SBET",
     "Simulator",
     "s7k",
-    "-",
+    "nmea",
     "-",
     "-",
     "-",
@@ -646,6 +647,7 @@ uint8_t navigation_test_file(int fd, pos_mode_e mode){
         case pos_mode_wbm_tool: return  wbm_tool_nav_test_file(fd);
         case pos_mode_sim:      return 1;
         case pos_mode_s7k:      return  r7k_test_nav_file(fd);
+        case pos_mode_nmea:      return  nmea_nav_test_file(fd);
         default: case pos_mode_autodetect: case pos_mode_unknown: return 0;
     }
     return 0;
@@ -655,7 +657,7 @@ pos_mode_e navigation_autodetect_file(FILE* fp){
     int fd = fileno(fp);
     pos_mode_e ret = pos_mode_unknown;
 
-    for (pos_mode_e mode=pos_mode_posmv; mode<=pos_mode_s7k;mode++){
+    for (pos_mode_e mode=pos_mode_posmv; mode<=pos_mode_nmea;mode++){
         if(mode==pos_mode_sim) continue;
         //fprintf(stderr,"Testing nav file in mode %s\n", pos_mode_names[mode]);
         if (navigation_test_file(fd,mode)){
@@ -671,18 +673,6 @@ pos_mode_e navigation_autodetect_file(FILE* fp){
 }
 
 
-int navigation_seek_next_header(int fd, pos_mode_e mode, /*out*/ uint8_t* pre_sync){
-    switch (mode){
-        case pos_mode_posmv:    return  posmv_seek_next_header(fd);
-        case pos_mode_sbet:     return  sbet_nav_seek_next_header(fd);
-        case pos_mode_xtf:      return  xtf_nav_seek_next_header(fd);
-        case pos_mode_wbm_tool: return  wbm_tool_nav_seek_next_header(fd);
-        case pos_mode_sim:      return  sim_nav_seek_next_header(fd);
-        case pos_mode_s7k:      return  r7k_seek_next_header(fd, /*out*/ pre_sync);
-        case pos_mode_autodetect: case pos_mode_unknown: return -1;
-    }
-	return -1;
-}
 
 //Read next set of pos data from fd into data
 int navigation_fetch_next_packet(char * data, int fd, pos_mode_e mode){
@@ -694,8 +684,10 @@ int navigation_fetch_next_packet(char * data, int fd, pos_mode_e mode){
         case pos_mode_wbm_tool: len= wbm_tool_nav_fetch_next_packet(data,fd);break;
         case pos_mode_sim:      len= sim_nav_fetch_next_packet(data,fd);break;
         case pos_mode_s7k:      len= r7k_fetch_next_packet(data,fd);break;
+        case pos_mode_nmea:      len= nmea_nav_fetch_next_packet(data,fd);break;
         case pos_mode_autodetect: case pos_mode_unknown: return -1;
     }
+    //fprintf(stderr,"navigation_fetch_next_packet = %d\n",len);
     if (len>MAX_NAVIGATION_PACKET_SIZE){
         fprintf(stderr,"ERROR: Over sized navigation data = %d, MAX=%d\n", len,MAX_NAVIGATION_PACKET_SIZE);
         return(-1);
@@ -715,6 +707,7 @@ int process_nav_data_packet(char* databuffer, uint32_t len, double ts_in, double
         case pos_mode_wbm_tool: ret= wbm_tool_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]));break;
         case pos_mode_sim:      ret = sim_nav_process_packet(ts_in,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]));break;
         case pos_mode_s7k:      ret = s7k_process_nav_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]));break;
+        case pos_mode_nmea:      ret = nmea_nav_process_nav_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]));break;
         case pos_mode_autodetect: case pos_mode_unknown: return 0;
     }
     if (ret == NAV_DATA_PROJECTED){  //Only count when projected coordinates are returned
@@ -761,20 +754,6 @@ sensor_mode_e sensor_autodetect_file(FILE* fp){
 }
 
 
-int sensor_seek_next_header(int fd, /*out*/ uint8_t* pre_sync, sensor_mode_e mode){
-    switch (mode){
-        case  sensor_mode_wbms: case sensor_mode_wbms_v5:
-            return wbms_seek_next_header(fd);
-        case sensor_mode_velodyne:
-            return velodyne_seek_next_header(fd);
-        case sensor_mode_s7k:	
-            return r7k_seek_next_header(fd, /*out*/ pre_sync);
-        case sensor_mode_autodetect: //TODO fix this
-        case sensor_mode_unknown:
-            return 0;
-    }
-    return 0;
-}
 
 
 int sensor_fetch_next_packet(char * data, int fd, sensor_mode_e mode){ 
@@ -1366,7 +1345,7 @@ int main(int argc,char *argv[])
     double first_lon=0;
     while (1){
         navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_navigation_fd,pos_mode);
-        if(navigation_data_buffer_len){
+        if(navigation_data_buffer_len>0){
             int new_nav_data = process_nav_data_packet(navigation_data_buffer,navigation_data_buffer_len,ts_sensor, &ts_pos,pos_mode,z_off);  //(TODO but for navigation simulator, we need sensor time before navigation, what to do)
             if( new_nav_data){
                 //TODO this is not very clean code. When received data is Goegraphic only, and not projected , it arrives in the index following the last valid
@@ -1459,7 +1438,7 @@ int main(int argc,char *argv[])
          ){
 		//DISPLAY STATISTICS
 		ts_now = os_time();
-		if (ts_now>(ts_last+1.0)){
+		if (ts_now>(ts_last+1)){
             //printf("%d, %d\n", input_navigation_source, input_sensor_source);
 			//printf("Tpos=%f\t Tsensor=%f\t \t\t Tmin=%f\n",ts_pos, ts_sensor,  ts_min);
 			sprintf_unix_time(str_buf, ts_min);
@@ -1568,14 +1547,16 @@ int main(int argc,char *argv[])
 				else if(input_navigation_source==i_sim) navigation_data_buffer_len = 1; //Just mark that we have data
 				else navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_navigation_fd,pos_mode);
 				
-				if (navigation_data_buffer_len){
+				if (navigation_data_buffer_len>0){
 					navigation_total_data += navigation_data_buffer_len;
 			
 					if (process_nav_data_packet(navigation_data_buffer,navigation_data_buffer_len,ts_detections, &ts_pos,pos_mode,z_off)){
 						navigation_total_packets++;
 					}
 				}
-				else  input_navigation_source = i_none;
+				else if((navigation_data_buffer_len==0))  {
+                    input_navigation_source = i_none;
+                }
 			}
 		}
 		

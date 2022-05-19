@@ -25,6 +25,7 @@ list(APPEND wbms_georef_SOURCES
     wbm_tool_nav.c
     sim_nav.c
     sbet_nav.c
+    nmea_nav.c
     proj_wrapper.c
     georef_tools.c
     sbf_output.c
