@@ -287,6 +287,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     float* beam_steer = &(outbuf->steer[0]);
     int * beam_number = &(outbuf->beam[0]);
     float* swath_y = &(outbuf->swath_y[0]);
+    //float* aoi = &(outbuf->aoi[0]);
     float* upper_gate_range = &(outbuf->up_gate[0]);
     float* lower_gate_range = &(outbuf->low_gate[0]);
     float* tx_angle_out = &(outbuf->tx_angle);
@@ -462,20 +463,20 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 //Compensate intensity for range and AOI
                 //TODO fix AOI calculation for S7K 7027 record, need to set up a sorting function
                 /*if (calc_aoi){
-                    aoi = atan2((sensor_r-prev_sensor_r), (sensor_az-prev_sensor_az)*sensor_r);         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
+                    aoi[ix_out] = atan2((sensor_r-prev_sensor_r), (sensor_az-prev_sensor_az)*sensor_r);         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
                 }
                 else{
-                    aoi = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
+                    aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
                 }
-                aoi = ABS(aoi);
+                aoi[ix_out] = ABS(aoi[ix_out]);
                 if (intensity_aoi_comp){
                     if(use_intensity_angle_corr_table){
-                        int ix = aoi/INTENSITY_ANGLE_STEP;
+                        int ix = aoi[ix_out]/INTENSITY_ANGLE_STEP;
                         ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
                         inten *= intenity_angle_corr_table[ix].intensity_scale;
                     }
                     else{
-                        inten = inten/((MAX(cos(aoi),0.1)));
+                        inten = inten/((MAX(cos(aoi[ix_out]),0.1)));
                     }
                 }*/
 
@@ -516,6 +517,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
             intensity[ix_out] = intensity[ix_in];
             beam_angle[ix_out] = beam_angle[ix_in];
             swath_y[ix_out] = swath_y[ix_in];
+            //aoi[ix_out] = aoi[ix_in];
             beam_number[ix_out] = beam_number[ix_in];
             beam_steer[ix_out] = beam_steer[ix_in];
             beam_range[ix_out] = beam_range[ix_in];

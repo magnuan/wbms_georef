@@ -215,6 +215,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
      float* beam_steer = &(outbuf->steer[0]);
      int * beam_number = &(outbuf->beam[0]);
      float* swath_y = &(outbuf->swath_y[0]);
+     float* aoi = &(outbuf->aoi[0]);
      float* upper_gate_range = &(outbuf->up_gate[0]);
      float* lower_gate_range = &(outbuf->low_gate[0]);
      float* quality = &(outbuf->quality[0]);
@@ -402,7 +403,6 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 	float prev_sensor_az = 0.;
 
 	float inten;
-    float aoi;
     uint8_t quality_flags;
     uint16_t flags;
 
@@ -547,24 +547,24 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 			
 			//Compensate intensity for range and AOI
             if (sensor_params->calc_aoi){
-                aoi = atan2f((sensor_r-prev_sensor_r), (sensor_az-prev_sensor_az)*sensor_r);         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
+                aoi[ix_out] = atan2f((sensor_r-prev_sensor_r), (sensor_az-prev_sensor_az)*sensor_r);         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
             }
             else{
-                aoi = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
+                aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
             }
-            aoi = ABS(aoi);
+            aoi[ix_out] = ABS(aoi[ix_out]);
             if (sensor_params->intensity_range_comp){
                 inten *= sensor_r*sensor_r;                  //Only comp one-way spreading loss     
                 inten *= powf(100000.f,(sensor_r/1000.));  //100dB/km damping loss  
             }
             if (sensor_params->intensity_aoi_comp){
                 if(sensor_params->use_intensity_angle_corr_table){
-                    int ix = aoi/INTENSITY_ANGLE_STEP;
+                    int ix = aoi[ix_out]/INTENSITY_ANGLE_STEP;
                     ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
                     inten *= intenity_angle_corr_table[ix].intensity_scale;
                 }
                 else{
-                    inten = inten/((MAX(cosf(aoi),0.01f)));
+                    inten = inten/((MAX(cosf(aoi[ix_out]),0.1f)));
                 }
             }
             intensity[ix_out] = inten;
@@ -631,7 +631,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 		intensity[ix_out] = intensity[ix_in];
 		beam_angle[ix_out] = beam_angle[ix_in];
 		swath_y[ix_out] = swath_y[ix_in];
-        swath_y[ix_out] = swath_y[ix_in];
+        aoi[ix_out] = aoi[ix_in];
         beam_number[ix_out] = beam_number[ix_in];
         beam_steer[ix_out] = beam_steer[ix_in];
         beam_range[ix_out] = beam_range[ix_in];

@@ -123,6 +123,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     float* steer_val = &(data->steer[0]);
     int * beam_number = &(data->beam[0]);
     float* swath_y_val = &(data->swath_y[0]);
+    float* aoi_val = &(data->aoi[0]);
     float* up_gate = &(data->up_gate[0]);
     float* low_gate = &(data->low_gate[0]);
     float* tx_angle = &(data->tx_angle);
@@ -151,10 +152,12 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case teta: write_f32_unaligned_bswap((uint8_t*)dp,(float)(teta_val[ii]*180/M_PI)); dp+=4;break;
                 case steer: write_f32_unaligned_bswap((uint8_t*)dp,(float)(steer_val[ii]*180/M_PI)); dp+=4;break;
                 case el: write_f32_unaligned_bswap((uint8_t*)dp,(float)((*tx_angle)*180/M_PI)); dp+=4;break;
+                case aoi: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aoi_val[ii]*180/M_PI)); dp+=4;break;
                 #else
                 case teta: write_f32_unaligned_bswap((uint8_t*)dp,(float)(teta_val[ii])); dp+=4;break;
                 case steer: write_f32_unaligned_bswap((uint8_t*)dp,(float)(steer_val[ii])); dp+=4;break;
                 case el: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*tx_angle)); dp+=4;break;
+                case aoi: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aoi_val[ii])); dp+=4;break;
                 #endif
                 case beam: write_f32_unaligned_bswap((uint8_t*)dp,(float)(beam_number[ii])); dp+=4;break; //TODO remove this modulo 4 when no more needed
                 case range: write_f32_unaligned_bswap((uint8_t*)dp,(float)(range_val[ii])); dp+=4;break;

@@ -51,6 +51,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     float* steer_val = &(data->steer[0]);
     int * beam_number = &(data->beam[0]);
     float* swath_y_val = &(data->swath_y[0]);
+    float* aoi_val = &(data->aoi[0]);
     float* up_gate = &(data->up_gate[0]);
     float* low_gate = &(data->low_gate[0]);
     float* tx_angle = &(data->tx_angle);
@@ -84,6 +85,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case quality: len += sprintf(&(outbuf[len]),"%11.3f",quality_val[ii]);break;
                 case strength: len += sprintf(&(outbuf[len]),"%11.3f",strength_val[ii]);break;
                 case swath_y: len += sprintf(&(outbuf[len]),"%11.3f",swath_y_val[ii]);break;
+                case aoi: len += sprintf(&(outbuf[len]),"%11.3f",aoi_val[ii]*180/M_PI);break;
                 case cgate: len += sprintf(&(outbuf[len]),"%11.3f",(range_val[ii]-0.5*(low_gate[ii]+up_gate[ii]))*200/(low_gate[ii]+up_gate[ii]));break;
                 case ugate: len += sprintf(&(outbuf[len]),"%11.3f",(range_val[ii]-up_gate[ii])*100/range_val[ii]);break;
                 case lgate: len += sprintf(&(outbuf[len]),"%11.3f",(low_gate[ii]-range_val[ii])*100/range_val[ii]);break;
