@@ -56,6 +56,7 @@ uint8_t wbms_test_file(int fd){
     return pass;
 }
 
+#define PRINT_DROPPED_DATA
 
 int wbms_seek_next_header(int fd){
     //printf("wbms_seek_next_header\n");
@@ -66,6 +67,9 @@ int wbms_seek_next_header(int fd){
 	//int position = lseek(fd, 0, SEEK_CUR);
 	//fprintf(stderr,"\nseek headed start at 0x%08x\n",position);
     int read_bytes = 0;
+    #ifdef PRINT_DROPPED_DATA
+    char print_mode = 0;
+    #endif
 	while (read_bytes<(MAX_WBMS_PACKET_SIZE+4)){
 		n = read(fd,&v,1);
         read_bytes++;
@@ -75,10 +79,22 @@ int wbms_seek_next_header(int fd){
 			//fprintf(stderr,"%02x ",v);
 			dump += 1;
             
+            #ifdef PRINT_DROPPED_DATA
             // Debug: dump all data that is not wbms-data
-            /*if ( ( (state==0) && ((v!=0xef) )) || ( (state==1) && ((v!=0xbe) )) || ( (state==2) && ((v!=0xad) )) || ( (state==3) && ((v!=0xde) ))){
-			    fprintf(stderr,"%c",v);
-            }*/
+            if ( ( (state==0) && ((v!=0xef) )) || ( (state==1) && ((v!=0xbe) )) || ( (state==2) && ((v!=0xad) )) || ( (state==3) && ((v!=0xde) ))){
+			    if (v=='$'){
+                    fprintf(stderr,"\n");
+                    print_mode=1;
+                }
+			    if (v=='\r'){ 
+                    fprintf(stderr,"\n");
+                    print_mode=0;
+                }
+                if (print_mode==0) fprintf(stderr,"%02x ",v);
+			    if (print_mode==1) fprintf(stderr,"%c",v);
+        
+            }
+            #endif
 			switch (state){
 				case 0: state = (v==0xef)?1:0;break;
 				case 1: state = (v==0xbe)?2:0;break;
