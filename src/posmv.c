@@ -212,7 +212,9 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
             ts = posmv_time_to_unix_time(time1,time2,timetype);
             *ts_out = ts;
             posmv3.ts = ts;
-            if(verbose) fprintf(stderr, "POS_MODE_POSMV GRP3 ts=%f,mode=%d,nSV=%d,count2=%d,hdop=%f,vdop=%f,dgps_latency=%f,dgps_statid=%d,WeekNr=%d,GPS_UTC_diff=%f,gps_nav_latency=%f,Geoid_sep=%f,gps_type=%d,gps_status=%d\n",ts,posmv3.mode,posmv3.sv_n,posmv3.count2,posmv3.hdop,posmv3.vdop,posmv3.dgps_latency,posmv3.dgps_statid,posmv3.gps_week,posmv3.gps_utc_diff,posmv3.gps_nav_latency,posmv3.geoid_separation,posmv3.gps_type,posmv3.gps_status);
+            if(group3_cnt<3){ 
+                fprintf(stderr, "POS_MODE_POSMV GRP3 ts=%f,mode=%d,nSV=%d,count2=%d,hdop=%f,vdop=%f,dgps_latency=%f,dgps_statid=%d,WeekNr=%d,GPS_UTC_diff=%f,gps_nav_latency=%f,Geoid_sep=%f,gps_type=%d,gps_status=%d\n",ts,posmv3.mode,posmv3.sv_n,posmv3.count2,posmv3.hdop,posmv3.vdop,posmv3.dgps_latency,posmv3.dgps_statid,posmv3.gps_week,posmv3.gps_utc_diff,posmv3.gps_nav_latency,posmv3.geoid_separation,posmv3.gps_type,posmv3.gps_status);
+            }
             return NO_NAV_DATA;
         case 102:
             group102_cnt++;
