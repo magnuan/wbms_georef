@@ -79,6 +79,36 @@ double posmv_time_to_unix_time(double time1,double time2,uint8_t timetype){
 }
 
 
+#define POSMV_BUFFER_SIZE (MAX_POSMV_PACKET_SIZE+4)
+int buffered_read(int fd, void* data, int len){
+    static uint8_t buffer[POSMV_BUFFER_SIZE];
+    static uint8_t* buf_ptr;
+    static int available = 0;
+    while (1){
+        if (len>0){
+            if (len<=available){
+                memcpy(data,buf_ptr,len);
+                available -= len;
+                buf_ptr += len;
+                return len;
+            }
+            else if(available>0){
+                len = available;
+                memcpy(data,buf_ptr,len);
+                available = 0;
+                return len;
+            }
+            else{
+                buf_ptr = buffer;
+                available = read(fd,buffer,POSMV_BUFFER_SIZE);
+                if (available==0){
+                    return 0;
+                }
+            }
+        }
+    }
+}
+
 
 int posmv_seek_next_header(int fd){
 	char state = 0;
@@ -87,7 +117,7 @@ int posmv_seek_next_header(int fd){
 	int dump= 0;
     int read_bytes = 0;
 	while (read_bytes<(MAX_POSMV_PACKET_SIZE+4)){
-        n = read(fd,&v,1);
+        n = buffered_read(fd,&v,1);
         read_bytes++;
         if(n<0){ fprintf(stderr,"Got error from socket\n");return -1;}
         if(n==0){ fprintf(stderr,"End of POS_MODE_POSMV stream\n");return -1;}
@@ -116,14 +146,14 @@ int posmv_fetch_next_packet(char * data, int fd){
 	uint16_t count;
     if(posmv_seek_next_header(fd)) return 0;
     data[0] = '$';data[1] = 'G';data[2] = 'R';data[3] = 'P';
-    n = read(fd,&gid,2);
-    n = read(fd,&count,2);
+    n = buffered_read(fd,&gid,2);
+    n = buffered_read(fd,&count,2);
     *((uint16_t*)(&(data[4]))) = gid;
     *((uint16_t*)(&(data[6]))) = count;
     rem = count; //Fetch packet header (minus the preamble we allready have)
     dp = &(data[8]);
     while (rem>0){ 
-        n= read(fd,dp,rem);rem -= n; dp+=n;
+        n= buffered_read(fd,dp,rem);rem -= n; dp+=n;
         if(n<0){ fprintf(stderr,"Got error from socket\n");return 0;}
         if(n==0){ fprintf(stderr,"End of POS_MODE_POSMV stream\n");return 0;}
     }
