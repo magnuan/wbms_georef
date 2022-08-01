@@ -8,7 +8,7 @@
 
 #ifdef __unix__
 #include <unistd.h>
-//#define ENABLE_NETWORK_IO
+#define ENABLE_NETWORK_IO
 #endif
 
 #ifdef ENABLE_NETWORK_IO
@@ -1071,7 +1071,7 @@ int main(int argc,char *argv[])
 			bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
 			input_navigation_serv_addr.sin_family = AF_INET;
 			input_navigation_serv_addr.sin_port = htons(input_navigation_portno);
-			#define UDP_BROADCAST
+			//#define UDP_BROADCAST
 			#ifdef UDP_BROADCAST
 			input_navigation_serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 			#else
@@ -1346,6 +1346,7 @@ int main(int argc,char *argv[])
     double first_lon=0;
     while (1){
         navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_navigation_fd,pos_mode);
+        fprintf(stderr,"navigation_fetch_next_packet = %d\n",navigation_data_buffer_len);
         if(navigation_data_buffer_len>0){
             int new_nav_data = process_nav_data_packet(navigation_data_buffer,navigation_data_buffer_len,ts_sensor, &ts_pos,pos_mode,z_off);  //(TODO but for navigation simulator, we need sensor time before navigation, what to do)
             if( new_nav_data){
