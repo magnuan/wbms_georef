@@ -56,7 +56,7 @@ uint8_t wbms_test_file(int fd){
     return pass;
 }
 
-#define PRINT_DROPPED_DATA
+//#define PRINT_DROPPED_DATA
 
 int wbms_seek_next_header(int fd){
     //printf("wbms_seek_next_header\n");
@@ -243,8 +243,10 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
      int* multifreq_index_out = &(outbuf->multifreq_index);
 
 	float sensor_strength;
+    #ifdef OUTPUT_QUALITY_VAL
 	float sensor_quality;
-	float sensor_lg;
+	#endif
+    float sensor_lg;
 	float sensor_ug;
 	float sensor_r;
 	float sensor_az;
@@ -439,7 +441,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
             sensor_ug = bath->dp[ix_in].upper_gate*c_div_2Fs;
             sensor_lg = bath->dp[ix_in].lower_gate*c_div_2Fs;
+            #ifdef OUTPUT_QUALITY_VAL
             sensor_quality = (float)(bath->dp[ix_in].quality_val);
+            #endif
             sensor_strength = 0.0f;
             sensor_t = sample_number*div_Fs;		//Calculate tx to rx time for each point 
             sensor_az  = bath->dp[ix_in].angle;
@@ -460,7 +464,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             sensor_r   = sample_number*c_div_2Fs/SAMPLE_NUMBER_V104_UPSCALE;	//Calculate range to each point en meters
             sensor_ug = (float) bath_v104->dp[ix_in].upscaled_upper_gate*c_div_2Fs/SAMPLE_NUMBER_V104_UPSCALE;
             sensor_lg = (float) bath_v104->dp[ix_in].upscaled_lower_gate*c_div_2Fs/SAMPLE_NUMBER_V104_UPSCALE;
+            #ifdef OUTPUT_QUALITY_VAL
             sensor_quality = (float)(bath_v104->dp[ix_in].quality_val);
+            #endif
             sensor_strength = 0.0f;
             sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
             sensor_az  = (float) bath_v104->dp[ix_in].angle;
@@ -481,7 +487,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
             sensor_ug = bath_v5->dp[ix_in].upper_gate*c_div_2Fs;
             sensor_lg = bath_v5->dp[ix_in].lower_gate*c_div_2Fs;
+            #ifdef OUTPUT_QUALITY_VAL
             sensor_quality = (float)(bath_v5->dp[ix_in].quality_val);
+            #endif
             sensor_strength = (float)(bath_v5->dp[ix_in].strength);
             sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
             sensor_az  = bath_v5->dp[ix_in].angle;
@@ -503,7 +511,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
             sensor_ug = (float)(bath_v7->dp[ix_in].upper_gate)*c_div_2Fs;
             sensor_lg = (float)(bath_v7->dp[ix_in].lower_gate)*c_div_2Fs;
+            #ifdef OUTPUT_QUALITY_VAL
             sensor_quality = (float)(bath_v7->dp[ix_in].quality_val);
+            #endif
             sensor_strength = 0.0f;
             sensor_t = sample_number*div_Fs;		//Calculate tx to rx time for each point 
             sensor_az  = bath_v7->dp[ix_in].angle;
@@ -524,7 +534,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
             sensor_ug = bath_v8->dp[ix_in].upper_gate*c_div_2Fs;
             sensor_lg = bath_v8->dp[ix_in].lower_gate*c_div_2Fs;
+            #ifdef OUTPUT_QUALITY_VAL
             sensor_quality = (float)(bath_v8->dp[ix_in].quality_val);
+            #endif
             sensor_strength = (float)(bath_v8->dp[ix_in].strength);
             sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
             sensor_az  = bath_v8->dp[ix_in].angle;
@@ -558,7 +570,11 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             upper_gate_range[ix_out] = sensor_ug;
             lower_gate_range[ix_out] = sensor_lg;
             strength[ix_out] = sensor_strength;
-            quality[ix_out] = sensor_quality;
+            #ifdef OUTPUT_QUALITY_VAL
+                quality[ix_out] = sensor_quality;
+            #else
+                quality[ix_out] = (float) quality_flags;
+            #endif
             *tx_angle_out = sensor_el;
 			
 			//Compensate intensity for range and AOI
