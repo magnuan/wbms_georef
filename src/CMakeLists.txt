@@ -16,6 +16,7 @@ list(APPEND wbms_georef_SOURCES
     cmath.c
     reson7k.c
     wbms_data.c
+    sim_data.c
     velodyne.c
     time_functions.c
     linalg.c

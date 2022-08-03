@@ -23,6 +23,7 @@
 #include "georef_tools.h"
 #include "raytracing.h"
 #include "time_functions.h"
+#include "sim_data.h"
 #include "wbms_data.h"
 #include "reson7k.h"
 #include "velodyne.h"
@@ -118,14 +119,14 @@ static const char *pos_mode_names[] = {
     "Unknown"
 };
 
-typedef enum  {sensor_mode_wbms=1,sensor_mode_wbms_v5=2, sensor_mode_velodyne=3, sensor_mode_s7k=5, sensor_mode_autodetect=10,sensor_mode_unknown=11} sensor_mode_e; 
+typedef enum  {sensor_mode_wbms=1,sensor_mode_wbms_v5=2, sensor_mode_velodyne=3, sensor_mode_sim=4, sensor_mode_s7k=5, sensor_mode_autodetect=10,sensor_mode_unknown=11} sensor_mode_e; 
 sensor_mode_e sensor_mode = sensor_mode_autodetect;
 static const char *sensor_mode_names[] = {
 	"-",
 	"WBMS",
 	"WBMS_V5",
     "Velodyne",
-    "-",
+    "Simulator",
     "s7k",
     "-",
     "-",
@@ -200,7 +201,7 @@ void showUsage(char *pgmname)
 			//"Std in/out is denoted with dash (-)\n"
 			"\t-i source\t Common data source\n"  
 			"\t-s source\t Sensor data source\n"  
-			"\t-S mode\t Sensor mode: 1=WBMS 2=WBMS_V5 3=Velodyne 5=S7K 10=Autodetect (default) \n"
+			"\t-S mode\t Sensor mode: 1=WBMS 2=WBMS_V5 3=Velodyne 4=SIM 5=S7K 10=Autodetect (default) \n"
 			"\t-p source\t Pos data source (PosMv:5602)\n"
 			"\t-P mode\t Pos mode: 0=POSMV 1=XTF_NAV 2=WBM_TOOL 3=SBET 4=SIM 5=S7K 10=Autodetect (default)\n"
 			"\t-w source\t Sound velocity input file, for raybending correcting\n"
@@ -311,7 +312,7 @@ void generate_template_config_file(char* fname){
 
 
 	fprintf(fp,"#### SENSOR DATA FORMAT ####\n");
-	fprintf(fp,"# Sensor mode 1=WBMS 2=WBMS_V5 3=Velodyne  5=S7K 10=Autodetect (default)\n");
+	fprintf(fp,"# Sensor mode 1=WBMS 2=WBMS_V5 3=Velodyne 4=SIM 5=S7K 10=Autodetect (default)\n");
 	fprintf(fp,"# sensor_mode 10\n");
     fprintf(fp,"# Uncomment to force wbms bathy data to be read as specific version\n");
     fprintf(fp,"#force_bath_version 0\n\n");
@@ -534,7 +535,7 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"force_bath_version",18)==0) force_bath_version = (atoi(c+18));	
 			
 			if (strncmp(c,"sensor_source",13)==0){ input_sensor_source_string = malloc(read); strcpy(input_sensor_source_string,c+13);}
-			if (strncmp(c,"navigation_source",12)==0){ input_navigation_source_string = malloc(read); strcpy(input_navigation_source_string,c+12);}
+			if (strncmp(c,"navigation_source",17)==0){ input_navigation_source_string = malloc(read); strcpy(input_navigation_source_string,c+17);}
 			
             if (strncmp(c,"output ",7)==0){ output_string = malloc(read); strcpy(output_string,c+6);}
 			if (strncmp(c,"csv_output",10)==0) output_mode = output_csv;
@@ -724,6 +725,8 @@ uint8_t sensor_test_file(int fd, sensor_mode_e mode){
     switch (mode){
         case  sensor_mode_wbms: case sensor_mode_wbms_v5:
             return wbms_test_file(fd);
+        case  sensor_mode_sim:
+            return 1;
         case sensor_mode_velodyne:
             return velodyne_test_file(fd);
         case sensor_mode_s7k:	
@@ -742,6 +745,7 @@ sensor_mode_e sensor_autodetect_file(FILE* fp){
 
     for (sensor_mode_e mode=sensor_mode_wbms; mode<=sensor_mode_s7k;mode++){
         //fprintf(stderr,"Testing sensor file in mode %s\n", sensor_mode_names[mode]);
+        if(mode==sensor_mode_sim) continue;
         if (sensor_test_file(fd,mode)){
             ret = mode;
             break;
@@ -766,6 +770,8 @@ int sensor_fetch_next_packet(char * data, int fd, sensor_mode_e mode){
 			len = velodyne_fetch_next_packet(data, fd);break;
 		case sensor_mode_s7k:	
 			len = r7k_fetch_next_packet(data, fd);break;
+		case  sensor_mode_sim:
+			len = sim_fetch_next_packet(data, fd);break;
 		case sensor_mode_autodetect: //TODO fix this
 		case sensor_mode_unknown:
 			len = 0;break;
@@ -788,6 +794,8 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
             id = r7k_identify_sensor_packet(databuffer, len, ts_out);
 	        //So far we only process s7k record 7027 for sensor  bathy data and 7610 for SV data
             return ((id==7027) || (id==7610) || (id==7000));
+		case  sensor_mode_sim:
+			return sim_identify_packet(databuffer, len, ts_out, ts_in);
 		case sensor_mode_autodetect: //TODO fix this
 		case sensor_mode_unknown:
 			return 0;
@@ -1033,6 +1041,7 @@ int main(int argc,char *argv[])
 	if (input_navigation_source_string==NULL){ 
 		fprintf(stderr,"No nav source given, Using simulated nav data\n");
 		input_navigation_source = i_sim;
+        pos_mode = pos_mode_sim;
 		input_navigation_fd = -1;
 	}
 	else if (pos_mode == pos_mode_sim){ 
@@ -1166,8 +1175,14 @@ int main(int argc,char *argv[])
 	
 
 	if (input_sensor_source_string==NULL){ 
-		fprintf(stderr,"No WBMS data source given, should be set with the -i parameter\n");
-		input_sensor_source = i_none;
+		fprintf(stderr,"No WBMS data source given, using simulated data (vessel pos)\n");
+		input_sensor_source = i_sim;
+        sensor_mode = sensor_mode_sim;
+		input_sensor_fd = -1;
+	}
+	else if (sensor_mode == sensor_mode_sim){ 
+		fprintf(stderr, "Using simulated sensor data (vessel pos)\n");
+		input_sensor_source = i_sim;
 		input_sensor_fd = -1;
 	}
 	else{
@@ -1327,6 +1342,8 @@ int main(int argc,char *argv[])
     //If bathy data is available fetch and process a bathy data packet to get time  (TODO for velodyne we need navigation time before sensor data is processed, as it does not send full time)
     if (input_sensor_source != i_none){ 
         sensor_data_buffer_len = sensor_fetch_next_packet(sensor_data_buffer, input_sensor_fd, sensor_mode);
+
+        
         //fprintf(stderr,"sensor_fetch_next_packet = %d\n",sensor_data_buffer_len);
 
         if (sensor_data_buffer_len){
@@ -1472,12 +1489,12 @@ int main(int argc,char *argv[])
 			FD_SET(input_navigation_fd, &read_fds);
 			fdmax = MAX(fdmax,input_navigation_fd);
 		}
-		if (input_sensor_source != i_none){ 
+		if ((input_sensor_source != i_none) && (input_sensor_source != i_sim)){ 
 			FD_SET(input_sensor_fd, &read_fds);
 			fdmax = MAX(fdmax,input_sensor_fd);
 		}
-		
 		fdmax = MAX(fdmax,output_clientlist_max());	
+        
 		
 		if(select(fdmax+1, &read_fds, &write_fds, NULL, NULL) == -1){ fprintf(stderr,"Server-select() error\n");exit(1);}
 
@@ -1540,11 +1557,11 @@ int main(int argc,char *argv[])
 		//** Process new data from navigation source
 		if ((input_navigation_source!=i_none) && (input_navigation_source!=i_zero) && (ts_pos-ts_pos_lookahead==ts_min || (input_navigation_source != i_file && input_navigation_source != i_sim))){ //Dont run if NON or ZERO or (SIM or FILE) unless this has lowest timestamp
 			navigation_data_buffer_len = 0;
-			uint8_t runposmv = 0;
-			if (input_navigation_source==i_sim) runposmv=1;
-			else if (input_navigation_source==i_file) runposmv=1;
-			else if (FD_ISSET(input_navigation_fd,&read_fds)) runposmv=1;
-			if (runposmv){
+			uint8_t runnavigation = 0;
+			if (input_navigation_source==i_sim) runnavigation=1;
+			else if (input_navigation_source==i_file) runnavigation=1;
+			else if (FD_ISSET(input_navigation_fd,&read_fds)) runnavigation=1;
+			if (runnavigation){
 				if(input_navigation_source==i_udp) navigation_data_buffer_len = read(input_navigation_fd,navigation_data_buffer,MAX_NAVIGATION_PACKET_SIZE);
 				else if(input_navigation_source==i_sim) navigation_data_buffer_len = 1; //Just mark that we have data
 				else navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_navigation_fd,pos_mode);
@@ -1566,9 +1583,14 @@ int main(int argc,char *argv[])
 		//** Process new data from sensor source
 		if (input_sensor_source != i_none && (ts_sensor==ts_min || input_sensor_source != i_file)){
 			sensor_data_buffer_len = 0;
-			if (FD_ISSET(input_sensor_fd,&read_fds) || (input_sensor_source==i_file)){
+            uint8_t runsensor=0;
+            if (input_sensor_source==i_sim) runsensor=1;
+            else if (input_sensor_source==i_file) runsensor=1;
+			else if (FD_ISSET(input_sensor_fd,&read_fds)) runsensor=1;
+
+			if (runsensor){
 				sensor_data_buffer_len = sensor_fetch_next_packet(sensor_data_buffer, input_sensor_fd, sensor_mode);
-				//fprintf(stderr,"sensor_data_buffer_len = %d\n",sensor_data_buffer_len);fflush(stderr);
+                //fprintf(stderr,"sensor_data_buffer_len = %d\n",sensor_data_buffer_len);fflush(stderr);
 				if (sensor_data_buffer_len){
 					sensor_total_data += sensor_data_buffer_len;
 					sensor_total_packets++;
@@ -1582,6 +1604,9 @@ int main(int argc,char *argv[])
                             switch (sensor_mode){
                                 case sensor_mode_wbms: case sensor_mode_wbms_v5:
                                     datapoints = wbms_georef_data( (bath_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, &sensor_offset, outbuf, force_bath_version);
+                                    break;
+                                case sensor_mode_sim:
+                                    datapoints = sim_georef_data( navdata, navdata_ix,  &sensor_params, &sensor_offset, outbuf);
                                     break;
                                 case sensor_mode_velodyne:
                                     datapoints = velodyne_georef_data( (uint16_t *) sensor_data_buffer, navdata, navdata_ix, &sensor_params, &sensor_offset,        outbuf);
