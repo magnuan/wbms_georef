@@ -213,7 +213,6 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
     }
 
     double ts = posmv_time_to_unix_time(time1,time2,timetype);
-    *ts_out = ts;
 	
     char str_buf[256];
     sprintf_unix_time(str_buf, ts);
@@ -241,7 +240,7 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
             posmv3.gps_status = *(((uint32_t*)(dp)));dp+=4;
             //Recalculate time as this depends on the new received gps_utc_diff
             ts = posmv_time_to_unix_time(time1,time2,timetype);
-            *ts_out = ts;
+            //*ts_out = ts;
             posmv3.ts = ts;
             if(group3_cnt<3){ 
                 fprintf(stderr, "POS_MODE_POSMV GRP3 ts=%f,mode=%d,nSV=%d,count2=%d,hdop=%f,vdop=%f,dgps_latency=%f,dgps_statid=%d,WeekNr=%d,GPS_UTC_diff=%f,gps_nav_latency=%f,Geoid_sep=%f,gps_type=%d,gps_status=%d\n",ts,posmv3.mode,posmv3.sv_n,posmv3.count2,posmv3.hdop,posmv3.vdop,posmv3.dgps_latency,posmv3.dgps_statid,posmv3.gps_week,posmv3.gps_utc_diff,posmv3.gps_nav_latency,posmv3.geoid_separation,posmv3.gps_type,posmv3.gps_status);
@@ -326,7 +325,8 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
                 fprintf(stderr, "Posmv group 3 data out of sync for group1_cnt=%d group102_cnt=%d group3_cnt=%d (ts3=%f ts102=%f)\n",group1_cnt, group102_cnt,group3_cnt,posmv3.ts,navdata->ts);
                 return NO_NAV_DATA;
             }
-
+            //Only update time with new nav data
+            *ts_out = ts;
             return (proj?NAV_DATA_PROJECTED:NAV_DATA_GEO);
     }
     return NO_NAV_DATA;
