@@ -26,6 +26,7 @@ typedef struct{
 	double roll,pitch,yaw,course;
 	float heave;
     float hor_accuracy,vert_accuracy;
+    uint32_t status; 
 }navdata_t;
 
 #define NO_NAV_DATA         0

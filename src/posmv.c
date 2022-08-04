@@ -189,6 +189,7 @@ int posmv_identify_packet(char* databuffer, uint32_t len, double* ts_out){
 
 int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata){
     static uint32_t group3_cnt = 0;
+    static uint32_t group1_cnt = 0;
     static uint32_t group102_cnt = 0;
     if (strncmp(databuffer,"$GRP",4) != 0 ){
         if(verbose) fprintf(stderr,"Malformed pos packet received, discarding\n");
@@ -246,25 +247,50 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
                 fprintf(stderr, "POS_MODE_POSMV GRP3 ts=%f,mode=%d,nSV=%d,count2=%d,hdop=%f,vdop=%f,dgps_latency=%f,dgps_statid=%d,WeekNr=%d,GPS_UTC_diff=%f,gps_nav_latency=%f,Geoid_sep=%f,gps_type=%d,gps_status=%d\n",ts,posmv3.mode,posmv3.sv_n,posmv3.count2,posmv3.hdop,posmv3.vdop,posmv3.dgps_latency,posmv3.dgps_statid,posmv3.gps_week,posmv3.gps_utc_diff,posmv3.gps_nav_latency,posmv3.geoid_separation,posmv3.gps_type,posmv3.gps_status);
             }
             return NO_NAV_DATA;
+        case 1:
         case 102:
-            group102_cnt++;
-            //Fill out navdata from posmv 102 data
-            navdata->ts = ts;
-            navdata->lat = *(((double*)(dp)));dp+=8;
-            navdata->lon = *(((double*)(dp)));dp+=8;
-            navdata->alt = *(((double*)(dp)));dp+=8;
-            dp+=12;  //Skip time derivates
-            navdata->roll = *(((double*)(dp)));dp+=8;
-            navdata->pitch = *(((double*)(dp)));dp+=8;
-            navdata->yaw = *(((double*)(dp)));dp+=8;
-            navdata->course = *(((double*)(dp)));dp+=8;
-            navdata->heave = *(((float*)(dp)));dp+=4;
-            dp+=24;  //Skip time derivates
-            //pad = *(((uint16_t*)(dp)));dp+=2;
-            cs = *(((uint16_t*)(dp)));dp+=2;
-            //end = *(((uint16_t*)(dp)));dp+=2;
+            if (gid==1){
+                group1_cnt++;
+                //Fill out navdata from posmv 1 data
+                navdata->ts = ts;
+                navdata->lat = *(((double*)(dp)));dp+=8;
+                navdata->lon = *(((double*)(dp)));dp+=8;
+                navdata->alt = *(((double*)(dp)));dp+=8;
+                dp+=12;  //Skip time derivates (North, East, Down)
+                navdata->roll = *(((double*)(dp)));dp+=8;
+                navdata->pitch = *(((double*)(dp)));dp+=8;
+                navdata->yaw = *(((double*)(dp)));dp+=8;
+                
+                navdata->course = *(((double*)(dp)));dp+=8;
+                /*navdata->track_angle = *(((float*)(dp)));*/dp+=4;
+               
 
-            if(verbose) fprintf(stderr, "POS_MODE_POSMV GRP102 lat=%5.2f,lon=%5.2f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,course=%5.2f,heave=%5.2f\n",navdata->lat,navdata->lon,navdata->alt,navdata->roll,navdata->pitch,navdata->yaw,navdata->course,navdata->heave);
+                dp+=28;  //Skip time derivates
+                navdata->status = *(((uint8_t*)(dp)));dp+=1;
+                /*pad = *(((uint16_t*)(dp)));*/ dp+=1;
+                cs = *(((uint16_t*)(dp)));dp+=2;
+                //end = *(((uint16_t*)(dp)));dp+=2;
+            }
+            else if (gid==102){
+                group102_cnt++;
+                //Fill out navdata from posmv 102 data
+                navdata->ts = ts;
+                navdata->lat = *(((double*)(dp)));dp+=8;
+                navdata->lon = *(((double*)(dp)));dp+=8;
+                navdata->alt = *(((double*)(dp)));dp+=8;
+                dp+=12;  //Skip time derivates (Along track, across track, down)
+                navdata->roll = *(((double*)(dp)));dp+=8;
+                navdata->pitch = *(((double*)(dp)));dp+=8;
+                navdata->yaw = *(((double*)(dp)));dp+=8;
+                navdata->course = *(((double*)(dp)));dp+=8;
+                navdata->heave = *(((float*)(dp)));dp+=4;
+                dp+=24;  //Skip time derivates
+                //pad = *(((uint16_t*)(dp)));dp+=2;
+                cs = *(((uint16_t*)(dp)));dp+=2;
+                //end = *(((uint16_t*)(dp)));dp+=2;
+            }
+
+            if(verbose) fprintf(stderr, "POS_MODE_POSMV GRP%d lat=%5.2f,lon=%5.2f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,course=%5.2f,heave=%5.2f\n",gid,navdata->lat,navdata->lon,navdata->alt,navdata->roll,navdata->pitch,navdata->yaw,navdata->course,navdata->heave);
             navdata->lat *=(M_PI/180);
             navdata->lon *=(M_PI/180);
             navdata->roll *=(M_PI/180);
@@ -274,6 +300,7 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
             navdata->hor_accuracy = posmv3.hdop;
             navdata->vert_accuracy = posmv3.vdop;
 
+            //fprintf(stderr,"PROJ %s\n",proj?"true":"false");
             if (proj){
                 navdata->yaw += north_to_northing_offset(navdata->lon, navdata->lat, proj);
                 //fprintf(stderr, "NORTH TO NORTHING OFFSET = %6.3f deg\n",north_to_northing_offset(navdata->lon, navdata->lat, proj)*180/M_PI);
@@ -286,6 +313,9 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
 
                 latlon_to_kart(navdata->lon, navdata->lat , alt, proj, /*output*/ &(navdata->x), &(navdata->y) , &(navdata->z));
             }
+            else{
+                fprintf(stderr,"No proj defined\n");
+            }
 
             navdata->z += z_offset;
             if (group3_cnt==0){
@@ -293,7 +323,7 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
                 return NO_NAV_DATA;
             }
             if ((posmv3.ts-navdata->ts)>3600. || (navdata->ts-posmv3.ts)>3600.) {
-                fprintf(stderr, "Posmv group 3 data out of sync for group102_cnt=%d group3_cnt=%d (ts3=%f ts102=%f)\n",group102_cnt,group3_cnt,posmv3.ts,navdata->ts);
+                fprintf(stderr, "Posmv group 3 data out of sync for group1_cnt=%d group102_cnt=%d group3_cnt=%d (ts3=%f ts102=%f)\n",group1_cnt, group102_cnt,group3_cnt,posmv3.ts,navdata->ts);
                 return NO_NAV_DATA;
             }
 

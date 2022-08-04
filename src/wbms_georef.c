@@ -1080,7 +1080,7 @@ int main(int argc,char *argv[])
 			bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
 			input_navigation_serv_addr.sin_family = AF_INET;
 			input_navigation_serv_addr.sin_port = htons(input_navigation_portno);
-			//#define UDP_BROADCAST
+			#define UDP_BROADCAST
 			#ifdef UDP_BROADCAST
 			input_navigation_serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 			#else
@@ -1590,12 +1590,12 @@ int main(int argc,char *argv[])
 
 			if (runsensor){
 				sensor_data_buffer_len = sensor_fetch_next_packet(sensor_data_buffer, input_sensor_fd, sensor_mode);
-                //fprintf(stderr,"sensor_data_buffer_len = %d\n",sensor_data_buffer_len);fflush(stderr);
+                		//fprintf(stderr,"sensor_data_buffer_len = %d\n",sensor_data_buffer_len);fflush(stderr);
 				if (sensor_data_buffer_len){
 					sensor_total_data += sensor_data_buffer_len;
 					sensor_total_packets++;
 					new_sensor_data = sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &ts_sensor, sensor_mode);
-                    ts_sensor += sensor_offset.time_offset;
+					ts_sensor += sensor_offset.time_offset;
 				    //if(new_sensor_data) fprintf(stderr,"new_sensor_data = %d\n", new_sensor_data);
 			
 
