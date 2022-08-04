@@ -23,7 +23,7 @@
 #endif
 
 
-#define MIN_SIM_DATA_PERIOD (0.5)
+#define MIN_SIM_DATA_PERIOD (0.0)
 
 int sim_fetch_next_packet(char * data, int fd){
 	return 1;
