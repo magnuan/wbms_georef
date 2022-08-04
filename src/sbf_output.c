@@ -189,10 +189,14 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case VERT_ACC: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->vert_accuracy)); dp+=4;break;
                 
                 #ifdef OUTPUT_ANGLES_IN_DEGREES
+                case LAT: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->lat)*180/M_PI); dp+=4;break;
+                case LON: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->lon)*180/M_PI); dp+=4;break;
                 case YAW: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->yaw)*180/M_PI); dp+=4;break;
                 case PITCH: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->pitch)*180/M_PI); dp+=4;break;
                 case ROLL: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->roll)*180/M_PI); dp+=4;break;
                 #else
+                case LAT: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->lat)); dp+=4;break;
+                case LON: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->lon)); dp+=4;break;
                 case YAW: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->yaw)); dp+=4;break;
                 case PITCH: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->pitch)); dp+=4;break;
                 case ROLL: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->roll)); dp+=4;break;

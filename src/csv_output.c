@@ -97,6 +97,8 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case multiping: sprintf(&(outbuf[len]),"%11d",*multiping_index);break;
                 case multifreq: sprintf(&(outbuf[len]),"%11d",*multifreq_index);break;
                 
+                case LAT: len += sprintf(&(outbuf[len]),"%11.7f",pos->lat*180/M_PI);break;
+                case LON: len += sprintf(&(outbuf[len]),"%11.7f",pos->lon*180/M_PI);break;
                 case X: len += sprintf(&(outbuf[len]),"%11.3f",pos->y);break;
                 case Y: len += sprintf(&(outbuf[len]),"%11.3f",pos->x);break;
                 case Z: len += sprintf(&(outbuf[len]),"%11.3f",-pos->z);break;
