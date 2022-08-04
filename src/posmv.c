@@ -40,8 +40,8 @@ uint8_t posmv_test_file(int fd){
         if (len > 0 ){
             double ts;
             int type = posmv_identify_packet(data, len, &ts);
-            int req_types[] = {102};    //So far only support posmv type 102 
-            size_t n_req_types = 1;
+            int req_types[] = {1,102};    //So far only support posmv type 1 or 102 
+            size_t n_req_types = 2;
             for (size_t req_type_ix = 0; req_type_ix<n_req_types;req_type_ix++){
                 if (type==req_types[req_type_ix]){
                     pass=1;
