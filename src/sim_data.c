@@ -31,7 +31,7 @@ int sim_fetch_next_packet(char * data, int fd){
 
 int sim_identify_packet(char* databuffer, uint32_t len, double* ts_out, double ts_in){
     //If last navigation data has not changed, return no new data
-    if ((*ts_out < (t_in-MIN_SIM_DATA_PERIOD)) || (*ts_out > t_in)){
+    if ((*ts_out < (ts_in-MIN_SIM_DATA_PERIOD)) || (*ts_out > ts_in)){
 	    *ts_out = ts_in ; 
         return 1;
     }
