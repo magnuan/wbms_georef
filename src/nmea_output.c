@@ -78,7 +78,7 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 
     // $GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0 0031*4F
     len += sprintf(&(outbuf[len]),"$GPGGA,"); // Message ID
-    len += sprintf(&(outbuf[len]),"%02d%02d%2d.%1d,",t_hour, t_min, (int)(floorf(t_sec)), ((int)floorf((t_sec*10)))%10); // UTC of position fix
+    len += sprintf(&(outbuf[len]),"%02d%02d%02d.%1d,",t_hour, t_min, (int)(floorf(t_sec)), ((int)floorf((t_sec*10)))%10); // UTC of position fix
     len += sprintf(&(outbuf[len]),"%02d%011.8f,%c,",lat_deg, lat_min,lat_dir); // Latitude
     len += sprintf(&(outbuf[len]),"%03d%011.8f,%c,",lon_deg, lon_min,lon_dir); // Longitude
     len += sprintf(&(outbuf[len]),"%1d,",gps_status); 		// GPS Quality indicator
