@@ -30,6 +30,7 @@ list(APPEND wbms_georef_SOURCES
     proj_wrapper.c
     georef_tools.c
     sbf_output.c
+    nmea_output.c
     csv_output.c
     bin_output.c
     intensity_scaling.c

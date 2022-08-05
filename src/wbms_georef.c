@@ -34,6 +34,7 @@
 #include "nmea_nav.h"
 #include "wbm_tool_nav.h"
 #include "sbf_output.h"
+#include "nmea_output.h"
 #include "csv_output.h"
 #include "bin_output.h"
 #include "intensity_scaling.h"
@@ -95,9 +96,9 @@ static char * angle_intensity_file_name = NULL;
 static char * output_string = NULL;
             
 
-typedef enum  {output_binary=0, output_csv=1, output_sbf=2} output_mode_e;
+typedef enum  {output_binary=0, output_csv=1, output_sbf=2, output_nmea=3} output_mode_e;
 static output_mode_e output_mode = output_sbf;
-const char *output_mode_name[] = {"BINARY","CSV","SBF"};
+const char *output_mode_name[] = {"BINARY","CSV","SBF","NMEA"};
 output_format_e output_format[MAX_OUTPUT_FIELDS];
 
 static PJ *proj_latlon_to_output_utm;
@@ -346,6 +347,8 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"sbf_output\n");
 	fprintf(fp,"# Uncomment to output in BIN format\n");
 	fprintf(fp,"#bin_output\n");
+	fprintf(fp,"# Uncomment to output in NMEA format\n");
+	fprintf(fp,"#nmea_output\n");
     fprintf(fp,"# Write projection header to file output, only for CSV output\n");
     fprintf(fp,"projection_header true\n\n");
 	fprintf(fp,"# Coordinate system definition string, as described in http://proj4.org/ Leave commented for auto detect\n");
@@ -541,6 +544,7 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"output ",7)==0){ output_string = malloc(read); strcpy(output_string,c+6);}
 			if (strncmp(c,"csv_output",10)==0) output_mode = output_csv;
 			if (strncmp(c,"sbf_output",10)==0) output_mode = output_sbf;
+			if (strncmp(c,"nmea_output",10)==0) output_mode = output_nmea;
 			if (strncmp(c,"bin_output",10)==0) output_mode = output_binary;
 			
             if (strncmp(c,"upper_gate",10)==0) sensor_params.sonar_sample_mode = upper_gate;
@@ -1434,6 +1438,7 @@ int main(int argc,char *argv[])
                 fwrite(output_databuffer,1,output_databuffer_len,output_fileptr );
                 break;
         
+            case output_nmea: break;
             case output_sbf: break;
             default: break;
         }
@@ -1634,6 +1639,7 @@ int main(int argc,char *argv[])
                                 if (output_mode == output_binary)           len = write_bin_to_buffer(outbuf, datapoints, &(output_databuffer[output_databuffer_len]));
 					            else if (output_mode == output_csv)			len = write_csv_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix,  output_format, &(output_databuffer[output_databuffer_len]));
 					            else if (output_mode == output_sbf)			len = write_sbf_to_buffer(x_offset,y_offset,z_offset,ts_offset,ts_sensor, outbuf, datapoints,navdata, navdata_ix,  output_format, &(output_databuffer[output_databuffer_len]));
+					            else if (output_mode == output_nmea)		len = write_nmea_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &(output_databuffer[output_databuffer_len]));
                                 else len = 0;
                                 output_total_data += len;
                                 output_databuffer_len += len;

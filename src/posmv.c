@@ -24,8 +24,19 @@
 
 #define POS_MODE_POSMV_GPS_EPOC  (315964800)
 
+static uint32_t group3_cnt = 0;
+static uint32_t group1_cnt = 0;
+static uint32_t group102_cnt = 0;
 posmv3_t posmv3;
 static uint8_t verbose = 0;
+
+
+posmv3_t* get_posmv3_ptr(void){
+	if (group3_cnt)
+		return &posmv3;
+	else
+		return NULL;
+}
 
 uint8_t posmv_test_file(int fd){
     uint8_t pass=0;
@@ -188,9 +199,6 @@ int posmv_identify_packet(char* databuffer, uint32_t len, double* ts_out){
 
 
 int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata){
-    static uint32_t group3_cnt = 0;
-    static uint32_t group1_cnt = 0;
-    static uint32_t group102_cnt = 0;
     if (strncmp(databuffer,"$GRP",4) != 0 ){
         if(verbose) fprintf(stderr,"Malformed pos packet received, discarding\n");
         return NO_NAV_DATA;
