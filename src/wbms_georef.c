@@ -14,6 +14,7 @@
 #ifdef ENABLE_NETWORK_IO
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <errno.h>
 #endif
 
 #include "cmath.h"
@@ -812,7 +813,7 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
 /************************************** MAIN *********************************************/
 #define MAX_FD 256
 enum input_source_e {i_none=0,i_tcp=1,i_udp=2, i_stdin=3, i_file=4, i_zero=5,i_sim=6};
-enum output_drain_e {o_file,o_tcp, o_stdout};
+enum output_drain_e {o_file,o_tcp,o_udp, o_stdout};
 
 static const char *input_source_names[] = {
 	"File",
@@ -823,6 +824,26 @@ static const char *input_source_names[] = {
 	"zero",
 	"sim",
 };
+
+
+void udp_broadcast(void* data, int len,int fd, struct sockaddr* addr){
+    #define MAX_UDP_LEN 65504
+    int bc_len = 0;
+    int bc_sent = 0;
+    int ret = 0;
+    while (bc_sent<len){
+        bc_len = MIN(len-bc_sent,MAX_UDP_LEN);
+        ret = sendto(fd, data + bc_sent, bc_len, 0, addr, sizeof(struct sockaddr_in));
+        if (ret<0){
+            fprintf(stderr,"Broadcasting %d bytes data on UDP, fails with %s\n",bc_len,strerror(errno));
+            break;
+        }
+        else{
+            //fprintf(stderr, "Broadcasting %d bytes data on UDP broadcast\n",ret);
+            bc_sent += ret;
+        }
+    }
+}
 		
 
 int main(int argc,char *argv[])
@@ -865,6 +886,7 @@ int main(int argc,char *argv[])
 	struct sockaddr_in output_clientaddr;
 	output_clientlist_clear();
 	int output_listener = 0;
+    int output_broadcaster = 0;
 	int output_client = 0;
 	unsigned int addrlen;
 	int yes = 1;
@@ -1274,6 +1296,29 @@ int main(int argc,char *argv[])
 		output_fileptr = stdout;
 	}
 #ifdef ENABLE_NETWORK_IO
+    else if (strchr(output_string,'#')){ //If input string contains '#' we assume it is  host#port udp, we read from UDP socket
+        
+        output_drain = o_udp;
+        str_addr = output_string;
+        str_port = strchr(output_string,'#');
+        str_port[0] = 0;
+        str_port++;
+        
+        output_port = atoi(str_port);
+        fprintf(stderr,"Writing data to UDP broadcast on port: %d\n",output_port);
+        //Create a UDP socket
+        if ((output_broadcaster = socket(AF_INET, SOCK_DGRAM,0))==-1)
+        {fprintf(stderr,"Could not create Output UDP-socket\n");exit(1);}
+        if  (setsockopt(output_broadcaster, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
+        {fprintf(stderr,"Server-setsockopt() error\n");exit(1);}
+        if  (setsockopt(output_broadcaster, SOL_SOCKET, SO_BROADCAST, &yes, sizeof(int)) == -1)
+        {fprintf(stderr,"Server-setsockopt() error\n");exit(1);}
+        bzero((char *)&output_my_addr, sizeof(output_my_addr));
+        output_my_addr.sin_family = AF_INET;
+        output_my_addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+        output_my_addr.sin_port = htons(output_port);
+        
+    }
 	else if (strchr(output_string,':')){ //If out string contains ':' we assume it is  localhost:port tcp, we write to TCP clients
 		
 		output_drain = o_tcp;
@@ -1506,7 +1551,10 @@ int main(int argc,char *argv[])
 
 		// IF OUTPUT DRAIN IS A (OR MANY) TCP CLIENT(S), WE HANDLE CLIENTS CONNECTING / DISCONNECTING AND SNEDING DATA TO THEM HERE
 		#ifdef ENABLE_NETWORK_IO
-		if (output_drain == o_tcp){
+		if (output_drain == o_udp){
+            udp_broadcast(output_databuffer, output_databuffer_len, output_broadcaster, (struct sockaddr*) &output_my_addr);
+        }
+		else if (output_drain == o_tcp){
 			//** Checking if new client has connected as drain
 			if (FD_ISSET(output_listener, &read_fds)){ 
 				addrlen = sizeof(output_clientaddr);
@@ -1664,6 +1712,8 @@ int main(int argc,char *argv[])
 				case o_file: case o_stdout:
 					fwrite(output_databuffer,1,output_databuffer_len,output_fileptr );
 					break;
+				case o_udp:
+                    break;
 				case o_tcp: 
 					#ifdef ENABLE_NETWORK_IO
 					FD_ZERO(&write_fds);
@@ -1693,7 +1743,8 @@ int main(int argc,char *argv[])
 	
 	fprintf(stderr, "Ray bending calculations %d valid, %d invalid\n", get_ray_bend_valid(), get_ray_bend_invalid());
 
-	if(output_drain == o_tcp){}
+	if(output_drain == o_udp){}
+	else if(output_drain == o_tcp){}
 	else fclose(output_fileptr);
 	#ifdef PREFER_HEAP
     free(sensor_data_buffer);
