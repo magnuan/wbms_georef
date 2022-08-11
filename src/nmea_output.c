@@ -87,7 +87,7 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
     len += sprintf(&(outbuf[len]),"%0.3f,M,", -pos->z); 	// Orthometric height (MSL reference) 
     len += sprintf(&(outbuf[len]),"%0.3f,M,", geoid_sep); 	// Geoid separation 
     if (dgps_statid)
-		len += sprintf(&(outbuf[len]),"%3.1f,%04d",dgps_latency,dgps_statid); 					// Time since last DGPS update and DGPS reference station id, both blank
+		len += sprintf(&(outbuf[len]),"%3.1f %04d",dgps_latency,dgps_statid); 					// Time since last DGPS update and DGPS reference station id, both blank
 	else
 		len += sprintf(&(outbuf[len]),","); 					// Time since last DGPS update and DGPS reference station id, both blank
 	
