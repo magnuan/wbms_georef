@@ -17,6 +17,7 @@
 
 int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, /*OUTPUT*/char* outbuf){
 	uint32_t len=0;
+    uint32_t sstart;
 
     pos_ix = find_closest_index_in_posdata(posdata,pos_ix, ts);
     navdata_t* pos = &(posdata[pos_ix]);
@@ -36,6 +37,7 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 	uint16_t lat_deg = floorf(lat);
 	double	 lat_min = (lat-lat_deg)*60;
 
+    float heading_deg = pos->yaw*180/M_PI;
 
 	double lon = pos->lon*180/M_PI;
 	char lon_dir;
@@ -77,6 +79,7 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 	 
 
     // $GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0 0031*4F
+    sstart=len;
     len += sprintf(&(outbuf[len]),"$GPGGA,"); // Message ID
     len += sprintf(&(outbuf[len]),"%02d%02d%02d.%1d,",t_hour, t_min, (int)(floorf(t_sec)), ((int)floorf((t_sec*10)))%10); // UTC of position fix
     len += sprintf(&(outbuf[len]),"%02d%011.8f,%c,",lat_deg, lat_min,lat_dir); // Latitude
@@ -93,12 +96,26 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 	
 	//Checksum does not include $-sign
 	char cs = 0;
-	for (size_t ii=1;ii<len;ii++){
+	for (size_t ii=sstart+1;ii<len;ii++){
 		cs ^= outbuf[ii];
 	}
     len += sprintf(&(outbuf[len]),"*%02X",cs); 					// Checksum
 	len += sprintf(&(outbuf[len]),"\r\n"); // <CR><LF>
 
+
+    // $GPHDT
+    sstart=len;
+    len += sprintf(&(outbuf[len]),"$GPHDT,"); // Message ID
+    len += sprintf(&(outbuf[len]),"%06.2f,T",heading_deg); // True heading
+	//Checksum does not include $-sign
+	cs = 0;
+	for (size_t ii=sstart+1;ii<len;ii++){
+		cs ^= outbuf[ii];
+	}
+    len += sprintf(&(outbuf[len]),"*%02X",cs); 					// Checksum
+	len += sprintf(&(outbuf[len]),"\r\n"); // <CR><LF>
+
+    
 
                
 /* 
