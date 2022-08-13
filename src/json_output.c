@@ -23,7 +23,15 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 
 	double lat = pos->lat*180/M_PI;
 	double lon = pos->lon*180/M_PI;
-	
+
+    //Calculate vessel speed
+    navdata_t* pos_old = &(posdata[(pos_ix+NAVDATA_BUFFER_LEN-50)%NAVDATA_BUFFER_LEN]); //Navdata 50 samples back in time
+	float dx = pos->x - pos_old->x;
+	float dy = pos->y - pos_old->y;
+	//float dz = pos->z - pos_old->z;
+	float dt = pos->ts - pos_old->ts;
+    float speed = sqrtf(dx*dx+dy*dy)/dt;
+
 	//TODO These values are just hard coded for now. Need to get them from input data when available
 	uint8_t gps_status = 0;
 	uint16_t sv_n = 0;
@@ -52,14 +60,18 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 		//dgps_statid = posmv3->dgps_statid;
 	}
     len += sprintf(&(outbuf[len]),"{"); 
-    len += sprintf(&(outbuf[len]),"\"latitude\"=%11.7f",lat); 
-    len += sprintf(&(outbuf[len]),",\"longitude\"=%11.7f",lon); 
-    len += sprintf(&(outbuf[len]),",\"altitude\"=%0.3f",-pos->z);
-    len += sprintf(&(outbuf[len]),",\"ts\"=%11.3f",ts);
-    len += sprintf(&(outbuf[len]),",\"gps_status\"=%1d",gps_status);
-    len += sprintf(&(outbuf[len]),",\"sv_n\"=%2d",sv_n);
-    len += sprintf(&(outbuf[len]),",\"hdop\"=%0.3f",hdop);
-    len += sprintf(&(outbuf[len]),",\"vdop\"=%0.3f",vdop);
+    len += sprintf(&(outbuf[len]),"\"latitude\":%11.7f",lat); 
+    len += sprintf(&(outbuf[len]),",\"longitude\":%11.7f",lon); 
+    len += sprintf(&(outbuf[len]),",\"altitude\":%0.3f",-pos->z);
+    len += sprintf(&(outbuf[len]),",\"ts\":%11.3f",ts);
+    len += sprintf(&(outbuf[len]),",\"gps_status\":%1d",gps_status);
+    len += sprintf(&(outbuf[len]),",\"sv_n\":%2d",sv_n);
+    len += sprintf(&(outbuf[len]),",\"hdop\":%0.3f",hdop);
+    len += sprintf(&(outbuf[len]),",\"vdop\":%0.3f",vdop);
+    len += sprintf(&(outbuf[len]),",\"gps_accuracy\":%0.3f",hdop);
+    len += sprintf(&(outbuf[len]),",\"speed\":%0.3f",speed);
+    len += sprintf(&(outbuf[len]),",\"yaw\":%0.3f",pos->yaw*180/M_PI);
+    len += sprintf(&(outbuf[len]),",\"course\":%0.3f",pos->course*180/M_PI);
     len += sprintf(&(outbuf[len]),"}\r\n"); 
 
 
