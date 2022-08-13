@@ -50,11 +50,11 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 	}
 	uint16_t lon_deg = floorf(lon);
 	double	 lon_min = (lon-lon_deg)*60;
+	float  hdop = pos->hor_accuracy;
 	
 	//TODO These values are just hard coded for now. Need to get them from input data when available
 	uint8_t gps_status = 2;
 	uint16_t sv_n = 10;
-	float  hdop = 0.1;
 	float geoid_sep = 0.0;
 	float dgps_latency = 0.0;
 	uint16_t dgps_statid = 0; 
@@ -71,7 +71,7 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 		}*/
 		gps_status = posmv3->gps_status;
 		sv_n = posmv3->sv_n;
-		hdop = posmv3->hdop;
+		//hdop = posmv3->hdop;
 		geoid_sep = posmv3->geoid_separation;
 		dgps_latency = posmv3->dgps_latency;
 		dgps_statid = posmv3->dgps_statid;

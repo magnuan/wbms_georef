@@ -35,8 +35,8 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 	//TODO These values are just hard coded for now. Need to get them from input data when available
 	uint8_t gps_status = 0;
 	uint16_t sv_n = 0;
-	float  hdop = 0.0;
-	float  vdop = 0.0;
+	float  hdop = pos->hor_accuracy;
+	float  vdop = pos->vert_accuracy;
 	//float geoid_sep = 0.0;
 	//float dgps_latency = 0.0;
 	//uint16_t dgps_statid = 0; 
@@ -53,8 +53,8 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 		}*/
 		gps_status = posmv3->gps_status;
 		sv_n = posmv3->sv_n;
-		hdop = posmv3->hdop;
-		vdop = posmv3->vdop;
+		//hdop = posmv3->hdop;
+		//vdop = posmv3->vdop;
 		//geoid_sep = posmv3->geoid_separation;
 		//dgps_latency = posmv3->dgps_latency;
 		//dgps_statid = posmv3->dgps_statid;
