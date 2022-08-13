@@ -86,6 +86,7 @@ static offset_t sensor_offset;
 static sensor_params_t sensor_params;
 
 static uint32_t  force_bath_version = 0;
+static float sim_data_period = 0.5;
 
 static char output_projection_string[256];
 static char input_projection_string[256];
@@ -319,6 +320,8 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# sensor_mode 10\n");
     fprintf(fp,"# Uncomment to force wbms bathy data to be read as specific version\n");
     fprintf(fp,"#force_bath_version 0\n\n");
+    fprintf(fp,"# Uncomment to specify minimum period between sim data generation\n");
+    fprintf(fp,"#sim_data_period  0.5\n\n");
 
 	fprintf(fp,"#### NAVIGATION DATA FORMAT ####\n");
 	fprintf(fp,"# Nav input parameters \n");
@@ -541,6 +544,8 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"intensity_aoi_comp",18)==0) sensor_params.intensity_aoi_comp = 1;	
             if (strncmp(c,"calc_aoi",8)==0) sensor_params.calc_aoi = 1;	
             if (strncmp(c,"force_bath_version",18)==0) force_bath_version = (atoi(c+18));	
+            
+            if (strncmp(c,"sim_data_period",15)==0) sim_data_period = ((float)atof(c+15));	
 			
 			if (strncmp(c,"sensor_source",13)==0){ input_sensor_source_string = malloc(read); strcpy(input_sensor_source_string,c+13);}
 			if (strncmp(c,"navigation_source",17)==0){ input_navigation_source_string = malloc(read); strcpy(input_navigation_source_string,c+17);}
@@ -574,6 +579,7 @@ int read_config_from_file(char* fname){
 	c = output_string; if(c){while(*c){if(*c<=' ' ||*c>=127) *c=0;c++;}}					//Null terminating on first control
     
     sim_nav_set_params(pos_sim_speed);	
+    set_min_sim_data_period(sim_data_period);
 
 	fprintf(stderr,"Settings read from config file:\n");
 
