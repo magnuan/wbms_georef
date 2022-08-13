@@ -46,7 +46,7 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 		gps_status = posmv3->gps_status;
 		sv_n = posmv3->sv_n;
 		hdop = posmv3->hdop;
-		hdop = posmv3->vdop;
+		vdop = posmv3->vdop;
 		//geoid_sep = posmv3->geoid_separation;
 		//dgps_latency = posmv3->dgps_latency;
 		//dgps_statid = posmv3->dgps_statid;
@@ -60,7 +60,7 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
     len += sprintf(&(outbuf[len]),",\"sv_n\"=%2d",sv_n);
     len += sprintf(&(outbuf[len]),",\"hdop\"=%0.3f",hdop);
     len += sprintf(&(outbuf[len]),",\"vdop\"=%0.3f",vdop);
-    len += sprintf(&(outbuf[len]),"}"); 
+    len += sprintf(&(outbuf[len]),"}\r\n"); 
 
 
     
