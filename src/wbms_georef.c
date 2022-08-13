@@ -1108,7 +1108,10 @@ int main(int argc,char *argv[])
 			input_navigation_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 			if (input_navigation_fd < 0) 
 				error("ERROR opening socket");
-			bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
+            
+            setsockopt(input_navigation_fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int));
+			
+            bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
 			input_navigation_serv_addr.sin_family = AF_INET;
 			input_navigation_serv_addr.sin_port = htons(input_navigation_portno);
 			#define UDP_BROADCAST
