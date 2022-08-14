@@ -11,8 +11,8 @@
 #define STRINGIFY(v) STRINGIFY0(v)
 
 #define MAX_OUTPUT_FIELDS 128
-typedef enum  {none=0, t,c, x,y,z,z_var, z_stddev,range, teta,steer,beam,el,val,swath_y,aoi,ugate,lgate,cgate,gatew,quality,strength,freq,multiping,multifreq, LAT,LON,X,Y,Z,YAW,PITCH,ROLL, HOR_ACC,VERT_ACC} output_format_e;
-#define iterate_output_format(_F)  _F(x); _F(y); _F(z); _F(z_var); _F(z_stddev);   _F(teta);   _F(range); _F(steer);_F(beam); _F(el);  _F(val); _F(swath_y); _F(aoi); _F(ugate); _F(lgate); _F(cgate); _F(gatew);_F(quality);_F(strength);_F(freq);_F(multiping);_F(multifreq);   _F(LAT); _F(LON); _F(X); _F(Y); _F(Z);   _F(t); _F(c);   _F(YAW); _F(PITCH); _F(ROLL); _F(HOR_ACC); _F(VERT_ACC)
+typedef enum  {none=0, t,c, x,y,z,z_var, z_stddev,range, teta,steer,beam,el,val,swath_y,aoi,ugate,lgate,cgate,gatew,quality,strength,freq,multiping,multifreq, LAT,LON,X,Y,Z,YAW,PITCH,ROLL, HOR_ACC,VERT_ACC,COURSE,SPEED,ALTITUDE,GPS_ACCURACY,GPS_STATUS,SATELLITES} output_format_e;
+#define iterate_output_format(_F)  _F(x); _F(y); _F(z); _F(z_var); _F(z_stddev);   _F(teta);   _F(range); _F(steer);_F(beam); _F(el);  _F(val); _F(swath_y); _F(aoi); _F(ugate); _F(lgate); _F(cgate); _F(gatew);_F(quality);_F(strength);_F(freq);_F(multiping);_F(multifreq);   _F(LAT); _F(LON); _F(X); _F(Y); _F(Z);   _F(t); _F(c);   _F(YAW); _F(PITCH); _F(ROLL); _F(HOR_ACC); _F(VERT_ACC); _F(COURSE); _F(SPEED); _F(ALTITUDE); _F(GPS_ACCURACY); _F(GPS_STATUS); _F(SATELLITES)
 
 #define PROJ_STR_MAGIC_NUMBER (0x207274736a6f7270)
 

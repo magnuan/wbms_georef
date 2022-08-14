@@ -10,6 +10,7 @@
 #include "wbms_georef.h"
 #include <math.h>
 #include "cmath.h"
+#include "posmv.h"
 
 
 #define OUTPUT_ANGLES_IN_DEGREES
@@ -136,6 +137,22 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
 	uint32_t ii,jj;
     pos_ix = find_closest_index_in_posdata(posdata,pos_ix, ts);
     navdata_t* pos = &(posdata[pos_ix]);
+    //Calculate vessel horizontal speed
+    navdata_t* pos_old = &(posdata[(pos_ix+NAVDATA_BUFFER_LEN-10)%NAVDATA_BUFFER_LEN]); //Navdata 10 samples back in time TODO there is a slight risk of posdata log wrapping when doing this
+    float dx = pos->x - pos_old->x;
+    float dy = pos->y - pos_old->y;
+    float dt = pos->ts - pos_old->ts;
+    float speed = sqrtf(dx*dx+dy*dy)/dt;
+
+    uint8_t gps_status = 0;
+	uint16_t sv_n = 0;
+	posmv3_t* posmv3 = get_posmv3_ptr();
+	if(posmv3){
+		gps_status = posmv3->gps_status;
+		sv_n = posmv3->sv_n;
+	}
+
+
     //When writing, we need to swap x and y coordinate and negate z since output is X-east Y-north Z-up
 	for (ii = 0;ii<n;ii++){
         for(jj=0; jj<MAX_OUTPUT_FIELDS; jj++){
@@ -184,22 +201,31 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case X: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->y-y_offset)); dp+=4;break;
                 case Y: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->x-x_offset)); dp+=4;break;
                 case Z: write_f32_unaligned_bswap((uint8_t*)dp,(float)(-(pos->z-z_offset))); dp+=4;break;
+                case ALTITUDE: write_f32_unaligned_bswap((uint8_t*)dp,(float)(-(pos->z-z_offset))); dp+=4;break;
                 
                 case HOR_ACC: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->hor_accuracy)); dp+=4;break;
                 case VERT_ACC: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->vert_accuracy)); dp+=4;break;
                 
+                case SPEED: write_f32_unaligned_bswap((uint8_t*)dp,(float)(speed)); dp+=4;break;
+                
+                case GPS_ACCURACY: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->hor_accuracy)); dp+=4;break;
+                case GPS_STATUS: write_f32_unaligned_bswap((uint8_t*)dp,(float)(gps_status)); dp+=4;break;
+                case SATELLITES: write_f32_unaligned_bswap((uint8_t*)dp,(float)(sv_n)); dp+=4;break;
+
                 #ifdef OUTPUT_ANGLES_IN_DEGREES
                 case LAT: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->lat)*180/M_PI); dp+=4;break;
                 case LON: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->lon)*180/M_PI); dp+=4;break;
                 case YAW: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->yaw)*180/M_PI); dp+=4;break;
                 case PITCH: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->pitch)*180/M_PI); dp+=4;break;
                 case ROLL: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->roll)*180/M_PI); dp+=4;break;
+                case COURSE: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->course)*180/M_PI); dp+=4;break;
                 #else
                 case LAT: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->lat)); dp+=4;break;
                 case LON: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->lon)); dp+=4;break;
                 case YAW: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->yaw)); dp+=4;break;
                 case PITCH: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->pitch)); dp+=4;break;
                 case ROLL: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->roll)); dp+=4;break;
+                case COURSE: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->course)); dp+=4;break;
                 #endif
             }
         }

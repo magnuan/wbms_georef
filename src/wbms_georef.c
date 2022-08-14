@@ -386,8 +386,13 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  detection strength:        strength\n");
     fprintf(fp,"#  vessel coordinates:        LAT,LON\n");
     fprintf(fp,"#  vessel coordinates:        X,Y,Z\n");
+    fprintf(fp,"#  vessel altitude (=Z):      ALTITUDE\n");
     fprintf(fp,"#  vessel attitude:           YAW,PITCH,ROLL\n");
     fprintf(fp,"#  vessel pos accuracy:       HOR_ACC,VERT_ACC\n");
+    fprintf(fp,"#  vessel speed:              SPEED\n");
+    fprintf(fp,"#  vessel course:             COURSE\n");
+    fprintf(fp,"#  vessel satellites:         SATELLITES\n");
+    fprintf(fp,"#  vessel accuracy(=HOR_ACC): GPS_ACCURACY\n");
     fprintf(fp,"#  speed of sound:            c\n");
     fprintf(fp,"output_format x,y,z,val\n");
 	
@@ -1702,7 +1707,7 @@ int main(int argc,char *argv[])
 					            else if (output_mode == output_csv)			len = write_csv_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix,  output_format, &(output_databuffer[output_databuffer_len]));
 					            else if (output_mode == output_sbf)			len = write_sbf_to_buffer(x_offset,y_offset,z_offset,ts_offset,ts_sensor, outbuf, datapoints,navdata, navdata_ix,  output_format, &(output_databuffer[output_databuffer_len]));
 					            else if (output_mode == output_nmea)		len = write_nmea_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &(output_databuffer[output_databuffer_len]));
-					            else if (output_mode == output_json)		len = write_json_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &(output_databuffer[output_databuffer_len]));
+					            else if (output_mode == output_json)		len = write_json_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix,  output_format, &(output_databuffer[output_databuffer_len]));
                                 else len = 0;
                                 output_total_data += len;
                                 output_databuffer_len += len;

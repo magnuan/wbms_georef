@@ -10,6 +10,7 @@
 #include "wbms_georef.h"
 #include <math.h>
 #include "cmath.h"
+#include "posmv.h"
 
 
 int sprint_output_format(char* str,output_format_e* format){
@@ -64,6 +65,21 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
 	len = 0;
     pos_ix = find_closest_index_in_posdata(posdata,pos_ix, ts);
     navdata_t* pos = &(posdata[pos_ix]);
+    
+    //Calculate vessel horizontal speed
+    navdata_t* pos_old = &(posdata[(pos_ix+NAVDATA_BUFFER_LEN-10)%NAVDATA_BUFFER_LEN]); //Navdata 10 samples back in time TODO there is a slight risk of posdata log wrapping when doing this
+    float dx = pos->x - pos_old->x;
+    float dy = pos->y - pos_old->y;
+    float dt = pos->ts - pos_old->ts;
+    float speed = sqrtf(dx*dx+dy*dy)/dt;
+    
+    uint8_t gps_status = 0;
+	uint16_t sv_n = 0;
+	posmv3_t* posmv3 = get_posmv3_ptr();
+	if(posmv3){
+		gps_status = posmv3->gps_status;
+		sv_n = posmv3->sv_n;
+	}
     //When writing, we need to swap x and y coordinate and negate z since output is X-east Y-north Z-up
 	for (ii = 0;ii<n;ii++){
         for(jj=0; jj<MAX_OUTPUT_FIELDS; jj++){
@@ -102,11 +118,18 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case X: len += sprintf(&(outbuf[len]),"%11.3f",pos->y);break;
                 case Y: len += sprintf(&(outbuf[len]),"%11.3f",pos->x);break;
                 case Z: len += sprintf(&(outbuf[len]),"%11.3f",-pos->z);break;
+                case ALTITUDE: len += sprintf(&(outbuf[len]),"%11.3f",-pos->z);break;
                 case HOR_ACC: len += sprintf(&(outbuf[len]),"%11.3f",pos->hor_accuracy);break;
                 case VERT_ACC: len += sprintf(&(outbuf[len]),"%11.3f",pos->vert_accuracy);break;
                 case YAW: len += sprintf(&(outbuf[len]),"%11.3f",pos->yaw*180/M_PI);break;
                 case PITCH: len += sprintf(&(outbuf[len]),"%11.3f",pos->pitch*180/M_PI);break;
                 case ROLL: len += sprintf(&(outbuf[len]),"%11.3f",pos->roll*180/M_PI);break;
+                
+                case COURSE: len += sprintf(&(outbuf[len]),"%11.3f",pos->course*180/M_PI);break;
+                case SPEED: len += sprintf(&(outbuf[len]),"%7.3f",speed);break;
+                case GPS_ACCURACY: len += sprintf(&(outbuf[len]),"%11.3f",pos->hor_accuracy);break;
+                case GPS_STATUS: len += sprintf(&(outbuf[len]),"%1d",gps_status);break;
+                case SATELLITES: len += sprintf(&(outbuf[len]),"%2d",sv_n);break;
 
             }
         }
