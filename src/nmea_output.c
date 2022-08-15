@@ -6,6 +6,7 @@
 //#include <unistd.h>
 #include <string.h>
 #include <stdint.h>
+#include <time.h>
 #include "georef_tools.h"
 #include "time_functions.h"
 #include "wbms_georef.h"
@@ -25,6 +26,12 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 	uint16_t t_year; uint16_t t_doy; uint8_t t_hour; uint8_t t_min; float t_sec;
     gm_to_irigb(ts, &t_year, &t_doy, &t_hour, &t_min, &t_sec);
 
+        
+    time_t ts_time_t = ts;
+    struct tm  ts_tm;
+    ts_tm = *localtime(&ts_time_t);
+    char       ts_str[80];
+
 	double lat = pos->lat*180/M_PI;
 	char lat_dir;
 	if (lat>=0){
@@ -38,6 +45,7 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 	double	 lat_min = (lat-lat_deg)*60;
 
     float heading_deg = pos->yaw*180/M_PI;
+    float course_deg = pos->course*180/M_PI;
 
 	double lon = pos->lon*180/M_PI;
 	char lon_dir;
@@ -51,6 +59,13 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
 	uint16_t lon_deg = floorf(lon);
 	double	 lon_min = (lon-lon_deg)*60;
 	float  hdop = pos->hor_accuracy;
+    
+    //Calculate vessel horizontal speed
+    navdata_t* pos_old = &(posdata[(pos_ix+NAVDATA_BUFFER_LEN-10)%NAVDATA_BUFFER_LEN]); //Navdata 10 samples back in time TODO there is a slight risk of posdata log wrapping when doing this
+    float dx = pos->x - pos_old->x;
+    float dy = pos->y - pos_old->y;
+    float dt = pos->ts - pos_old->ts;
+    float speed = sqrtf(dx*dx+dy*dy)/dt;
 	
 	//TODO These values are just hard coded for now. Need to get them from input data when available
 	uint8_t gps_status = 2;
@@ -115,7 +130,25 @@ int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
     len += sprintf(&(outbuf[len]),"*%02X",cs); 					// Checksum
 	len += sprintf(&(outbuf[len]),"\r\n"); // <CR><LF>
 
-    
+    // $GPRMC,123519,A,4807.038,N,01131.000,E,022.4, 084.4, 230394,003.1,W*6A    
+    sstart=len;
+    len += sprintf(&(outbuf[len]),"$GPRMC,"); // Message ID
+    len += sprintf(&(outbuf[len]),"%02d%02d%02d,",t_hour, t_min, (int)(floorf(t_sec))); // UTC of position fix
+    len += sprintf(&(outbuf[len]),"A,");                                        // A for Active (TODO when to set to V for Void)
+    len += sprintf(&(outbuf[len]),"%02d%011.8f,%c,",lat_deg, lat_min,lat_dir);  // Latitude
+    len += sprintf(&(outbuf[len]),"%03d%011.8f,%c,",lon_deg, lon_min,lon_dir);  // Longitude
+    len += sprintf(&(outbuf[len]),"%05.1f,",speed*3600./1852.); 			    // Speed in knots 
+    len += sprintf(&(outbuf[len]),"%05.1f,",course_deg);                        // True heading
+    strftime(ts_str, sizeof(ts_str), "%d%m%y", &ts_tm);
+    len += sprintf(&(outbuf[len]),"%s",ts_str);                                // UTC date
+    //len += sprintf(&(outbuf[len]),",,R");                                     // Magnetic variation, and direction not given, Mode set to R for RTK (TODO should be set based on nav data)
+	//Checksum does not include $-sign
+	cs = 0;
+	for (size_t ii=sstart+1;ii<len;ii++){
+		cs ^= outbuf[ii];
+	}
+    len += sprintf(&(outbuf[len]),"*%02X",cs); 					// Checksum
+	len += sprintf(&(outbuf[len]),"\r\n"); // <CR><LF>
 
                
 /* 
