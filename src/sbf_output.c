@@ -10,7 +10,6 @@
 #include "wbms_georef.h"
 #include <math.h>
 #include "cmath.h"
-#include "posmv.h"
 
 
 #define OUTPUT_ANGLES_IN_DEGREES
@@ -111,7 +110,7 @@ int write_sbf_header_to_buffer(output_format_e format[MAX_OUTPUT_FIELDS], uint64
     return dp-outbuf;
 }
 
-int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double ts_offset, double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix,output_format_e format[MAX_OUTPUT_FIELDS], /*OUTPUT*/char* outbuf){
+int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double ts_offset, double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, aux_navdata_t *aux_navdata,output_format_e format[MAX_OUTPUT_FIELDS], /*OUTPUT*/char* outbuf){
     double* x_val = &(data->x[0]);
     double* y_val = &(data->y[0]);
     double* z_val = &(data->z[0]);
@@ -143,15 +142,6 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     float dy = pos->y - pos_old->y;
     float dt = pos->ts - pos_old->ts;
     float speed = sqrtf(dx*dx+dy*dy)/dt;
-
-    uint8_t gps_status = 0;
-	uint16_t sv_n = 0;
-	posmv3_t* posmv3 = get_posmv3_ptr();
-	if(posmv3){
-		gps_status = posmv3->gps_status;
-		sv_n = posmv3->sv_n;
-	}
-
 
     //When writing, we need to swap x and y coordinate and negate z since output is X-east Y-north Z-up
 	for (ii = 0;ii<n;ii++){
@@ -203,14 +193,14 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case Z: write_f32_unaligned_bswap((uint8_t*)dp,(float)(-(pos->z-z_offset))); dp+=4;break;
                 case ALTITUDE: write_f32_unaligned_bswap((uint8_t*)dp,(float)(-(pos->z-z_offset))); dp+=4;break;
                 
-                case HOR_ACC: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->hor_accuracy)); dp+=4;break;
-                case VERT_ACC: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->vert_accuracy)); dp+=4;break;
+                case HOR_ACC: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aux_navdata->hor_accuracy)); dp+=4;break;
+                case VERT_ACC: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aux_navdata->vert_accuracy)); dp+=4;break;
                 
                 case SPEED: write_f32_unaligned_bswap((uint8_t*)dp,(float)(speed)); dp+=4;break;
                 
-                case GPS_ACCURACY: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->hor_accuracy)); dp+=4;break;
-                case GPS_STATUS: write_f32_unaligned_bswap((uint8_t*)dp,(float)(gps_status)); dp+=4;break;
-                case SATELLITES: write_f32_unaligned_bswap((uint8_t*)dp,(float)(sv_n)); dp+=4;break;
+                case GPS_ACCURACY: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aux_navdata->hor_accuracy)); dp+=4;break;
+                case GPS_STATUS: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aux_navdata->gps_status)); dp+=4;break;
+                case SATELLITES: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aux_navdata->sv_n)); dp+=4;break;
 
                 #ifdef OUTPUT_ANGLES_IN_DEGREES
                 case LAT: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->lat)*180/M_PI); dp+=4;break;

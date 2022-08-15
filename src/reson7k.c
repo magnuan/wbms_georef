@@ -226,8 +226,8 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			last_lat = rth.r1015->lat;
 			navdata_collector.alt = rth.r1015->height;
 			last_alt =  rth.r1015->height;
-			navdata_collector.vert_accuracy = rth.r1015->vert_accuracy;
-			navdata_collector.hor_accuracy = rth.r1015->hor_accuracy;
+			aux_navdata->vert_accuracy = rth.r1015->vert_accuracy;
+			aux_navdata->hor_accuracy = rth.r1015->hor_accuracy;
 
 			if (proj){
                 double alt;

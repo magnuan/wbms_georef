@@ -25,15 +25,22 @@ typedef struct{
 	double x,y,z;   //x:easting, y:northing, z:down
 	double roll,pitch,yaw,course;
 	float heave;
-    float hor_accuracy,vert_accuracy;
-    uint32_t status; 
 }navdata_t;
 
 
 
 typedef struct{
     float hor_accuracy,vert_accuracy;
-    uint32_t status; 
+	uint8_t mode ;
+	uint8_t sv_n ;
+	float dgps_latency ;
+	uint16_t dgps_statid ;
+	uint32_t gps_week;
+	double gps_utc_diff; //Guessing on leap seconds (last adjust to 17 Dec 31th 2016)
+	float gps_nav_latency ;
+	float geoid_separation;
+	uint8_t gps_type ;
+	uint32_t gps_status ;
 }aux_navdata_t;
 
 #define NO_NAV_DATA         0

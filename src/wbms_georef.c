@@ -1705,10 +1705,10 @@ int main(int argc,char *argv[])
                             else if (datapoints)
                             { 
                                 if (output_mode == output_binary)           len = write_bin_to_buffer(outbuf, datapoints, &(output_databuffer[output_databuffer_len]));
-					            else if (output_mode == output_csv)			len = write_csv_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix,  output_format, &(output_databuffer[output_databuffer_len]));
-					            else if (output_mode == output_sbf)			len = write_sbf_to_buffer(x_offset,y_offset,z_offset,ts_offset,ts_sensor, outbuf, datapoints,navdata, navdata_ix,  output_format, &(output_databuffer[output_databuffer_len]));
-					            else if (output_mode == output_nmea)		len = write_nmea_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &(output_databuffer[output_databuffer_len]));
-					            else if (output_mode == output_json)		len = write_json_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix,  output_format, &(output_databuffer[output_databuffer_len]));
+					            else if (output_mode == output_csv)			len = write_csv_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata,  output_format, &(output_databuffer[output_databuffer_len]));
+					            else if (output_mode == output_sbf)			len = write_sbf_to_buffer(x_offset,y_offset,z_offset,ts_offset,ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata,  output_format, &(output_databuffer[output_databuffer_len]));
+					            else if (output_mode == output_nmea)		len = write_nmea_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata, &(output_databuffer[output_databuffer_len]));
+					            else if (output_mode == output_json)		len = write_json_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata,  output_format, &(output_databuffer[output_databuffer_len]));
                                 else len = 0;
                                 output_total_data += len;
                                 output_databuffer_len += len;

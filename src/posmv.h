@@ -25,7 +25,6 @@ typedef struct{
 	uint32_t gps_status ;
 }posmv3_t;
 
-posmv3_t* get_posmv3_ptr(void);
 uint8_t posmv_test_file(int fd);
 double posmv_time_to_unix_time(double time1,double time2,uint8_t timetype);
 int posmv_seek_next_header(int fd);

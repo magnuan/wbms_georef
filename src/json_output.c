@@ -11,58 +11,9 @@
 #include "wbms_georef.h"
 #include <math.h>
 #include "cmath.h"
-#include "posmv.h"
 
 
-#if 0
-int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, /*OUTPUT*/char* outbuf){
-	uint32_t len=0;
-
-    pos_ix = find_closest_index_in_posdata(posdata,pos_ix, ts);
-    navdata_t* pos = &(posdata[pos_ix]);
-
-	double lat = pos->lat*180/M_PI;
-	double lon = pos->lon*180/M_PI;
-
-    //Calculate vessel speed
-    navdata_t* pos_old = &(posdata[(pos_ix+NAVDATA_BUFFER_LEN-50)%NAVDATA_BUFFER_LEN]); //Navdata 50 samples back in time
-	float dx = pos->x - pos_old->x;
-	float dy = pos->y - pos_old->y;
-	//float dz = pos->z - pos_old->z;
-	float dt = pos->ts - pos_old->ts;
-    float speed = sqrtf(dx*dx+dy*dy)/dt;
-
-	uint8_t gps_status = 0;
-	uint16_t sv_n = 0;
-	float  hdop = pos->hor_accuracy;
-	float  vdop = pos->vert_accuracy;
-
-	posmv3_t* posmv3 = get_posmv3_ptr();
-	if(posmv3){
-		gps_status = posmv3->gps_status;
-		sv_n = posmv3->sv_n;
-	}
-    len += sprintf(&(outbuf[len]),"{"); 
-    len += sprintf(&(outbuf[len]),"\"latitude\":%11.7f",lat); 
-    len += sprintf(&(outbuf[len]),",\"longitude\":%11.7f",lon); 
-    len += sprintf(&(outbuf[len]),",\"altitude\":%0.3f",-pos->z);
-    len += sprintf(&(outbuf[len]),",\"ts\":%11.3f",ts);
-    len += sprintf(&(outbuf[len]),",\"gps_status\":%1d",gps_status);
-    len += sprintf(&(outbuf[len]),",\"sv_n\":%2d",sv_n);
-    len += sprintf(&(outbuf[len]),",\"hdop\":%0.3f",hdop);
-    len += sprintf(&(outbuf[len]),",\"vdop\":%0.3f",vdop);
-    len += sprintf(&(outbuf[len]),",\"gps_accuracy\":%0.3f",hdop);
-    len += sprintf(&(outbuf[len]),",\"speed\":%0.3f",speed);
-    len += sprintf(&(outbuf[len]),",\"yaw\":%0.3f",pos->yaw*180/M_PI);
-    len += sprintf(&(outbuf[len]),",\"course\":%0.3f",pos->course*180/M_PI);
-    len += sprintf(&(outbuf[len]),"}\r\n"); 
-
-        
-	return len;
-}
-#endif
-
-int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix,output_format_e format[MAX_OUTPUT_FIELDS], /*OUTPUT*/char* outbuf){
+int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, aux_navdata_t *aux_navdata,output_format_e format[MAX_OUTPUT_FIELDS], /*OUTPUT*/char* outbuf){
     double* x_val = &(data->x[0]);
     double* y_val = &(data->y[0]);
     double* z_val = &(data->z[0]);
@@ -96,14 +47,6 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
     float dt = pos->ts - pos_old->ts;
     float speed = sqrtf(dx*dx+dy*dy)/dt;
 	
-    uint8_t gps_status = 0;
-	uint16_t sv_n = 0;
-
-	posmv3_t* posmv3 = get_posmv3_ptr();
-	if(posmv3){
-		gps_status = posmv3->gps_status;
-		sv_n = posmv3->sv_n;
-	}
 
     //When writing, we need to swap x and y coordinate and negate z since output is X-east Y-north Z-up
 
@@ -121,16 +64,16 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
             case Y: len += sprintf(&(outbuf[len]),"\"Y\";%1.3f",pos->x);break;
             case Z: len += sprintf(&(outbuf[len]),"\"Z\":%1.3f",-pos->z);break;
             case ALTITUDE: len += sprintf(&(outbuf[len]),"\"altitude\":%1.3f",-pos->z);break;
-            case HOR_ACC: len += sprintf(&(outbuf[len]),"\"hdop\":%1.3f",pos->hor_accuracy);break;
-            case VERT_ACC: len += sprintf(&(outbuf[len]),"\"vdop\":%1.3f",pos->vert_accuracy);break;
+            case HOR_ACC: len += sprintf(&(outbuf[len]),"\"hdop\":%1.3f",aux_navdata->hor_accuracy);break;
+            case VERT_ACC: len += sprintf(&(outbuf[len]),"\"vdop\":%1.3f",aux_navdata->vert_accuracy);break;
             case YAW: len += sprintf(&(outbuf[len]),"\"yaw\":%1.3f",pos->yaw*180/M_PI);break;
             case PITCH: len += sprintf(&(outbuf[len]),"\"pitch\":%1.3f",pos->pitch*180/M_PI);break;
             case ROLL: len += sprintf(&(outbuf[len]),"\"roll\":%1.3f",pos->roll*180/M_PI);break;
             case SPEED: len += sprintf(&(outbuf[len]),"\"speed\":%1.3f",speed);break;
             case COURSE: len += sprintf(&(outbuf[len]),"\"course\":%1.3f",pos->course*180/M_PI);break; 
-            case GPS_ACCURACY: len += sprintf(&(outbuf[len]),"\"gps_accuracy\":%1.3f",pos->hor_accuracy);break; //TODO
-            case GPS_STATUS: len += sprintf(&(outbuf[len]),"\"gps_status\":%1d",gps_status);break; //TODO
-            case SATELLITES: len += sprintf(&(outbuf[len]),"\"satellites\":%1d",sv_n);break; //TODO*/
+            case GPS_ACCURACY: len += sprintf(&(outbuf[len]),"\"gps_accuracy\":%1.3f",aux_navdata->hor_accuracy);break; //TODO
+            case GPS_STATUS: len += sprintf(&(outbuf[len]),"\"gps_status\":%1d",aux_navdata->gps_status);break; //TODO
+            case SATELLITES: len += sprintf(&(outbuf[len]),"\"satellites\":%1d",aux_navdata->sv_n);break; //TODO*/
             case t: len += sprintf(&(outbuf[len]),"\"ts\":%12.5f",ts);break;
             case c: len += sprintf(&(outbuf[len]),"\"sound_velocity\":%8.3f",*sv);break;
             case el: len += sprintf(&(outbuf[len]),"\"tx_angle\":%1.3f",*tx_angle*180/M_PI);break;

@@ -3,6 +3,6 @@
 
 #include "wbms_georef.h"
 
-int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, /*OUTPUT*/char* outbuf);
+int write_nmea_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, aux_navdata_t *aux_navdata, /*OUTPUT*/char* outbuf);
 
 #endif

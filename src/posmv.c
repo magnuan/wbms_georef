@@ -31,12 +31,6 @@ posmv3_t posmv3;
 static uint8_t verbose = 0;
 
 
-posmv3_t* get_posmv3_ptr(void){
-	if (group3_cnt)
-		return &posmv3;
-	else
-		return NULL;
-}
 
 uint8_t posmv_test_file(int fd){
     uint8_t pass=0;
@@ -246,6 +240,19 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
             posmv3.geoid_separation = *(((float*)(dp)));dp+=4;
             posmv3.gps_type = *(((uint8_t*)(dp)));dp+=1;
             posmv3.gps_status = *(((uint32_t*)(dp)));dp+=4;
+            
+            aux_navdata->mode = posmv3.mode;
+            aux_navdata->sv_n = posmv3.sv_n;
+            aux_navdata->hor_accuracy = posmv3.hdop;
+            aux_navdata->vert_accuracy = posmv3.vdop;
+            aux_navdata->dgps_latency = posmv3.dgps_latency;
+            aux_navdata->gps_week = posmv3.gps_week;
+            aux_navdata->gps_utc_diff = posmv3.gps_utc_diff;
+            aux_navdata->gps_nav_latency = posmv3.gps_nav_latency;
+            aux_navdata->geoid_separation = posmv3.geoid_separation;
+            aux_navdata->gps_type = posmv3.gps_type;
+            aux_navdata->gps_status = posmv3.gps_status;
+
             //Recalculate time as this depends on the new received gps_utc_diff
             ts = posmv_time_to_unix_time(time1,time2,timetype);
             //*ts_out = ts;
@@ -273,7 +280,7 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
                
 
                 dp+=28;  //Skip time derivates
-                navdata->status = *(((uint8_t*)(dp)));dp+=1;
+                dp+=1;   //Skip status flag
                 /*pad = *(((uint16_t*)(dp)));*/ dp+=1;
                 cs = *(((uint16_t*)(dp)));dp+=2;
                 //end = *(((uint16_t*)(dp)));dp+=2;
@@ -303,9 +310,7 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
             navdata->roll *=(M_PI/180);
             navdata->pitch *=(M_PI/180);
             navdata->yaw *=(M_PI/180);
-            navdata->alt -= posmv3.geoid_separation;
-            navdata->hor_accuracy = posmv3.hdop;
-            navdata->vert_accuracy = posmv3.vdop;
+            navdata->alt -= aux_navdata->geoid_separation;
 
             //fprintf(stderr,"PROJ %s\n",proj?"true":"false");
             if (proj){

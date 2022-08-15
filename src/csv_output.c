@@ -10,7 +10,6 @@
 #include "wbms_georef.h"
 #include <math.h>
 #include "cmath.h"
-#include "posmv.h"
 
 
 int sprint_output_format(char* str,output_format_e* format){
@@ -39,7 +38,7 @@ int write_csv_header_to_buffer(output_format_e format[MAX_OUTPUT_FIELDS], /*OUTP
     return sprint_output_format(outbuf,format);
 }
 
-int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix,output_format_e format[MAX_OUTPUT_FIELDS], /*OUTPUT*/char* outbuf){
+int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, aux_navdata_t *aux_navdata,output_format_e format[MAX_OUTPUT_FIELDS], /*OUTPUT*/char* outbuf){
     double* x_val = &(data->x[0]);
     double* y_val = &(data->y[0]);
     double* z_val = &(data->z[0]);
@@ -73,13 +72,6 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     float dt = pos->ts - pos_old->ts;
     float speed = sqrtf(dx*dx+dy*dy)/dt;
     
-    uint8_t gps_status = 0;
-	uint16_t sv_n = 0;
-	posmv3_t* posmv3 = get_posmv3_ptr();
-	if(posmv3){
-		gps_status = posmv3->gps_status;
-		sv_n = posmv3->sv_n;
-	}
     //When writing, we need to swap x and y coordinate and negate z since output is X-east Y-north Z-up
 	for (ii = 0;ii<n;ii++){
         for(jj=0; jj<MAX_OUTPUT_FIELDS; jj++){
@@ -119,17 +111,17 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case Y: len += sprintf(&(outbuf[len]),"%11.3f",pos->x);break;
                 case Z: len += sprintf(&(outbuf[len]),"%11.3f",-pos->z);break;
                 case ALTITUDE: len += sprintf(&(outbuf[len]),"%11.3f",-pos->z);break;
-                case HOR_ACC: len += sprintf(&(outbuf[len]),"%11.3f",pos->hor_accuracy);break;
-                case VERT_ACC: len += sprintf(&(outbuf[len]),"%11.3f",pos->vert_accuracy);break;
+                case HOR_ACC: len += sprintf(&(outbuf[len]),"%11.3f",aux_navdata->hor_accuracy);break;
+                case VERT_ACC: len += sprintf(&(outbuf[len]),"%11.3f",aux_navdata->vert_accuracy);break;
                 case YAW: len += sprintf(&(outbuf[len]),"%11.3f",pos->yaw*180/M_PI);break;
                 case PITCH: len += sprintf(&(outbuf[len]),"%11.3f",pos->pitch*180/M_PI);break;
                 case ROLL: len += sprintf(&(outbuf[len]),"%11.3f",pos->roll*180/M_PI);break;
                 
                 case COURSE: len += sprintf(&(outbuf[len]),"%11.3f",pos->course*180/M_PI);break;
                 case SPEED: len += sprintf(&(outbuf[len]),"%7.3f",speed);break;
-                case GPS_ACCURACY: len += sprintf(&(outbuf[len]),"%11.3f",pos->hor_accuracy);break;
-                case GPS_STATUS: len += sprintf(&(outbuf[len]),"%1d",gps_status);break;
-                case SATELLITES: len += sprintf(&(outbuf[len]),"%2d",sv_n);break;
+                case GPS_ACCURACY: len += sprintf(&(outbuf[len]),"%11.3f",aux_navdata->hor_accuracy);break;
+                case GPS_STATUS: len += sprintf(&(outbuf[len]),"%1d",aux_navdata->gps_status);break;
+                case SATELLITES: len += sprintf(&(outbuf[len]),"%2d",aux_navdata->sv_n);break;
 
             }
         }
