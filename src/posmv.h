@@ -31,6 +31,6 @@ double posmv_time_to_unix_time(double time1,double time2,uint8_t timetype);
 int posmv_seek_next_header(int fd);
 int posmv_fetch_next_packet(char * data, int fd);
 int posmv_identify_packet(char* databuffer, uint32_t len, double* ts_out);
-int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata);
+int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata);
 
 #endif

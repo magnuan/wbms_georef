@@ -198,7 +198,7 @@ int posmv_identify_packet(char* databuffer, uint32_t len, double* ts_out){
 }
 
 
-int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata){
+int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
     if (strncmp(databuffer,"$GRP",4) != 0 ){
         if(verbose) fprintf(stderr,"Malformed pos packet received, discarding\n");
         return NO_NAV_DATA;

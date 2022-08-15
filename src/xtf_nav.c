@@ -102,7 +102,7 @@ void xtf_nav_set_params(float timezone, char* input_projection_string){
 	}
 }
 
-int xtf_nav_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata){
+int xtf_nav_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
 	double ts;
 	int year,month,date,doy,hour,min;
 	float sec,kp,depth,altitude,heading,dol,fix,roll,pitch;

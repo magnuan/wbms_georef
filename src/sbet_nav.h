@@ -10,6 +10,6 @@ int sbet_nav_fetch_next_packet(char * data, int fd);
 int sbet_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out);
 
 void set_sbet_epoch(double ts);
-int sbet_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata);
+int sbet_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata);
 
 #endif

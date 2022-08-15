@@ -90,7 +90,7 @@ int wbm_tool_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out)
 }
 
 
-int wbm_tool_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata){
+int wbm_tool_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
 	double ts,ts_sys;
 	float altitude,heading,roll,pitch;
     double latitude,longitude;

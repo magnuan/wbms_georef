@@ -29,6 +29,13 @@ typedef struct{
     uint32_t status; 
 }navdata_t;
 
+
+
+typedef struct{
+    float hor_accuracy,vert_accuracy;
+    uint32_t status; 
+}aux_navdata_t;
+
 #define NO_NAV_DATA         0
 #define NAV_DATA_GEO        1
 #define NAV_DATA_PROJECTED  2

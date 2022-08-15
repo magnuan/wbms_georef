@@ -168,7 +168,7 @@ int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
 * This function is assuming that position and attitude data comes synched, with same time stamp. As from an integrated navigation system
 * For more generic s7k streams, where attitude and position messages might come from different sources, at different time and rate. This will not work
 */
-int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata){
+int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
 	static double last_lon, last_lat;
 	static float last_alt, last_heave;
     

@@ -32,7 +32,7 @@ void sim_nav_set_params(float speed){
     pos_sim_speed = speed;
 }
 
-int sim_nav_process_packet(double ts_in, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata){
+int sim_nav_process_packet(double ts_in, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
 	static double northing = 0.;
 	static double easting = 0.;
 	static double ts = 0.; 

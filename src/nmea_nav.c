@@ -147,7 +147,7 @@ int nmea_nav_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_o
 * This function is assuming that position and attitude data comes synched, with same time stamp. As from an integrated navigation system
 * For more generic nmea_nav streams, where attitude and position messages might come from different sources, at different time and rate. This will not work
 */
-int nmea_nav_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata){
+int nmea_nav_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
 	static float last_alt;
     
     static navdata_t navdata_collector; 

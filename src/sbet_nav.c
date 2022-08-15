@@ -119,7 +119,7 @@ void set_sbet_epoch(double ts){
     }
 }
 
-int sbet_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata){
+int sbet_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
     if (sbet_epoch == 0)    //Cant decode this data unless we know SBET epoch
         return NO_NAV_DATA;
     char* dp = databuffer;
