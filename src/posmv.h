@@ -7,6 +7,20 @@
 //Just a guess, needs to be figuread out from proticol definition
 #define MAX_POSMV_PACKET_SIZE 32768
 
+//GRP2 params		
+typedef struct{
+	double ts;
+    float north_rms_error;
+    float east_rms_error;
+    float down_rms_error;
+    float north_vel_rms_error;
+    float east_vel_rms_error;
+    float down_vel_rms_error;
+    float roll_rms_error;
+    float pitch_rms_error;
+    float heading_rms_error;
+}posmv2_t;
+
 //GRP3 params		
 typedef struct{
 	double ts;

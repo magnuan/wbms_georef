@@ -25,8 +25,10 @@
 #define POS_MODE_POSMV_GPS_EPOC  (315964800)
 
 static uint32_t group3_cnt = 0;
+static uint32_t group2_cnt = 0;
 static uint32_t group1_cnt = 0;
 static uint32_t group102_cnt = 0;
+posmv2_t posmv2;
 posmv3_t posmv3;
 static uint8_t verbose = 0;
 
@@ -223,6 +225,28 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
     switch (gid){
         default:
             return NO_NAV_DATA;
+        case 2: //#Vessel Navigation Performance Metrics
+            group2_cnt++;
+            
+            posmv2.north_rms_error = *(((float*)(dp)));dp+=4;
+            posmv2.east_rms_error = *(((float*)(dp)));dp+=4;
+            posmv2.down_rms_error = *(((float*)(dp)));dp+=4;
+            posmv2.north_vel_rms_error = *(((float*)(dp)));dp+=4;
+            posmv2.east_vel_rms_error = *(((float*)(dp)));dp+=4;
+            posmv2.down_vel_rms_error = *(((float*)(dp)));dp+=4;
+            posmv2.roll_rms_error = *(((float*)(dp)));dp+=4;
+            posmv2.pitch_rms_error = *(((float*)(dp)));dp+=4;
+            posmv2.heading_rms_error = *(((float*)(dp)));dp+=4;
+
+            aux_navdata->hor_accuracy = sqrtf((posmv2.north_rms_error*posmv2.north_rms_error) + (posmv2.east_rms_error*posmv2.east_rms_error));
+            aux_navdata->vert_accuracy = posmv2.down_rms_error;
+
+            //Recalculate time as this depends on the new received gps_utc_diff
+            ts = posmv_time_to_unix_time(time1,time2,timetype);
+            //*ts_out = ts;
+            posmv2.ts = ts;
+            return NO_NAV_DATA;
+
         case 3: //#Primary GPS, Info about primary GPS receiver status (No positioning data)
             group3_cnt++;
             posmv3.mode = *(((uint8_t*)(dp)));dp+=1;
@@ -243,8 +267,10 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
             
             aux_navdata->mode = posmv3.mode;
             aux_navdata->sv_n = posmv3.sv_n;
-            aux_navdata->hor_accuracy = posmv3.hdop;
-            aux_navdata->vert_accuracy = posmv3.vdop;
+            if (ts > (posmv2.ts + 10.)){ //Replace hdop and vdop with data from group3 if last group2 data is older than 10 sec
+                aux_navdata->hor_accuracy = posmv3.hdop;
+                aux_navdata->vert_accuracy = posmv3.vdop;
+            }
             aux_navdata->dgps_latency = posmv3.dgps_latency;
             aux_navdata->gps_week = posmv3.gps_week;
             aux_navdata->gps_utc_diff = posmv3.gps_utc_diff;
