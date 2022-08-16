@@ -411,6 +411,11 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             qsort(bath_v8->dp, Nin, sizeof(detectionpoint_v5_t), cmp_wbms_v5_dp_on_angle_func);
         }
     }
+
+	if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
+        return 0;
+    }
+
     
     float *xs = malloc(MAX_DP*sizeof(float));
     float *ys = malloc(MAX_DP*sizeof(float));

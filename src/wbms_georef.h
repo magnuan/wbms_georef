@@ -80,6 +80,13 @@ typedef struct{
     float swath_min_y ;
     float swath_max_y ;
 
+    float max_abs_roll;
+    float max_abs_pitch;
+    float max_abs_yaw;
+    float max_abs_droll_dt;
+    float max_abs_dpitch_dt;
+    float max_abs_dyaw_dt;
+
     float sv_offset;
     float mounting_depth;
     char intensity_range_comp; 

@@ -24,6 +24,28 @@ void set_time_diff_limit(float t){
 void set_use_sonar_sv_for_initial_ray_parameter(uint8_t val){
     use_sonar_sv_for_initial_ray_parameter = val;
 }
+	
+int attitude_test(sensor_params_t* sensor_params, float yaw,  float pitch,  float roll, float droll_dt, float dpitch_dt, float dyaw_dt){ 
+    if (sensor_params->max_abs_yaw){
+        if (ABS(yaw) > sensor_params->max_abs_yaw) return 1;
+    }
+    if (sensor_params->max_abs_dyaw_dt){
+        if (ABS(dyaw_dt) > sensor_params->max_abs_dyaw_dt) return 1;
+    }
+    if (sensor_params->max_abs_pitch){
+        if (ABS(pitch) > sensor_params->max_abs_pitch) return 1;
+    }
+    if (sensor_params->max_abs_dpitch_dt){
+        if (ABS(dpitch_dt) > sensor_params->max_abs_dpitch_dt) return 1;
+    }
+    if (sensor_params->max_abs_roll){
+        if (ABS(roll) > sensor_params->max_abs_roll) return 1;
+    }
+    if (sensor_params->max_abs_droll_dt){
+        if (ABS(droll_dt) > sensor_params->max_abs_droll_dt) return 1;
+    }
+    return 0;
+}
 
 
 /*

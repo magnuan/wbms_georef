@@ -351,6 +351,9 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
             if(verbose) fprintf(stderr, "Could not find navigation data for s7k 7027 record at time %f\n",ts);
             return 0;
         }
+        if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
+            return 0;
+        }
         
 
         //Calculate a high freq sampled vector for roll and Z, to be used for each detection it rx instant

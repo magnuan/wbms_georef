@@ -13,6 +13,7 @@ int georef_to_global_frame(
 					/*sensor data arrays*/	double* x, double* y, double* z
 					);
 
+int attitude_test(sensor_params_t* sensor_params, float yaw,  float pitch,  float roll, float droll_dt, float dpitch_dt, float dyaw_dt); 
 size_t find_closest_index_in_posdata(navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, double ts);
 int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, double ts,/*OUTPUT*/ double* nav_x, double* nav_y, double* nav_z, float* nav_yaw, float* nav_pitch, float* nav_roll, float* nav_dyaw_dt, float* nav_dpitch_dt, float* nav_droll_dt);
 int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], size_t  pos_ix, double ts, float t_dur, float fs, size_t N, /*output*/ float* roll_vector, float* z_vector);

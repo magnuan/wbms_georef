@@ -277,6 +277,18 @@ void generate_template_config_file(char* fname){
 	fprintf(fp, "# Limits wrt swath nadir\n");
 	fprintf(fp,"sensor_swath_min_y -1000\n");
 	fprintf(fp,"sensor_swath_max_y 1000\n\n");
+            
+
+    fprintf(fp,"#### NAVIGATION DATA FILTERS ####\n");
+    fprintf(fp,"# Set to non-zero to enable \n");
+    fprintf(fp,"# roll,pitch,yaw in deg \n");
+    fprintf(fp,"# droll_dt,dpitch_dt,dyaw_dt in deg/sec \n");
+    fprintf(fp,"navigation_max_abs_roll 0\n");
+    fprintf(fp,"navigation_max_abs_pitch 0\n");
+    fprintf(fp,"navigation_max_abs_yaw 0\n");
+    fprintf(fp,"navigation_max_abs_droll_dt 0\n");
+    fprintf(fp,"navigation_max_abs_dpitch_dt 0\n");
+    fprintf(fp,"navigation_max_abs_dyaw_dt 0\n");
 
 
 	fprintf(fp,"#### RAY TRACING PARAMETERS ####\n");
@@ -431,6 +443,13 @@ static void sensor_params_default(sensor_params_t* s){
     s->calc_aoi = 0;
     s->sonar_sample_mode = detection;
     s->ray_tracing_mode = ray_trace_fixed_depth_lut;
+
+    s->max_abs_roll=0;
+    s->max_abs_pitch=0;
+    s->max_abs_yaw=0;
+    s->max_abs_droll_dt=0;
+    s->max_abs_dpitch_dt=0;
+    s->max_abs_dyaw_dt=0;
 }
 
 
@@ -544,6 +563,13 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"sensor_swath_max_y",18)==0) sensor_params.swath_max_y = ((float)atof(c+18));
 			if (strncmp(c,"sensor_mounting_depth",21)==0) sensor_params.mounting_depth = ((float)atof(c+21));
 			if (strncmp(c,"ray_tracing_mode",16)==0) sensor_params.ray_tracing_mode = (atoi(c+16));	
+			
+            if (strncmp(c,"navigation_max_abs_roll",23)==0) sensor_params.max_abs_roll = ((float)atof(c+23))* (float)M_PI/180;
+            if (strncmp(c,"navigation_max_abs_pitch",24)==0) sensor_params.max_abs_pitch = ((float)atof(c+24))* (float)M_PI/180;
+            if (strncmp(c,"navigation_max_abs_yaw",22)==0) sensor_params.max_abs_yaw = ((float)atof(c+22))* (float)M_PI/180;
+            if (strncmp(c,"navigation_max_abs_droll_dt",27)==0) sensor_params.max_abs_droll_dt = ((float)atof(c+27))* (float)M_PI/180;
+            if (strncmp(c,"navigation_max_abs_dpitch_dt",28)==0) sensor_params.max_abs_dpitch_dt = ((float)atof(c+28))* (float)M_PI/180;
+            if (strncmp(c,"navigation_max_abs_dyaw_dt",26)==0) sensor_params.max_abs_dyaw_dt = ((float)atof(c+26))* (float)M_PI/180;
 			
             if (strncmp(c,"intensity_range_comp",20)==0) sensor_params.intensity_range_comp = 1;	
             if (strncmp(c,"intensity_aoi_comp",18)==0) sensor_params.intensity_aoi_comp = 1;	

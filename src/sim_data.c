@@ -67,10 +67,25 @@ uint32_t sim_georef_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, s
     float* tx_freq_out = &(outbuf->tx_freq);
     int* multiping_index_out = &(outbuf->multiping_index);
     int* multifreq_index_out = &(outbuf->multifreq_index);
+	
+	double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/
+	float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
+    float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
 
-    x[0] = posdata[pos_ix].x;
-    y[0] = posdata[pos_ix].y;
-    z[0] = posdata[pos_ix].z;
+    //Use timestamp from last nav data
+    double ts = posdata[pos_ix].ts;
+
+    if (calc_interpolated_nav_data( posdata, pos_ix, ts, /*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
+        return 0;
+    }
+
+	if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
+        return 0;
+    }
+
+    x[0] = nav_x;
+    y[0] = nav_y;
+    z[0] = nav_z;
     z_var[0] = 0.f;
     intensity[0] = 0.f;
     beam_range[0] = 0.f;
