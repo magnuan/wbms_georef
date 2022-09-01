@@ -336,6 +336,7 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
             navdata->roll *=(M_PI/180);
             navdata->pitch *=(M_PI/180);
             navdata->yaw *=(M_PI/180);
+            navdata->course *=(M_PI/180);
             navdata->alt -= aux_navdata->geoid_separation;
 
             //fprintf(stderr,"PROJ %s\n",proj?"true":"false");
