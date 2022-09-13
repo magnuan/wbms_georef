@@ -57,6 +57,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     float* tx_angle = &(data->tx_angle);
     float* sv = &(data->sv);
     float* tx_freq = &(data->tx_freq);
+    float* tx_bw = &(data->tx_bw);
     float* tx_voltage = &(data->tx_voltage);
     int*   multiping_index = &(data->multiping_index);
     int*   multifreq_index = &(data->multifreq_index);
@@ -105,6 +106,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case c: len += sprintf(&(outbuf[len]),"%8.3f",*sv);break;
                 
                 case freq: sprintf(&(outbuf[len]),"%11.3f",*tx_freq);break;
+                case bw: sprintf(&(outbuf[len]),"%11.3f",*tx_bw);break;
                 case voltage: sprintf(&(outbuf[len]),"%11.3f",*tx_voltage);break;
                 case multiping: sprintf(&(outbuf[len]),"%11d",*multiping_index);break;
                 case multifreq: sprintf(&(outbuf[len]),"%11d",*multifreq_index);break;
