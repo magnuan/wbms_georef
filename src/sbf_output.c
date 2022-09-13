@@ -129,8 +129,11 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     float* tx_angle = &(data->tx_angle);
     float* sv = &(data->sv);
     float* tx_freq = &(data->tx_freq);
+    float* tx_voltage = &(data->tx_voltage);
     int*   multiping_index = &(data->multiping_index);
     int*   multifreq_index = &(data->multifreq_index);
+    int*   ping_number = &(data->ping_number);
+    static int prev_ping_number;
 
 	char * dp = outbuf;
 	uint32_t ii,jj;
@@ -185,8 +188,11 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case c: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*sv)); dp+=4;break;
                 
                 case freq: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*tx_freq)); dp+=4;break;
+                case voltage: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*tx_voltage)); dp+=4;break;
                 case multiping: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*multiping_index)); dp+=4;break;
                 case multifreq: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*multifreq_index)); dp+=4;break;
+                case pingnumber: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*ping_number)); dp+=4;break;
+                case pingdiff: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*ping_number-prev_ping_number)); dp+=4;break;
 
                 case X: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->y-y_offset)); dp+=4;break;
                 case Y: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->x-x_offset)); dp+=4;break;
@@ -220,5 +226,6 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
             }
         }
     }
+    prev_ping_number = *ping_number;
     return dp-outbuf;    
 }

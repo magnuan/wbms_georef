@@ -293,6 +293,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     float* tx_angle_out = &(outbuf->tx_angle);
     float* sv_out = &(outbuf->sv);
     float* tx_freq_out = &(outbuf->tx_freq);
+    int* ping_number_out = &(outbuf->ping_number);
     //int* multiping_index_out = &(outbuf->multiping_index);
     int* multifreq_index_out = &(outbuf->multifreq_index);
 
@@ -456,6 +457,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 lower_gate_range[ix_out] = sensor_lg;
                 *tx_angle_out = sensor_el;
                 *multifreq_index_out = multifreq_index;
+                *ping_number_out = ping_number;
                 
                 float sin_az = sinf((sensor_az+sensor_az_tx2rx_corr));
                 float sin_el = sinf(sensor_el);

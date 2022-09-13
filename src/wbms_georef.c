@@ -387,8 +387,11 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  center_gate_dist :         cgate\n");
     fprintf(fp,"#  gate width :               gatew\n");
     fprintf(fp,"#  tx frequency :             freq\n");
+    fprintf(fp,"#  tx voltage :               voltage\n");
     fprintf(fp,"#  multiping index :          multiping\n");
     fprintf(fp,"#  multifreq index :          multifreq\n");
+    fprintf(fp,"#  ping number :              pingnumber\n");
+    fprintf(fp,"#  ping number diff:          pingdiff\n");
     fprintf(fp,"#  detection beam angle (electronic steering part):      steer\n");
     fprintf(fp,"#  detection beam tx angle:    el\n");
     fprintf(fp,"#  detection intensity value: val\n");

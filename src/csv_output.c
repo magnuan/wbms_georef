@@ -57,8 +57,11 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     float* tx_angle = &(data->tx_angle);
     float* sv = &(data->sv);
     float* tx_freq = &(data->tx_freq);
+    float* tx_voltage = &(data->tx_voltage);
     int*   multiping_index = &(data->multiping_index);
     int*   multifreq_index = &(data->multifreq_index);
+    int*   ping_number = &(data->ping_number);
+    static int prev_ping_number;
 
 	uint32_t ii,jj,len;
 	len = 0;
@@ -102,8 +105,11 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case c: len += sprintf(&(outbuf[len]),"%8.3f",*sv);break;
                 
                 case freq: sprintf(&(outbuf[len]),"%11.3f",*tx_freq);break;
+                case voltage: sprintf(&(outbuf[len]),"%11.3f",*tx_voltage);break;
                 case multiping: sprintf(&(outbuf[len]),"%11d",*multiping_index);break;
                 case multifreq: sprintf(&(outbuf[len]),"%11d",*multifreq_index);break;
+                case pingnumber: sprintf(&(outbuf[len]),"%11d",*ping_number);break;
+                case pingdiff: sprintf(&(outbuf[len]),"%11d",*ping_number-prev_ping_number);break;
                 
                 case LAT: len += sprintf(&(outbuf[len]),"%11.7f",pos->lat*180/M_PI);break;
                 case LON: len += sprintf(&(outbuf[len]),"%11.7f",pos->lon*180/M_PI);break;
@@ -127,6 +133,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
         }
         len += sprintf(&(outbuf[len]),"\n");
     }
+    prev_ping_number = *ping_number;
         
 	return len;
 }
