@@ -290,6 +290,8 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     //float* aoi = &(outbuf->aoi[0]);
     float* upper_gate_range = &(outbuf->up_gate[0]);
     float* lower_gate_range = &(outbuf->low_gate[0]);
+    float* quality = &(outbuf->quality[0]);
+    float* priority = &(outbuf->priority[0]);
     float* tx_angle_out = &(outbuf->tx_angle);
     float* sv_out = &(outbuf->sv);
     float* tx_freq_out = &(outbuf->tx_freq);
@@ -425,12 +427,12 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
             sensor_ug  += sensor_offset->r_err;
             sensor_lg  += sensor_offset->r_err;
 		
-                
+            uint8_t priority_flags = ((flags)>>9) & (0x0F);
         
             if (	(quality_flags >= sensor_params->min_quality_flag) && 
                     (quality_flags <= sensor_params->max_quality_flag) &&
-                    ((((flags)>>9) & (0x0F)) >= sensor_params->min_priority_flag) && 
-                    ((((flags)>>9) & (0x0F)) <= sensor_params->max_priority_flag) &&
+                    (priority_flags >= sensor_params->min_priority_flag) && 
+                    (priority_flags <= sensor_params->max_priority_flag) &&
                     (sensor_az > sensor_params->min_azimuth) && (sensor_az < sensor_params->max_azimuth) &&
                     (sensor_r > sensor_params->min_range) && (sensor_r < sensor_params->max_range) 
                ){
@@ -453,6 +455,8 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 float sensor_z_tx2rx_corr = z_vector[roll_index/2]; // Z correction is for half tx to rx time
                 
               
+                quality[ix_out] = (float) quality_flags;
+                priority[ix_out] = (float) priority_flags;
                 beam_number[ix_out] = ix_in;
                 beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis
                 beam_steer[ix_out] = sensor_az;

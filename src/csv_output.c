@@ -45,6 +45,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     float* z_var_val = &(data->z_var[0]);
     float* intensity_val = &(data->i[0]);
     float* quality_val = &(data->quality[0]);
+    float* priority_val = &(data->priority[0]);
     float* strength_val = &(data->strength[0]);
     float* range_val = &(data->range[0]);
     float* teta_val = &(data->teta[0]);
@@ -95,6 +96,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case el: len += sprintf(&(outbuf[len]),"%11.3f",(*tx_angle)*180/M_PI);break;
                 case val: len += sprintf(&(outbuf[len]),"%11.3f",intensity_val[ii]);break;
                 case quality: len += sprintf(&(outbuf[len]),"%11.3f",quality_val[ii]);break;
+                case priority: len += sprintf(&(outbuf[len]),"%11.3f",priority_val[ii]);break;
                 case strength: len += sprintf(&(outbuf[len]),"%11.3f",strength_val[ii]);break;
                 case swath_y: len += sprintf(&(outbuf[len]),"%11.3f",swath_y_val[ii]);break;
                 case aoi: len += sprintf(&(outbuf[len]),"%11.3f",aoi_val[ii]*180/M_PI);break;

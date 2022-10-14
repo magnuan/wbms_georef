@@ -117,6 +117,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     float* z_var_val = &(data->z_var[0]);
     float* intensity_val = &(data->i[0]);
     float* quality_val = &(data->quality[0]);
+    float* priority_val = &(data->priority[0]);
     float* strength_val = &(data->strength[0]);
     float* range_val = &(data->range[0]);
     float* teta_val = &(data->teta[0]);
@@ -175,6 +176,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case val: write_f32_unaligned_bswap((uint8_t*)dp,(float)(intensity_val[ii])); dp+=4;break;
                 case swath_y: write_f32_unaligned_bswap((uint8_t*)dp,(float)(swath_y_val[ii])); dp+=4;break;
                 case quality: write_f32_unaligned_bswap((uint8_t*)dp,(float)(quality_val[ii])); dp+=4;break;
+                case priority: write_f32_unaligned_bswap((uint8_t*)dp,(float)(priority_val[ii])); dp+=4;break;
                 case strength: write_f32_unaligned_bswap((uint8_t*)dp,(float)(strength_val[ii])); dp+=4;break;
                 
                 case cgate: write_f32_unaligned_bswap((uint8_t*)dp,(float)((range_val[ii]-0.5*(low_gate[ii]+up_gate[ii]))*200/(low_gate[ii]+up_gate[ii]))); dp+=4;break;

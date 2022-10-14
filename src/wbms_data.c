@@ -235,6 +235,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
      float* upper_gate_range = &(outbuf->up_gate[0]);
      float* lower_gate_range = &(outbuf->low_gate[0]);
      float* quality = &(outbuf->quality[0]);
+     float* priority = &(outbuf->priority[0]);
      float* strength = &(outbuf->strength[0]);
      float* tx_angle_out = &(outbuf->tx_angle);
      float* sv_out = &(outbuf->sv);
@@ -445,6 +446,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 
 	float inten;
     uint8_t quality_flags;
+    uint8_t priority_flags;
     uint16_t flags;
 
     //Calculate sounding positions in sonar reference frame at tx instant
@@ -568,6 +570,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             flags = bath_v8->dp[ix_in].flags;
             inten = bath_v8->dp[ix_in].intensity;
         }
+        priority_flags = ((flags)>>9) & (0x0F);
         sensor_r  += sensor_offset->r_err;
         sensor_ug  += sensor_offset->r_err;
         sensor_lg  += sensor_offset->r_err;
@@ -580,8 +583,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         //printf("sonar_min_quality_flag=%d, sensor_params->max_quality_flag=%d, sensor_params->min_priority_flag=%d, sensor_params->max_priority_flag=%d\n",sensor_params->min_quality_flag,sensor_params->max_quality_flag,sensor_params->min_priority_flag,sensor_params->max_priority_flag);
 		if (	(quality_flags >= sensor_params->min_quality_flag) && 
 				(quality_flags <= sensor_params->max_quality_flag) &&
-		        ((((flags)>>9) & (0x0F)) >= sensor_params->min_priority_flag) && 
-				((((flags)>>9) & (0x0F)) <= sensor_params->max_priority_flag) &&
+		        (priority_flags >= sensor_params->min_priority_flag) && 
+				(priority_flags <= sensor_params->max_priority_flag) &&
 				(sensor_az > sensor_params->min_azimuth) && (sensor_az < sensor_params->max_azimuth) &&
 				(sensor_r > sensor_params->min_range) && (sensor_r < sensor_params->max_range) 
 			){
@@ -598,6 +601,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             #else
                 quality[ix_out] = (float) quality_flags;
             #endif
+            priority[ix_out] = (float) priority_flags;
             *tx_angle_out = sensor_el;
 			
 			//Compensate intensity for range and AOI
