@@ -221,6 +221,7 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
     char str_buf[256];
     sprintf_unix_time(str_buf, ts);
     if(verbose) fprintf(stderr,"POS_MODE_POSMVdata gid=%d %s count=%d time1=%f time2=%f dist=%f timetype=%d disttype=%d cs=%d\n",gid,str_buf,count,time1,time2,dist,timetype,disttype,cs);
+    //if(gid==1 || gid==102) fprintf(stderr,"POS_MODE_POSMVdata gid=%d %s count=%d time1=%f time2=%f dist=%f timetype=%d disttype=%d cs=%d\n",gid,str_buf,count,time1,time2,dist,timetype,disttype,cs);
 
     switch (gid){
         default:
@@ -289,6 +290,10 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
             return NO_NAV_DATA;
         case 1:
         case 102:
+            //If group 1 data has been found in data steam, ignore all other navigation groups to prevent duplicate navigation
+            if ((group1_cnt>0) && (gid != 1)){
+                return NO_NAV_DATA;     
+            }
             if (gid==1){
                 group1_cnt++;
                 //Fill out navdata from posmv 1 data
