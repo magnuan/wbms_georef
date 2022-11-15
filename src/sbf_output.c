@@ -131,6 +131,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     float* sv = &(data->sv);
     float* tx_freq = &(data->tx_freq);
     float* tx_bw = &(data->tx_bw);
+    float* tx_plen = &(data->tx_plen);
     float* tx_voltage = &(data->tx_voltage);
     int*   multiping_index = &(data->multiping_index);
     int*   multifreq_index = &(data->multifreq_index);
@@ -192,6 +193,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 
                 case freq: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*tx_freq)); dp+=4;break;
                 case bw: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*tx_bw)); dp+=4;break;
+                case plen: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*tx_plen)); dp+=4;break;
                 case voltage: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*tx_voltage)); dp+=4;break;
                 case multiping: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*multiping_index)); dp+=4;break;
                 case multifreq: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*multifreq_index)); dp+=4;break;

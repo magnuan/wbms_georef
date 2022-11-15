@@ -241,6 +241,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
      float* sv_out = &(outbuf->sv);
      float* tx_freq_out = &(outbuf->tx_freq);
      float* tx_bw_out = &(outbuf->tx_bw);
+     float* tx_plen_out = &(outbuf->tx_plen);
      float* tx_voltage_out = &(outbuf->tx_voltage);
      int* ping_number_out = &(outbuf->ping_number);
      int* multiping_index_out = &(outbuf->multiping_index);
@@ -284,6 +285,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 	float sensor_z_tx2rx_corr;
     float tx_freq;
     float tx_bw;
+    float tx_plen;
     float tx_voltage;
     
     if (force_bath_version>0){
@@ -294,6 +296,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     if (bath_version < 5){
         tx_freq = bath->sub_header.tx_freq;
         tx_bw = bath->sub_header.tx_bw;
+        tx_plen = bath->sub_header.tx_len;
         tx_voltage = bath->sub_header.tx_voltage;
         tx_angle = bath->sub_header.tx_angle;
         Fs = bath->sub_header.sample_rate;
@@ -306,6 +309,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     else if (bath_version == 104){
         tx_freq = bath_v104->sub_header.tx_freq;
         tx_bw = bath_v104->sub_header.tx_bw;
+        tx_plen = bath_v104->sub_header.tx_len;
         tx_voltage = bath_v104->sub_header.tx_voltage;
         tx_angle = bath_v104->sub_header.tx_angle;
         Fs = bath_v104->sub_header.sample_rate;
@@ -318,6 +322,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     else if ((bath_version == 5) || (bath_version == 6)){
         tx_freq = bath_v5->sub_header.tx_freq;
         tx_bw = bath_v5->sub_header.tx_bw;
+        tx_plen = bath_v5->sub_header.tx_len;
         tx_angle = bath_v5->sub_header.tx_angle;
         tx_voltage = bath_v5->sub_header.tx_voltage;
         Fs = bath_v5->sub_header.sample_rate;
@@ -330,6 +335,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     else if (bath_version == 7){
         tx_freq = bath_v7->sub_header.tx_freq;
         tx_bw = bath_v7->sub_header.tx_bw;
+        tx_plen = bath_v7->sub_header.tx_len;
         tx_angle = bath_v7->sub_header.tx_angle;
         tx_voltage = bath_v7->sub_header.tx_voltage;
         Fs = bath_v7->sub_header.sample_rate;
@@ -342,6 +348,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     else {//if (bath_version == 8){
         tx_freq = bath_v8->sub_header.tx_freq;
         tx_bw = bath_v8->sub_header.tx_bw;
+        tx_plen = bath_v8->sub_header.tx_len;
         tx_angle = bath_v8->sub_header.tx_angle;
         tx_voltage = bath_v8->sub_header.tx_voltage;
         Fs = bath_v8->sub_header.sample_rate;
@@ -356,6 +363,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     *multifreq_index_out = multifreq_index;
     *tx_freq_out = tx_freq;
     *tx_bw_out = tx_bw;
+    *tx_plen_out = tx_plen;
     *tx_voltage_out = tx_voltage;
     *ping_number_out = ping_number;
 	float div_Fs = 1.f/Fs;

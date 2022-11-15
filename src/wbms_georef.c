@@ -388,6 +388,7 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  gate width :               gatew\n");
     fprintf(fp,"#  tx frequency :             freq\n");
     fprintf(fp,"#  tx bandwidth :             bw\n");
+    fprintf(fp,"#  tx pulselength :           plen\n");
     fprintf(fp,"#  tx voltage :               voltage\n");
     fprintf(fp,"#  multiping index :          multiping\n");
     fprintf(fp,"#  multifreq index :          multifreq\n");
