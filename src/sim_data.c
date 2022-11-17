@@ -46,7 +46,7 @@ int sim_identify_packet(char* databuffer, uint32_t len, double* ts_out, double t
 
 
 
-uint32_t sim_georef_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, offset_t* sensor_offset,/*OUTPUT*/ output_data_t* outbuf){
+uint32_t sim_georef_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, /*OUTPUT*/ output_data_t* outbuf){
     double* x = &(outbuf->x[0]);
     double* y = &(outbuf->y[0]);
     double* z = &(outbuf->z[0]);

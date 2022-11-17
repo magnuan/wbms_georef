@@ -26,6 +26,11 @@ typedef SSIZE_T ssize_t;
 
 static uint8_t verbose = 0;
 
+static offset_t* sensor_offset;
+
+void r7k_set_sensor_offset(offset_t* s){
+    sensor_offset = s;
+}
 
 
 uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types){
@@ -154,6 +159,10 @@ int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
     
 	r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
  	double ts = r7k_r7ktime_to_ts(&(drf->time));
+    // If record data is from sensor (sonar) add sensor time offset
+    if ( drf->record_id >= 7000  && drf->record_id < 8000){
+        ts += sensor_offset->time_offset;
+    }
 	*ts_out = ts;
 	//union r7k_RecordTypeHeader rth;
 	//rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (databuffer+4+(drf->offset));
@@ -195,7 +204,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
         navdata_collector.ts = ts;
         //New entry, still no navigation data 
 	    if (have_pos != have_attitude){
-            fprintf(stderr,"Dumping incomplete nav dataset\n");
+            if(verbose) fprintf(stderr,"Dumping incomplete nav dataset\n");
         }
         have_pos=0;
         have_attitude=0;	
@@ -216,7 +225,8 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			break;
 		case 1015:	// Navigation
 			have_pos = 1;
-			if (verbose>2) fprintf(stderr,"1015 Vert_ref=%d Lat=%f Lon=%f Height=%f Accuracy=%f, %f, SoG=%f, Cog=%f Heading=%f\n ", \
+			if (verbose>2 ) fprintf(stderr,"ts=%f 1015 Vert_ref=%d Lat=%f Lon=%f Height=%f Accuracy=%f, %f, SoG=%f, Cog=%f Heading=%f\n", \
+                    ts, \
 					rth.r1015->vert_ref,rth.r1015->lat*180/M_PI, rth.r1015->lon*180/M_PI, rth.r1015->height,  \
 					rth.r1015->hor_accuracy, rth.r1015->vert_accuracy, rth.r1015->speed_over_ground, rth.r1015->course_over_ground*180/M_PI, rth.r1015->heading*180/M_PI);
 
@@ -246,8 +256,9 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			break;
 		case 1016:	// Attitude
 			have_attitude = 1;
-			if (verbose>2) fprintf(stderr,"1016 t_off=%dms roll=%f pitch=%f heading=%f heave=%f\n"\
-			,rth.r1016->entry[0].t_off_ms,rth.r1016->entry[0].roll*180/M_PI,rth.r1016->entry[0].pitch*180/M_PI, rth.r1016->entry[0].heading*180/M_PI, rth.r1016->entry[0].heave);
+			if (verbose>2 ) fprintf(stderr,"ts=%f 1016 t_off=%dms roll=%f pitch=%f heading=%f heave=%f\n", \
+            ts, \
+			rth.r1016->entry[0].t_off_ms,rth.r1016->entry[0].roll*180/M_PI,rth.r1016->entry[0].pitch*180/M_PI, rth.r1016->entry[0].heading*180/M_PI, rth.r1016->entry[0].heave);
 			
 			navdata_collector.roll = rth.r1016->entry[0].roll;
 			navdata_collector.pitch = rth.r1016->entry[0].pitch;
@@ -269,14 +280,14 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
         memcpy(navdata, &navdata_collector, sizeof(navdata_t));
         have_pos=0;
         have_attitude=0;	
-
+        //fprintf(stderr,"Complete nav data at ts=%f\n",ts);
         return (proj?NAV_DATA_PROJECTED:NAV_DATA_GEO);
     }
     return NO_NAV_DATA;
 }
 
 
-uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, offset_t* sensor_offset, /*OUTPUT*/ output_data_t* outbuf){
+uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,  /*OUTPUT*/ output_data_t* outbuf){
     double* x = &(outbuf->x[0]);
     double* y = &(outbuf->y[0]);
     double* z = &(outbuf->z[0]);

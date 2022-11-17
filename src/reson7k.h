@@ -324,6 +324,7 @@ union r7k_RecordTypeHeader{
 
 #pragma pack()
 
+void r7k_set_sensor_offset(offset_t* s);
 uint8_t r7k_test_nav_file(int fd);
 uint8_t r7k_test_bathy_file(int fd);
 void r7k_calc_checksum(r7k_DataRecordFrame_t* drf);
@@ -333,6 +334,6 @@ int r7k_seek_next_header(int fd, /*out*/ uint8_t* pre_sync);
 int r7k_fetch_next_packet(char * data, int fd);
 int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out);
 int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata);
-uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, offset_t* sensor_offset, /*OUTPUT*/ output_data_t* outbuf);
+uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, /*OUTPUT*/ output_data_t* outbuf);
 
 #endif

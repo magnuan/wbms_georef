@@ -25,6 +25,12 @@
 
 static uint8_t verbose = 0;
 
+static offset_t* sensor_offset;
+
+void wbms_set_sensor_offset(offset_t* s){
+    sensor_offset = s;
+}
+
 /* Read some data from file, and verify if it is a valid file type.
    return 1 if file is a valid wbms bathy file
    return 0 if file is not a valid wbms bathy file
@@ -55,6 +61,7 @@ uint8_t wbms_test_file(int fd){
     free(data);
     return pass;
 }
+
 
 //#define PRINT_DROPPED_DATA
 
@@ -168,12 +175,12 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out){
                         wbms_bath_packet->sub_header.tx_angle*180/M_PI, 
                         str_buf);
 			}
-			*ts_out = wbms_bath_packet->sub_header.time;
+			*ts_out = wbms_bath_packet->sub_header.time+sensor_offset->time_offset;
 			#define GUESS_NEXT_WBMS_TS
 			#ifdef GUESS_NEXT_WBMS_TS
-			*ts_out = wbms_bath_packet->sub_header.time + (1./(wbms_bath_packet->sub_header.ping_rate));
+			*ts_out = wbms_bath_packet->sub_header.time+sensor_offset->time_offset + (1./(wbms_bath_packet->sub_header.ping_rate));
 			#else
-			*ts_out = wbms_bath_packet->sub_header.time;
+			*ts_out = wbms_bath_packet->sub_header.time+sensor_offset->time_offset;
 			#endif
 			return PACKET_TYPE_BATH_DATA;
 		case PACKET_TYPE_WATERCOL_DATA: 
@@ -219,8 +226,7 @@ int cmp_wbms_v104_dp_on_angle_func (const void * a, const void * b) {
 }
 
 
-
-uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, offset_t* sensor_offset,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
+uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
      double* x = &(outbuf->x[0]);
      double* y = &(outbuf->y[0]);
      double* z = &(outbuf->z[0]);

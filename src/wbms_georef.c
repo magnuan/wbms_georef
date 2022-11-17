@@ -847,7 +847,7 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
 		case sensor_mode_s7k:	
             id = r7k_identify_sensor_packet(databuffer, len, ts_out);
 	        //So far we only process s7k record 7027 for sensor  bathy data and 7610 for SV data
-            return ((id==7027) || (id==7610) || (id==7000));
+            return ((id==7027) || (id==7610) || (id==7000))?id:0;
 		case  sensor_mode_sim:
 			return sim_identify_packet(databuffer, len, ts_out, ts_in);
 		case sensor_mode_autodetect: //TODO fix this
@@ -986,6 +986,10 @@ int main(int argc,char *argv[])
 	output_format[0] = x; output_format[1] = y; output_format[2] = z; output_format[3] = val; output_format[4] = none;
 	
     sensor_params_default(&sensor_params);
+    
+    wbms_set_sensor_offset(&sensor_offset);
+    r7k_set_sensor_offset(&sensor_offset);
+    velodyne_set_sensor_offset(&sensor_offset);
 
 	/**** PARSING COMMAND LINE OPTIONS ****/
         while ((c = getopt (argc, argv, "c:i:s:p:P:S:F:w:y:o:?hVxC5")) != -1) {
@@ -1442,19 +1446,20 @@ int main(int argc,char *argv[])
 		
     //If bathy data is available fetch and process a bathy data packet to get time  (TODO for velodyne we need navigation time before sensor data is processed, as it does not send full time)
     if (input_sensor_source != i_none){ 
-        sensor_data_buffer_len = sensor_fetch_next_packet(sensor_data_buffer, input_sensor_fd, sensor_mode);
+        //Find first usable packet in stream
+        while (1){
+            sensor_data_buffer_len = sensor_fetch_next_packet(sensor_data_buffer, input_sensor_fd, sensor_mode);
+            if (sensor_data_buffer_len==0) break;
 
-        
-        //fprintf(stderr,"sensor_fetch_next_packet = %d\n",sensor_data_buffer_len);
-
-        if (sensor_data_buffer_len){
-            sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &ts_sensor, sensor_mode);
-            ts_sensor += sensor_offset.time_offset;
-            time_t raw_time = (time_t) ts_sensor;
-            fprintf(stderr,"First sensor data time: ts=%0.3f %s  ",ts_sensor,ctime(&raw_time));
-            //When using SBET navigation data, we need to set epoch to start of month, base this on first sensor timestamp 
-            if (pos_mode == pos_mode_sbet){ 
-                set_sbet_epoch(ts_sensor);
+            if ( sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &ts_sensor, sensor_mode)){
+                //ts_sensor += sensor_offset.time_offset;
+                time_t raw_time = (time_t) ts_sensor;
+                fprintf(stderr,"First sensor data time: ts=%0.3f %s  ",ts_sensor,ctime(&raw_time));
+                //When using SBET navigation data, we need to set epoch to start of month, base this on first sensor timestamp 
+                if (pos_mode == pos_mode_sbet){
+                    set_sbet_epoch(ts_sensor);
+                }
+                break;
             }
         }
         if (input_sensor_source==i_file) fseek(input_sensor_fileptr, 0, SEEK_SET); //Rewind
@@ -1700,25 +1705,29 @@ int main(int argc,char *argv[])
 				if (sensor_data_buffer_len){
 					sensor_total_data += sensor_data_buffer_len;
 					sensor_total_packets++;
-					new_sensor_data = sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &ts_sensor, sensor_mode);
-					ts_sensor += sensor_offset.time_offset;
+                    double new_ts_sensor;
+					new_sensor_data = sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &new_ts_sensor, sensor_mode);
+					//ts_sensor += sensor_offset.time_offset;
 				    //if(new_sensor_data) fprintf(stderr,"new_sensor_data = %d\n", new_sensor_data);
-			
+                    //fprintf(stderr,"Ts_sensor = %f, Ts_pos =%f\n",ts_sensor, ts_pos);
+
+		
 
 					if (new_sensor_data){ 
+                        ts_sensor = new_ts_sensor;
                         if(navdata_count > NAVDATA_BUFFER_LEN){ //Need a full buffer before we can start doing georeferencing
                             switch (sensor_mode){
                                 case sensor_mode_wbms: case sensor_mode_wbms_v5:
-                                    datapoints = wbms_georef_data( (bath_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, &sensor_offset, outbuf, force_bath_version);
+                                    datapoints = wbms_georef_data( (bath_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf, force_bath_version);
                                     break;
                                 case sensor_mode_sim:
-                                    datapoints = sim_georef_data( navdata, navdata_ix,  &sensor_params, &sensor_offset, outbuf);
+                                    datapoints = sim_georef_data( navdata, navdata_ix,  &sensor_params, outbuf);
                                     break;
                                 case sensor_mode_velodyne:
-                                    datapoints = velodyne_georef_data( (uint16_t *) sensor_data_buffer, navdata, navdata_ix, &sensor_params, &sensor_offset,        outbuf);
+                                    datapoints = velodyne_georef_data( (uint16_t *) sensor_data_buffer, navdata, navdata_ix, &sensor_params,         outbuf);
                                     break;
                                 case sensor_mode_s7k:
-                                    datapoints = s7k_georef_data( sensor_data_buffer, navdata, navdata_ix, &sensor_params, &sensor_offset,                          outbuf);
+                                    datapoints = s7k_georef_data( sensor_data_buffer, navdata, navdata_ix, &sensor_params,                          outbuf);
                                     break;
                                 default:
                                     datapoints = 0;

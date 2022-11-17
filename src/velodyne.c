@@ -22,6 +22,12 @@
 
 static uint8_t verbose = 0;
 
+static offset_t* sensor_offset;
+
+void velodyne_set_sensor_offset(offset_t* s){
+    sensor_offset = s;
+}
+
 uint8_t velodyne_test_file(int fd){
     uint8_t pass=0;
     char* data = malloc(VELODYNE_LIDAR_PACKET_SIZE);
@@ -95,6 +101,7 @@ int velodyne_identify_packet(char* databuffer, uint32_t len, double* ts_out, dou
 	if ((lidar_ts<-1.) || (lidar_ts>3601.)) return 0;
     lidar_ts += (floor((ts_in)/(3600)))*3600;			/* Adding number of hours since UNIX epoch */
 	if((lidar_ts-(ts_in))>(1800.)) lidar_ts -= 3600.;	/* If lidar_ts now is more than 30 min ahead of pos_ts, we probably had lidar right before hour mark when pos passed, subtract one hour*/
+    lidar_ts += sensor_offset->time_offset;
 	*ts_out = lidar_ts; 
 
 	if (len != 1206){
@@ -113,7 +120,7 @@ int velodyne_identify_packet(char* databuffer, uint32_t len, double* ts_out, dou
 
 
 #define LIDAR_DP (16*2*12)
-uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, offset_t* sensor_offset,/*OUTPUT*/  output_data_t* outbuf){
+uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, /*OUTPUT*/  output_data_t* outbuf){
      double* x = &(outbuf->x[0]);
      double* y = &(outbuf->y[0]);
      double* z = &(outbuf->z[0]);
