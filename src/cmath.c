@@ -334,6 +334,7 @@ void lin_fit(const float* x, const float* y, size_t N, float* a, float* b){
 ******************************************************************************/
 
 //Assumes x_in and x_out to be sorted (non-decreasing order)
+
 int non_uniform_1order_savgol(const float* x_in, const float* y_in, const size_t len_in, const float* x_out, float* y_out, const size_t len_out, const float flen){
    
     float* xx = (float*) malloc(len_in*sizeof(float));
@@ -348,6 +349,7 @@ int non_uniform_1order_savgol(const float* x_in, const float* y_in, const size_t
         xx[ix] = x_in[ix] * x_in[ix]; 
         xy[ix] = x_in[ix] * y_in[ix]; 
     }
+    //printf("non_uniform_1order_savgol\n");
     //For each output value
     size_t cix_in = 0;      //Center index in input array, index which x value is closest to x_out[ix_out]
     for(size_t ix_out = 0; ix_out < len_out; ix_out++){
@@ -368,23 +370,27 @@ int non_uniform_1order_savgol(const float* x_in, const float* y_in, const size_t
         }
     
         //Do linfit over section
-        float A = (float)(pix_in-six_in); //Number of samples in linfit
-        float B=0,C=0,D=0,E=0;
+        double A = (double)(pix_in-six_in); //Number of samples in linfit
+        double B=0;
+        double C=0;
+        double D=0;
+        double E=0;
         for (size_t ix=six_in ; ix<pix_in ; ix++){
             B += xx[ix];
             C += x[ix];
             D += y[ix];
             E += xy[ix];
         }
-        float Qdet = A*B-C*C;
-        float aa = A*E-C*D;
-        float bb = B*D-C*E;
+        double Qdet = A*B-C*C;
+        double aa = A*E-C*D;
+        double bb = B*D-C*E;
         if(Qdet==0) Qdet = 1;
-        float a = aa/Qdet;
-        float b = bb/Qdet;
+        double a = aa/Qdet;
+        double b = bb/Qdet;
         
         //Calculate output value from linfit model
         y_out[ix_out] = a*x_out[ix_out] + b;
+        //printf("x=%6.3f  n=%ld a=%6.3f, b=%6.3f AA=%f BB=%f Qdet=%f A=%f, B=%f, C=%f, D=%f, E=%f\n",x_out[ix_out],pix_in-six_in,a,b,aa,bb,Qdet,A,B,C,D,E);
     }
     return 0;
 }
