@@ -225,6 +225,30 @@ int cmp_wbms_v104_dp_on_angle_func (const void * a, const void * b) {
 	return ( dp_a->angle - dp_b->angle )>0?1:-1;
 }
 
+/***************************************************************************//**
+* @brief        Calculate rx angle correction to compensate for sonar tx and rx beam intersecting as two cones, while we wnat to output angles in polar coordinates
+* @param[in]    azimuth             rx angle in radians
+* @param[in]    elevation           tx angle in radians
+* @param[in]    steer               rx angle (phased array steered part) in radians
+*
+* @return difference from corrected azimuth angle
+*
+******************************************************************************/
+static float calc_sonar_to_cp_corrections(float azimuth, float elevation, float steer){
+    //See assembla ticket #1725
+    float az,az1,az2,el,cos_el,sin2_el, sin_az2, sin2_az2;
+    el = elevation;
+    cos_el = cos(el);
+    sin2_el = sin(el); sin2_el*=sin2_el;
+
+    az = azimuth;                            //Total azimuth steering
+    az2 = steer;                            //Steering done by phase shifting array
+    az1 = az-az2;                                //Steering done by physically shifting array
+    sin_az2= sin(az2);
+    sin2_az2 = sin_az2*sin_az2;
+    return  asin ( ( cos(az1)*sin_az2 + sin(az1)*sqrt(1-sin2_az2-sin2_el) )/cos_el )-az;
+}
+
 
 uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
      double* x = &(outbuf->x[0]);
@@ -589,6 +613,11 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         sensor_ug  += sensor_offset->r_err;
         sensor_lg  += sensor_offset->r_err;
 
+
+        //#define STX_GEOM_COR
+        #ifdef STX_GEOM_COR
+        sensor_az += calc_sonar_to_cp_corrections(sensor_az,sensor_el,sensor_elec_steer);
+        #endif
         
         // Add correction for roll during tx2rx period for each beam individually
         sensor_az_tx2rx_corr = -roll_vector[(size_t) round(sensor_t*ROLL_VECTOR_RATE)]; //Roll is given in opposite angles than sonar azimuth
