@@ -18,6 +18,8 @@ typedef SSIZE_T ssize_t;
 #endif
 
 #define INTERPOL_COR_TABLE
+//#define PYTHON_PRINTOUT
+
 
 static int ray_bend_valid=0;
 static int ray_bend_invalid=0;
@@ -198,9 +200,9 @@ static int read_sv_from_file(char* fname, sv_meas_t* sv_meas_out, const size_t m
 	return (int) count_out;
 }
 
-static int calc_dr_dt_rev_hovem(float xi,float c0,float c1,float dz,float* dr, float* dt){
+static int calc_dr_dt_rev_hovem(double xi,double c0,double c1,double dz,float* dr, float* dt){
 	double si0,si1;
-    float g,a,b,h;
+    double g,a,b,h;
 
 	if(xi==0) return 1;					// Zero ray parameter case,initial beam horizontal, soundings with this, should be scrapped
 	si0 = (1- (xi*xi*c0*c0 )); 				// = (1-cos2(teta0)) = sin2(teta0)  +: beam goes vertically down through the layer, 0: beam goes parallell with layer, -: beam can not exist in layer
@@ -214,16 +216,16 @@ static int calc_dr_dt_rev_hovem(float xi,float c0,float c1,float dz,float* dr, f
 		b=sqrtf(1-(a*a));	//sin(teta)
 		h = dz / (b/a);	
 		*dr = h;			//dr = dz/tan(teta)
-		*dt = (float)(sqrt( dz*dz + h*h))/c0;
+		*dt = (double)(sqrt( dz*dz + h*h))/c0;
 		return 0;
 	}
 	//Since we now have checked out cases where si0 or si1 is zero or negative, we can do this, to get sin(teta0) and sin(teta1), sin of beam angle entering and exiting layer
 	si0 = sqrt(si0);
 	si1 = sqrt(si1);
 	//Here is the calulation of dr for a beam passing through the layer, assumning a constant radius curve
-	*dr = (float)(si0 - si1) / (xi*g);
+	*dr = (double)(si0 - si1) / (xi*g);
 	//Here is the calulation of dt for a beam passing through the layer, assumning a constant radius curve
-	*dt = (float)fabs(log((double)(c1/c0)* ((1+si0)/(1+si1))) / (double)g);
+	*dt = (double)fabs(log((double)(c1/c0)* ((1+si0)/(1+si1))) / (double)g);
 	return 0;
 }
 
@@ -231,7 +233,9 @@ static int calc_dr_dt_rev_hovem(float xi,float c0,float c1,float dz,float* dr, f
 #define MAX_SV_MEAS  2048
 
 //Resolution and length of depth axis of correction table
-#define DZ 0.25f				
+// TODO dynamically calculate DZ based on sv table range
+//#define DZ 0.25f				
+static float DZ = 0.25f;
 #define NZ 400
 //Resolution and length of start-angle axis of correction table
 // angle is 0 defined deg for horizontal and 90 deg for nadir
@@ -320,6 +324,14 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
 		sv_meas[ii].depth -= sonar_depth;
 	}
 
+    float max_depth = 0;
+	for (ii = 0;ii<sv_meas_len;ii++){
+		max_depth = max_depth > sv_meas[ii].depth ? max_depth:sv_meas[ii].depth;
+	}
+	fprintf(stderr, "Max depth in SV profile file = %f\n", max_depth);
+    DZ = 1.5*max_depth/NZ; // Extrapolating SV profile to 150% of measured data
+
+
 	fprintf(stderr, "Resample sv readings to sv table 0 - %fm dz=%f\n", NZ*DZ,DZ);
 	for(ix=0;ix<NZ;ix++){
 		depth = (float)ix*DZ;
@@ -355,9 +367,9 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
         //Index of initial sound velocity, initial angle and true depth in table
         int cix, aix, zix ; 
         //Value of initial/observed sound velocity and angle in table
-        float c,a_obs;
+        double c,a_obs;
         //Value of ray parameter
-        float xi;
+        double xi;
         //dr (horizontal distance) per depth layer 
         float dr[NZ];
         //dt (propagation time) per depth layer 
@@ -366,10 +378,10 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
         int	invalid[NZ];
 
         for(cix = 0;cix<NC;cix++){
-            c = MINIMUM_C+ (float)cix*DC;
+            c = MINIMUM_C+ (double)cix*DC;
             for(aix = 0;aix<NANGLE;aix++){
-                a_obs = (float)aix*DANGLE;
-                xi = cosf(a_obs)/c;				//Ray parameter for beam, based on initial pointing angle and sound velocity
+                a_obs = (double)aix*DANGLE;
+                xi = cos(a_obs)/c;				//Ray parameter for beam, based on initial pointing angle and sound velocity
                 //First we calculate dr and dt for every z-layer for given beam
                 for(zix = 0;zix<(NZ-1);zix++)
                     invalid[zix] = calc_dr_dt_rev_hovem(xi,sv_table[zix],sv_table[zix+1],DZ,&(dr[zix]), &(dt[zix]));
@@ -378,25 +390,25 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
                 corr_range[cix][aix][0] = 0;
                 corr_angle[cix][aix][0] = 0;
                 // r_true (true horizontal distance for a sounding, bouncing of at true depth given by index
-                float r_true = 0;
+                double r_true = 0;
                 // t_obs (observed time delay for a sounding, bouncing of at true depth given by index 
-                float t_obs = 0;
+                double t_obs = 0;
                 int prev_zobs_ix = 0;
                 for(zix = 1;zix<NZ;zix++){      //Iterate over true depth 
                     //Accumulate dr to get true horizontal range
                     r_true += dr[zix-1];
                     //Accumulate dt to get observed one way travel time
                     t_obs += dt[zix-1];
-                    float z_true = zix*DZ;
+                    double z_true = zix*DZ;
                     // d_true, a_true (true distance and angle for a sounding, bouncing of at true depth given by index
-                    float d_true = sqrtf(r_true*r_true + z_true*z_true);
-                    float a_true = atan2f(z_true,r_true);
+                    double d_true = sqrt(r_true*r_true + z_true*z_true);
+                    double a_true = atan2(z_true,r_true);
                     // d_obs, observed distance to sounding, based on observed sound velocity, and observed travel time
-                    float d_obs = c * t_obs;
+                    double d_obs = c * t_obs;
                     // z_obs, obseved depth of sounding
-                    float z_obs = d_obs*sinf(a_obs);
+                    double z_obs = d_obs*sin(a_obs);
                     //zix, is index of true z value, while what we are going to do lookup with, is observed z value. So we need reindex 
-                    int zobs_ix = (int) roundf(z_obs/DZ);
+                    int zobs_ix = (int) round(z_obs/DZ);
                     zobs_ix = LIMIT(zobs_ix,0,NZ-1);
                     //Fill out all indexes from previous to this with calculated corrections (to avoid gaps)
                     for (int zz=prev_zobs_ix; zz<=zobs_ix; zz++){
@@ -409,10 +421,103 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
                         prev_zobs_ix=zobs_ix+1;
                     }
                 }
+                // For the remaining part, the zobs not covered by ztrue, just fill in with last value
+                for (int zz=zz=prev_zobs_ix;zz<NZ; zz++){
+                        corr_range[cix][aix][zz] = corr_range[cix][aix][prev_zobs_ix-1];
+                        corr_angle[cix][aix][zz] = corr_angle[cix][aix][prev_zobs_ix-1];
+                        corr_invalid[cix][aix][zz] = 1;//corr_invalid[cix][aix][prev_zobs_ix-1]; //TODO This (literal) corner case, could perhaps just be set to extrapolate the valid flag as well, now it is just set to invalid. 
+                }
             }
         }
         dilate_invalid_table_for_interpolation();
     }
+	
+    #ifdef PYTHON_PRINTOUT
+	// Python print resampled sv table
+    fprintf(stderr,"################ CUT START ##############\n");
+    fprintf(stderr,"import numpy as np\n");
+    fprintf(stderr,"import matplotlib.pyplot as plt\n");
+    fprintf(stderr,"c=np.asarray([");
+    int cix_sel = round( (1480.-MINIMUM_C)/DC);
+    for(int cix = cix_sel;cix<=cix_sel;cix++){
+        fprintf(stderr,"%6.2f,", MINIMUM_C+ (float)cix*DC);
+    }
+    fprintf(stderr,"])\n");
+    
+    fprintf(stderr,"z=np.asarray([");
+    for(int zix = 1;zix<NZ;zix++){
+        fprintf(stderr,"%6.2f,", (float)zix*DZ);
+    }
+    fprintf(stderr,"])\n");
+    
+    fprintf(stderr,"angle=np.asarray([");
+    for(int aix = 0;aix<NANGLE;aix++){
+        fprintf(stderr,"%6.3f,", (float)aix*DANGLE);
+    }
+    fprintf(stderr,"])\n");
+
+    fprintf(stderr,"corr_angle=np.asarray([");
+    for(int cix = cix_sel;cix<=cix_sel;cix++){
+        fprintf(stderr,"[");
+        for(int aix = 0;aix<NANGLE;aix++){
+            fprintf(stderr,"[");
+            for(int zix = 1;zix<NZ;zix++){      //Iterate over true depth 
+                fprintf(stderr,"%5.3f,",corr_angle[cix][aix][zix]);
+            }
+            fprintf(stderr,"],");
+        }
+        fprintf(stderr,"],");
+    }
+    fprintf(stderr,"])\n");
+    
+    fprintf(stderr,"corr_range=np.asarray([");
+    for(int cix = cix_sel;cix<=cix_sel;cix++){
+        fprintf(stderr,"[");
+        for(int aix = 0;aix<NANGLE;aix++){
+            fprintf(stderr,"[");
+            for(int zix = 1;zix<NZ;zix++){      //Iterate over true depth 
+                fprintf(stderr,"%5.3f,",corr_range[cix][aix][zix]);
+            }
+            fprintf(stderr,"],");
+        }
+        fprintf(stderr,"],");
+    }
+    fprintf(stderr,"])\n");
+    
+    fprintf(stderr,"corr_invalid=np.asarray([");
+    for(int cix = cix_sel;cix<=cix_sel;cix++){
+        fprintf(stderr,"[");
+        for(int aix = 0;aix<NANGLE;aix++){
+            fprintf(stderr,"[");
+            for(int zix = 1;zix<NZ;zix++){      //Iterate over true depth 
+                fprintf(stderr,"%d,",corr_invalid[cix][aix][zix]);
+            }
+            fprintf(stderr,"],");
+        }
+        fprintf(stderr,"],");
+    }
+    fprintf(stderr,"])\n");
+
+    fprintf(stderr,"## Angles here are in radians relative to horiziont. We want degrees relative to nadir, as that os the 'normal' convention used here.\n");
+    fprintf(stderr,"angle= 90 - np.rad2deg(angle[::-1])\n");
+    fprintf(stderr,"corr_angle= np.rad2deg(-corr_angle[:,::-1,:])\n");
+    fprintf(stderr,"corr_range= corr_range[:,::-1,:]\n");
+    fprintf(stderr,"corr_invalid= corr_invalid[:,::-1,:]\n");
+
+    fprintf(stderr,"ax1=plt.subplot(3,1,1)\n");
+    fprintf(stderr,"ax1.imshow(corr_angle[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='seismic',vmin=-5, vmax=5)\n");
+    fprintf(stderr,"ax1.set_title('Angle correction c=%%0.2fm/s'%%(c[0]))\n");
+    fprintf(stderr,"ax2=plt.subplot(3,1,2)\n");
+    fprintf(stderr,"ax2.imshow(corr_range[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='seismic',vmin=-0.1, vmax=0.1)\n");
+    fprintf(stderr,"ax2.set_title('Range correction')\n");
+    fprintf(stderr,"ax3=plt.subplot(3,1,3)\n");
+    fprintf(stderr,"ax3.imshow(corr_invalid[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='binary',vmin=0, vmax=1)\n");
+    fprintf(stderr,"ax3.set_title('Correction valid')\n");
+    fprintf(stderr,"plt.show()\n");
+    fprintf(stderr,"################ CUT END ##############\n");
+
+	#endif
+
 	has_corr = 1;
 	return 0;
 }
