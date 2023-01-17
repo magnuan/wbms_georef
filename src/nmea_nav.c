@@ -176,7 +176,7 @@ int nmea_nav_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, 
             //New entry, still no navigation data 
             if (have_pos || have_attitude || have_heading){
                 if (! (have_pos && have_attitude && have_heading) ){
-                    fprintf(stderr,"Dumping incomplete nav dataset\n");
+                    //fprintf(stderr,"Dumping incomplete nav dataset\n");
                 }
             }
             have_pos=0;

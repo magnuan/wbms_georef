@@ -87,7 +87,7 @@ double posmv_time_to_unix_time(double time1,double time2,uint8_t timetype){
 
 
 #define POSMV_BUFFER_SIZE (MAX_POSMV_PACKET_SIZE+4)
-int buffered_read(int fd, void* data, int len){
+static int buffered_read(int fd, void* data, int len){
     static uint8_t buffer[POSMV_BUFFER_SIZE];
     static uint8_t* buf_ptr;
     static int available = 0;
