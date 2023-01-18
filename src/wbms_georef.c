@@ -868,11 +868,11 @@ enum input_source_e {i_none=0,i_tcp=1,i_udp=2, i_stdin=3, i_file=4, i_zero=5,i_s
 enum output_drain_e {o_file,o_tcp,o_udp, o_stdout};
 
 static const char *input_source_names[] = {
-	"File",
+	"None",
 	"TCP",
 	"UDP",
 	"stdin",
-	"None",
+	"File",
 	"zero",
 	"sim",
 };
@@ -1445,16 +1445,18 @@ int main(int argc,char *argv[])
 	}
 
 	if (verbose){
-		fprintf(stderr,"Posmv source = %s, Sensor source = %s \n",input_source_names[input_navigation_source], input_source_names[input_sensor_source]);
+		fprintf(stderr,"Posmv source = %d: %s, Sensor source = %d: %s \n",input_navigation_source, input_source_names[input_navigation_source],input_sensor_source,  input_source_names[input_sensor_source]);
 	}
 		
     //If bathy data is available fetch and process a bathy data packet to get time  (TODO for velodyne we need navigation time before sensor data is processed, as it does not send full time)
-    if (input_sensor_source != i_none){ 
+    if (input_sensor_source != i_none  && input_sensor_source != i_sim){ 
         //Find first usable packet in stream
         while (1){
             sensor_data_buffer_len = sensor_fetch_next_packet(sensor_data_buffer, input_sensor_fd, sensor_mode);
+            //fprintf(stderr,"sensor_data_buffer_len = %d\n", sensor_data_buffer_len);
             if (sensor_data_buffer_len==0) break;
 
+            //printf("sensor_identify_packet(sensor_data_buffer,%d,%f,%f)\n", sensor_data_buffer_len,ts_pos,ts_sensor);
             if ( sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &ts_sensor, sensor_mode)){
                 //ts_sensor += sensor_offset.time_offset;
                 time_t raw_time = (time_t) ts_sensor;
