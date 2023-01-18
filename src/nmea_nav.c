@@ -161,12 +161,14 @@ int nmea_nav_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, 
 		return NO_NAV_DATA;	
 
     nmea_sentence_id_e id = (nmea_sentence_id_e) nmea_nav_identify_sensor_packet(databuffer,len, &ts);
+    //fprintf(stderr,"nmea_nav_process_nav_packet ts = %f\n",ts);
 	
-    *ts_out = ts;
 
 	//So far we only process nmea_nav record 1015 and 1016 for navigation
 	if (id == nmea_id_unknown)
 		return NO_NAV_DATA;	
+    
+    *ts_out = ts;
 
     // The data collector needs to collect one set of posision and one set of attitude data with same timestamp
     // to generate a navigation out entry. 
