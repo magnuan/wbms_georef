@@ -61,7 +61,7 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
             case LAT: len += sprintf(&(outbuf[len]),"\"latitude\":%1.7f",pos->lat*180/M_PI);break;
             case LON: len += sprintf(&(outbuf[len]),"\"longitude\":%1.7f",pos->lon*180/M_PI);break;
             case X: len += sprintf(&(outbuf[len]),"\"X\":%1.3f",pos->y);break;
-            case Y: len += sprintf(&(outbuf[len]),"\"Y\";%1.3f",pos->x);break;
+            case Y: len += sprintf(&(outbuf[len]),"\"Y\":%1.3f",pos->x);break;
             case Z: len += sprintf(&(outbuf[len]),"\"Z\":%1.3f",-pos->z);break;
             case ALTITUDE: len += sprintf(&(outbuf[len]),"\"altitude\":%1.3f",-pos->z);break;
             case HOR_ACC: len += sprintf(&(outbuf[len]),"\"hdop\":%1.3f",aux_navdata->hor_accuracy);break;
