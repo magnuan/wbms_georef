@@ -618,6 +618,12 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         #ifdef STX_GEOM_COR
         sensor_az += calc_sonar_to_cp_corrections(sensor_az,sensor_el,sensor_elec_steer);
         #endif
+            
+        #ifdef FORCE_MULTIDETECT_TO_QUALITY3
+        if (priority_flags==1 || priority_flags ==2){
+            quality_flags = 3;
+        }
+        #endif
         
         // Add correction for roll during tx2rx period for each beam individually
         sensor_az_tx2rx_corr = -roll_vector[(size_t) round(sensor_t*ROLL_VECTOR_RATE)]; //Roll is given in opposite angles than sonar azimuth

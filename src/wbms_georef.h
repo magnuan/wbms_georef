@@ -16,6 +16,8 @@ typedef enum  {none=0, t,c, x,y,z,z_var, z_stddev,range, teta,steer,beam,el,val,
 
 #define PROJ_STR_MAGIC_NUMBER (0x207274736a6f7270)
 
+#define FORCE_MULTIDETECT_TO_QUALITY3 
+
 typedef enum {detection=0, upper_gate=1, lower_gate=2, center_gate=3} sonar_sample_mode_e;
 typedef enum {ray_trace_none=0, ray_trace_fixed_depth_lut=1, ray_trace_fixed_depth_direct=2, ray_trace_var_depth=3} ray_tracing_mode_e;
 

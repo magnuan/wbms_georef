@@ -439,6 +439,12 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
             sensor_lg  += sensor_offset->r_err;
 		
             uint8_t priority_flags = ((flags)>>9) & (0x0F);
+
+            #ifdef FORCE_MULTIDETECT_TO_QUALITY3
+            if (priority_flags==1 || priority_flags ==2){
+                quality_flags = 3;
+            }
+            #endif
         
             if (	(quality_flags >= sensor_params->min_quality_flag) && 
                     (quality_flags <= sensor_params->max_quality_flag) &&
@@ -517,6 +523,9 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 //prev_sensor_r = sensor_r;
                 //prev_sensor_az = sensor_az;
             }
+            /*else{
+                fprintf(stderr,"Filter out data from s7k qf=%d, pf=%d az=%.2f r=%.3f\n",quality_flags,priority_flags,sensor_az*180/M_PI, sensor_r);
+            }*/
         }
         Nout = ix_out;
 
