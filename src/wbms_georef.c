@@ -278,6 +278,8 @@ void generate_template_config_file(char* fname){
 	fprintf(fp, "# Limits wrt swath nadir\n");
 	fprintf(fp,"sensor_swath_min_y -1000\n");
 	fprintf(fp,"sensor_swath_max_y 1000\n\n");
+	fprintf(fp, "# Decimate sensor data\n");
+	fprintf(fp,"# sensor_decimate 1\n");
             
 
     fprintf(fp,"#### NAVIGATION DATA FILTERS ####\n");
@@ -450,6 +452,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->calc_aoi = 0;
     s->sonar_sample_mode = detection;
     s->ray_tracing_mode = ray_trace_fixed_depth_lut;
+    s->decimate = 1;
 
     s->max_abs_roll=0;
     s->max_abs_pitch=0;
@@ -582,6 +585,7 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"intensity_aoi_comp",18)==0) sensor_params.intensity_aoi_comp = 1;	
             if (strncmp(c,"calc_aoi",8)==0) sensor_params.calc_aoi = 1;	
             if (strncmp(c,"force_bath_version",18)==0) force_bath_version = (atoi(c+18));	
+            if (strncmp(c,"sensor_decimate",15)==0) sensor_params.decimate = (atoi(c+15));	
             
             if (strncmp(c,"sim_data_period",15)==0) sim_data_period = ((float)atof(c+15));	
 			
@@ -779,10 +783,13 @@ int process_nav_data_packet(char* databuffer, uint32_t len, double ts_in, double
 
 
 
-uint8_t sensor_test_file(int fd, sensor_mode_e mode){
+uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version){
+    if(version){
+        *version = -1;
+    }
     switch (mode){
         case  sensor_mode_wbms: case sensor_mode_wbms_v5:
-            return wbms_test_file(fd);
+            return wbms_test_file(fd,version);
         case  sensor_mode_sim:
             return 1;
         case sensor_mode_velodyne:
@@ -799,19 +806,21 @@ uint8_t sensor_test_file(int fd, sensor_mode_e mode){
 
 sensor_mode_e sensor_autodetect_file(FILE* fp){
     int fd = fileno(fp);
+    int version;
     sensor_mode_e ret = sensor_mode_unknown;
 
     for (sensor_mode_e mode=sensor_mode_wbms; mode<=sensor_mode_s7k;mode++){
         //fprintf(stderr,"Testing sensor file in mode %s\n", sensor_mode_names[mode]);
         if(mode==sensor_mode_sim) continue;
-        if (sensor_test_file(fd,mode)){
+        if (sensor_test_file(fd,mode,&version)){
             ret = mode;
             break;
         }
         fseek(fp,0,SEEK_SET);
     }
     fseek(fp,0,SEEK_SET);
-    fprintf(stderr,"Autodetecting sensor file to mode: %s\r\n",sensor_mode_names[ret]);			
+    fprintf(stderr,"Autodetecting sensor file to mode: %s version %d\r\n",sensor_mode_names[ret],version);			
+
     return ret;
 
 }
@@ -845,7 +854,7 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
     int id;
 	switch (mode){
 		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
-			return wbms_identify_packet(databuffer, len, ts_out);
+			return wbms_identify_packet(databuffer, len, ts_out, NULL);
 		case sensor_mode_velodyne:
 			return velodyne_identify_packet(databuffer, len, ts_out, ts_in);
 		case sensor_mode_s7k:	
@@ -1332,8 +1341,9 @@ int main(int argc,char *argv[])
             }
 			if(input_sensor_fileptr>0){
 				input_sensor_fd = fileno(input_sensor_fileptr);
-				if (sensor_test_file(input_sensor_fd,sensor_mode)){
-					/*if(verbose)*/ fprintf(stderr,"File %s, opened with valid data in mode %s\r\n",input_sensor_source_string, sensor_mode_names[sensor_mode]);			
+                int version;
+				if (sensor_test_file(input_sensor_fd,sensor_mode,&version)){
+					/*if(verbose)*/ fprintf(stderr,"File %s, opened with valid data in mode %s version=%d\r\n",input_sensor_source_string, sensor_mode_names[sensor_mode],version);			
 					lseek(input_sensor_fd,0,SEEK_SET);
 				}
 				else{

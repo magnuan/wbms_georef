@@ -97,6 +97,7 @@ typedef struct{
     uint8_t use_intensity_angle_corr_table;
     uint8_t calc_aoi;
     sonar_sample_mode_e sonar_sample_mode; 
+    uint32_t decimate;
 }sensor_params_t;
 
 

@@ -35,7 +35,7 @@ void wbms_set_sensor_offset(offset_t* s){
    return 1 if file is a valid wbms bathy file
    return 0 if file is not a valid wbms bathy file
 */
-uint8_t wbms_test_file(int fd){
+uint8_t wbms_test_file(int fd, int* version){
     uint8_t pass=0;
     //printf("MAX_WBMS_PACKET_SIZE=%d\n",MAX_WBMS_PACKET_SIZE);
     char* data = malloc(MAX_WBMS_PACKET_SIZE);
@@ -48,7 +48,7 @@ uint8_t wbms_test_file(int fd){
         //printf("len=%d\n",len);
         if (len > 0 ){
             double ts;
-            int type = wbms_identify_packet(data, len, &ts);
+            int type = wbms_identify_packet(data, len, &ts, version);
             if (type==PACKET_TYPE_BATH_DATA){
                 pass=1;
                 break;
@@ -144,7 +144,7 @@ int wbms_fetch_next_packet(char * data, int fd){
 	return size;
 }
 
-int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out){
+int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* version){
 	packet_header_t* wbms_packet_header;
 	bath_data_packet_t* wbms_bath_packet;
 	char str_buf[256];
@@ -165,6 +165,9 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out){
 	switch (wbms_packet_header->type){
 		case PACKET_TYPE_BATH_DATA: 
 			wbms_bath_packet = (bath_data_packet_t*) databuffer;
+            if (version){
+                *version = wbms_bath_packet->header.version;
+            }
 			if (verbose>2){
 				//sprintf_unix_time(str_buf, wbms_bath_packet->sub_header.time);
 				fprintf(stderr,"WBMS bathy: ver=%d ping=%7d  multi ping=%2d/%2d tx=%5.1fdeg %s\n",
@@ -307,6 +310,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     uint16_t multifreq_index;
 	uint16_t Nout;
 	uint16_t ix_in,ix_out;
+    const uint16_t ix_in_stride = sensor_params->decimate; 
     #define ROLL_VECTOR_LEN 512
     #define ROLL_VECTOR_RATE 500.
     float roll_vector[ROLL_VECTOR_LEN];
@@ -490,7 +494,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     //Calculate sounding positions in sonar reference frame at tx instant
 	ix_out = 0;
     //printf("Nin=%d\n",Nin);
-	for (ix_in=0;ix_in<Nin;ix_in++){
+
+	for (ix_in=0;ix_in<Nin;ix_in+=ix_in_stride){
         if (bath_version < 5){
             uint32_t sample_number;
             if (sensor_params->sonar_sample_mode == upper_gate) 
