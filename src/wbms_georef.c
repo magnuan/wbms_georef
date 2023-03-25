@@ -279,7 +279,8 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"sensor_swath_min_y -1000\n");
 	fprintf(fp,"sensor_swath_max_y 1000\n\n");
 	fprintf(fp, "# Decimate sensor data\n");
-	fprintf(fp,"# sensor_decimate 1\n");
+	fprintf(fp,"# sensor_beam_decimate 1\n");
+	fprintf(fp,"# sensor_ping_decimate 1\n");
             
 
     fprintf(fp,"#### NAVIGATION DATA FILTERS ####\n");
@@ -452,7 +453,8 @@ static void sensor_params_default(sensor_params_t* s){
     s->calc_aoi = 0;
     s->sonar_sample_mode = detection;
     s->ray_tracing_mode = ray_trace_fixed_depth_lut;
-    s->decimate = 1;
+    s->beam_decimate = 1;
+    s->ping_decimate = 1;
 
     s->max_abs_roll=0;
     s->max_abs_pitch=0;
@@ -585,7 +587,8 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"intensity_aoi_comp",18)==0) sensor_params.intensity_aoi_comp = 1;	
             if (strncmp(c,"calc_aoi",8)==0) sensor_params.calc_aoi = 1;	
             if (strncmp(c,"force_bath_version",18)==0) force_bath_version = (atoi(c+18));	
-            if (strncmp(c,"sensor_decimate",15)==0) sensor_params.decimate = (atoi(c+15));	
+            if (strncmp(c,"sensor_beam_decimate",20)==0) sensor_params.beam_decimate = (atoi(c+20));	
+            if (strncmp(c,"sensor_ping_decimate",20)==0) sensor_params.ping_decimate = (atoi(c+20));	
             
             if (strncmp(c,"sim_data_period",15)==0) sim_data_period = ((float)atof(c+15));	
 			

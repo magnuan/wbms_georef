@@ -310,7 +310,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     uint16_t multifreq_index;
 	uint16_t Nout;
 	uint16_t ix_in,ix_out;
-    const uint16_t ix_in_stride = sensor_params->decimate; 
+    const uint16_t ix_in_stride = sensor_params->beam_decimate; 
+    const uint32_t ping_number_stride = sensor_params->ping_decimate; 
     #define ROLL_VECTOR_LEN 512
     #define ROLL_VECTOR_RATE 500.
     float roll_vector[ROLL_VECTOR_LEN];
@@ -410,7 +411,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     sensor_el  = tx_angle;								 
     if (    ((sensor_params->multifreq_index>=0) && (sensor_params->multifreq_index!=multifreq_index)) ||
 	        ((sensor_el < sensor_params->min_elevation) || (sensor_el > sensor_params->max_elevation)) ||
-	        ((ping_number < sensor_params->min_ping_number) || (sensor_params->max_ping_number && (ping_number > sensor_params->max_ping_number)))
+	        ((ping_number < sensor_params->min_ping_number) || (sensor_params->max_ping_number && (ping_number > sensor_params->max_ping_number))) ||
+            ((ping_number%ping_number_stride) != 0)
         ){
         return(0);
     }
