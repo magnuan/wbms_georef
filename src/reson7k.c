@@ -512,6 +512,8 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
 
                 if (sensor_params->intensity_range_comp){
                     inten *= sensor_r;     //Only comp one-way spreading loss     
+                    float damping_dB = sensor_params->intensity_range_comp_damping * (2*sensor_r/1000); 
+                    inten *= powf(10.f,damping_dB/20); 
                 }
                 intensity[ix_out] = inten;
       

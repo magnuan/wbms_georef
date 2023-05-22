@@ -92,6 +92,7 @@ typedef struct{
     float sv_offset;
     float mounting_depth;
     char intensity_range_comp; 
+    float intensity_range_comp_damping; 
     char intensity_aoi_comp; 
     ray_tracing_mode_e ray_tracing_mode;
     uint8_t use_intensity_angle_corr_table;

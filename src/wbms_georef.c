@@ -315,6 +315,8 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"#  AOI compensation is either by model or from angle/intensity CSV file if given with -y option\n");
 	fprintf(fp,"# Uncomment to compensate intensity for range\n");
 	fprintf(fp,"#intensity_range_comp\n");
+	fprintf(fp,"# Damping in dB/km one-way when applying intensity range comp\n");
+	fprintf(fp,"#intensity_range_comp_damping  100\n\n");
 	fprintf(fp,"# Uncomment to compensate intensity for AOI\n");
 	fprintf(fp,"# AOI compensation is either by model or from angle/intensity CSV file if given with -y option\n");
 	fprintf(fp,"#intensity_aoi_comp\n");
@@ -449,6 +451,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->sv_offset = 0.0;
     s->mounting_depth = 1.0;		//Mounting depth, only for raytracing, SV-profile compensation
     s->intensity_range_comp = 0;
+    s->intensity_range_comp_damping = 100;
     s->intensity_aoi_comp = 0;
     s->calc_aoi = 0;
     s->sonar_sample_mode = detection;
@@ -584,6 +587,7 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"navigation_max_abs_dyaw_dt",26)==0) sensor_params.max_abs_dyaw_dt = ((float)atof(c+26))* (float)M_PI/180;
 			
             if (strncmp(c,"intensity_range_comp",20)==0) sensor_params.intensity_range_comp = 1;	
+            if (strncmp(c,"intensity_range_comp_damping",28)==0) sensor_params.intensity_range_comp_damping = ((float)atof(c+28));
             if (strncmp(c,"intensity_aoi_comp",18)==0) sensor_params.intensity_aoi_comp = 1;	
             if (strncmp(c,"calc_aoi",8)==0) sensor_params.calc_aoi = 1;	
             if (strncmp(c,"force_bath_version",18)==0) force_bath_version = (atoi(c+18));	
