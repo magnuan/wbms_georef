@@ -670,7 +670,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             aoi[ix_out] = ABS(aoi[ix_out]);
             if (sensor_params->intensity_range_comp){
                 inten *= sensor_r;                  //Only comp one-way spreading loss     
-                float damping_dB = sensor_params->intensity_range_comp_damping * (2*sensor_r/1000); 
+                float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
                 inten *= powf(10.f,damping_dB/20); 
             }
             if (sensor_params->intensity_aoi_comp){
