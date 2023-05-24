@@ -498,10 +498,10 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 else{
                     aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
                 }
-                aoi[ix_out] = ABS(aoi[ix_out]);
+                aoi[ix_out] = (aoi[ix_out]);
                 if (intensity_aoi_comp){
                     if(use_intensity_angle_corr_table){
-                        int ix = aoi[ix_out]/INTENSITY_ANGLE_STEP;
+                        int ix = ABS(aoi[ix_out])/INTENSITY_ANGLE_STEP;
                         ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
                         inten *= intenity_angle_corr_table[ix].intensity_scale;
                     }

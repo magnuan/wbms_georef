@@ -667,7 +667,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             else{
                 aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
             }
-            aoi[ix_out] = ABS(aoi[ix_out]);
+            aoi[ix_out] = (aoi[ix_out]);
             if (sensor_params->intensity_range_comp){
                 inten *= sensor_r;                  //Only comp one-way spreading loss     
                 float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
@@ -675,7 +675,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             }
             if (sensor_params->intensity_aoi_comp){
                 if(sensor_params->use_intensity_angle_corr_table){
-                    int ix = aoi[ix_out]/INTENSITY_ANGLE_STEP;
+                    int ix = ABS(aoi[ix_out])/INTENSITY_ANGLE_STEP;
                     ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
                     inten *= intenity_angle_corr_table[ix].intensity_scale;
                 }

@@ -78,6 +78,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     float dt = pos->ts - pos_old->ts;
     float speed = sqrtf(dx*dx+dy*dy)/dt;
     
+
     //When writing, we need to swap x and y coordinate and negate z since output is X-east Y-north Z-up
 	for (ii = 0;ii<n;ii++){
         for(jj=0; jj<MAX_OUTPUT_FIELDS; jj++){
@@ -95,7 +96,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case range: len += sprintf(&(outbuf[len]),"%11.3f",range_val[ii]);break;
                 case steer: len += sprintf(&(outbuf[len]),"%11.3f",steer_val[ii]*180/M_PI);break;
                 case el: len += sprintf(&(outbuf[len]),"%11.3f",(*tx_angle)*180/M_PI);break;
-                case val: len += sprintf(&(outbuf[len]),"%11.3f",intensity_val[ii]);break;
+                case val: len += sprintf(&(outbuf[len]),"%17.8f",intensity_val[ii]);break;
                 case quality: len += sprintf(&(outbuf[len]),"%11.3f",quality_val[ii]);break;
                 case priority: len += sprintf(&(outbuf[len]),"%11.3f",priority_val[ii]);break;
                 case strength: len += sprintf(&(outbuf[len]),"%11.3f",strength_val[ii]);break;
@@ -108,14 +109,14 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case t: len += sprintf(&(outbuf[len]),"%12.5f",ts);break;
                 case c: len += sprintf(&(outbuf[len]),"%8.3f",*sv);break;
                 
-                case freq: sprintf(&(outbuf[len]),"%11.3f",*tx_freq);break;
-                case bw: sprintf(&(outbuf[len]),"%11.3f",*tx_bw);break;
-                case plen: sprintf(&(outbuf[len]),"%11.3f",*tx_plen);break;
-                case voltage: sprintf(&(outbuf[len]),"%11.3f",*tx_voltage);break;
-                case multiping: sprintf(&(outbuf[len]),"%11d",*multiping_index);break;
-                case multifreq: sprintf(&(outbuf[len]),"%11d",*multifreq_index);break;
-                case pingnumber: sprintf(&(outbuf[len]),"%11d",*ping_number);break;
-                case pingdiff: sprintf(&(outbuf[len]),"%11d",*ping_number-prev_ping_number);break;
+                case freq: len += sprintf(&(outbuf[len]),"%11.3f",*tx_freq*1e-3);break;
+                case bw: len += sprintf(&(outbuf[len]),"%11.3f",*tx_bw*1e-3);break;
+                case plen: len += sprintf(&(outbuf[len]),"%11.3f",*tx_plen*1e6);break;
+                case voltage: len += sprintf(&(outbuf[len]),"%11.3f",*tx_voltage);break;
+                case multiping: len += sprintf(&(outbuf[len]),"%11d",*multiping_index);break;
+                case multifreq: len += sprintf(&(outbuf[len]),"%11d",*multifreq_index);break;
+                case pingnumber: len += sprintf(&(outbuf[len]),"%11d",*ping_number);break;
+                case pingdiff: len += sprintf(&(outbuf[len]),"%11d",*ping_number-prev_ping_number);break;
                 
                 case LAT: len += sprintf(&(outbuf[len]),"%11.7f",pos->lat*180/M_PI);break;
                 case LON: len += sprintf(&(outbuf[len]),"%11.7f",pos->lon*180/M_PI);break;
