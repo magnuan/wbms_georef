@@ -157,6 +157,8 @@ static const char *alt_mode_names[] = {
 	"Heave",
 };
 
+uint8_t force_sbet_epoch = 0;
+double sbet_epoch_week_ts = 0;
 
 
 
@@ -346,7 +348,12 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# Pos mode 0=POSMV 1=XTF_NAV 2=WBM_TOOL 3=SBET 4=SIM 5=S7K 10=Autodetect (default)\n");
 	fprintf(fp,"# pos_mode 10\n");
 	fprintf(fp,"# Set forward speed in m/s when using simulated navigation data \n");
-	fprintf(fp,"pos_sim_speed 1\n");
+	fprintf(fp,"pos_sim_speed 1\n\n");
+	fprintf(fp,"# SBET files only contains GPS time-of-week\n");
+	fprintf(fp,"# With sensor data, the week will be chosen from sensor data time\n");
+	fprintf(fp,"# Without sensor data  (sim mode), the week will be set to week of unix epoc\n");
+	fprintf(fp,"# To force a specific week, enable and enter a unix timestamp value within that week to the value below\n");
+	fprintf(fp,"# sbet_epoch_week 0\n\n");
 	fprintf(fp,"# Altitude mode 0=none 1=gps altitude, 2=heave \n");
 	fprintf(fp,"alt_mode 1\n");
 	fprintf(fp,"vert_offset 0\n");
@@ -538,6 +545,8 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"pos_mode",8)==0) pos_mode = atoi(c+8);	
 			if (strncmp(c,"sensor_mode",11)==0) sensor_mode = atoi(c+11);	
 			if (strncmp(c,"pos_sim_speed",13)==0) pos_sim_speed = (float)atof(c+13);
+			if (strncmp(c,"sbet_epoch_week",15)==0){ sbet_epoch_week_ts  = atof(c+15);   force_sbet_epoch = 1; }
+
 			if (strncmp(c,"input_timezone",14)==0)  input_timezone = (float)atof(c+14);
 			if (strncmp(c,"time_diff_limit",15)==0)  set_time_diff_limit((float)atof(c+15));
 			if (strncmp(c,"sensor_sv_offset",16)==0)  sensor_params.sv_offset = (float)atof(c+16);
@@ -1464,7 +1473,10 @@ int main(int argc,char *argv[])
 	if (verbose){
 		fprintf(stderr,"Posmv source = %d: %s, Sensor source = %d: %s \n",input_navigation_source, input_source_names[input_navigation_source],input_sensor_source,  input_source_names[input_sensor_source]);
 	}
-		
+
+    if ((pos_mode == pos_mode_sbet) && force_sbet_epoch){
+        set_sbet_epoch(sbet_epoch_week_ts);
+    }
     //If bathy data is available fetch and process a bathy data packet to get time  (TODO for velodyne we need navigation time before sensor data is processed, as it does not send full time)
     if (input_sensor_source != i_none  && input_sensor_source != i_sim){ 
         //Find first usable packet in stream
@@ -1479,13 +1491,17 @@ int main(int argc,char *argv[])
                 time_t raw_time = (time_t) ts_sensor;
                 fprintf(stderr,"First sensor data time: ts=%0.3f %s  ",ts_sensor,ctime(&raw_time));
                 //When using SBET navigation data, we need to set epoch to start of month, base this on first sensor timestamp 
-                if (pos_mode == pos_mode_sbet){
+                if (pos_mode == pos_mode_sbet && (!force_sbet_epoch)){
                     set_sbet_epoch(ts_sensor);
                 }
                 break;
             }
         }
         if (input_sensor_source==i_file) fseek(input_sensor_fileptr, 0, SEEK_SET); //Rewind
+    }
+    if ((input_sensor_source == i_sim) && (pos_mode == pos_mode_sbet) && (!force_sbet_epoch)){
+        fprintf(stderr,"Simulated sensor data, just setting SBET epoch to Unix epoch\n");
+        set_sbet_epoch(0.);
     }
     //Fetch and process a few pos datasets to guess correct UTM zone and finding offset values for Northing and Easting
     double first_lat=0; 

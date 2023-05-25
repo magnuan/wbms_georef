@@ -1,7 +1,7 @@
 #ifndef __WBMS_GEOREF_H__
 #define __WBMS_GEOREF_H__
 
-#define NAVDATA_BUFFER_LEN (128)
+#define NAVDATA_BUFFER_LEN (2*128)
 //Use input sound velocity profile to correct for ray bending 
 
 #define MAX_DP 8*1024					//Maximum number of detection points in one dataset

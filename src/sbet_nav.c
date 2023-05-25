@@ -11,6 +11,7 @@
 #include <math.h>
 #include "wbms_georef.h"
 #include "sbet_nav.h"
+#include "time_functions.h"
 #if defined(_MSC_VER)
 #include "non_posix.h"
 #include <io.h>
@@ -80,7 +81,7 @@ int sbet_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out){
     fprintf(stderr, "SBET indentify ts=%f,lat=%f,lon=%f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,course=%5.2f\n",
             ts, lat*180/M_PI,lon*180/M_PI,alt,roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI,course*180/M_PI);
     #endif
-    if ((ts<1.) || (ts>(60.*60.*24.*32.))) return 0; //Time stamp seems to be relative to meginning of month, so if it is more than 32 days, its bad, also do not allow 0, to prevent all 0 data from passing as good
+    if ((ts<0.001) || (ts>(60.*60.*24.*7.))) return 0; //Time stamp is relative to beginning of week, so if it is more than 7 days, its bad, also do not allow 0, to prevent all 0 data from passing as good
     if ((roll<-M_PI) ||(roll>M_PI)) return 0;
     if ((pitch<-M_PI) ||(pitch>M_PI)) return 0;
     if ((yaw<-(2*M_PI)) ||(yaw>(2*M_PI))) return 0;
@@ -88,26 +89,19 @@ int sbet_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out){
     if ((lat<-(M_PI/2)) ||(lat>(M_PI/2))) return 0;
     if ((lon<-(2*M_PI)) ||(lon>(2*M_PI))) return 0;
     if ((alt<-(10000.f)) ||(alt>(10000.f))) return 0;
-    if ((ABS(lat)<1.f) || (ABS(lon)<1.f)) return 0;   //Another rule to prevent false detection on all 0. 
-    //fprintf(stderr,"Good SBET\n");
+    if ((ABS(lat)<0.001f) || (ABS(lon)<0.001f)) return 0;   //Another rule to prevent false detection on all 0. 
+    fprintf(stderr,"Good SBET\n");
     return 1;
 }
-
+// Set epoch to UTC midnight last sunday SBET gives time in GPS time (seconds of week) 
 double calc_sbet_epoch(double ts){
-    //TODO I have no idea if this is right in general, it worked for one dataset I got.
-    // It sets epoch ot UTC midnight last day in previous month
     time_t t;
     t = ts; //Ignore fract seconds
 	struct tm* buf = gmtime(&t);
-    //fprintf(stderr,"ts = %d tm = [%d-%d-%d %02d:%02d:%02d  %d]\n",t,1900+buf.tm_year,buf.tm_mon,buf.tm_mday,buf.tm_hour,buf.tm_min,buf.tm_sec,buf.tm_isdst);
-    buf->tm_sec = 0;
-    buf->tm_min = 0;
-    buf->tm_hour = 0;
-    buf->tm_mday = 0;
-    buf->tm_isdst = 0;
-    t = mktime(buf);
-    if (buf->tm_isdst) t+=3600;
-    //fprintf(stderr,"ts = %d tm = [%d-%d-%d %02d:%02d:%02d  %d]\n",t,1900+buf.tm_year,buf.tm_mon,buf.tm_mday,buf.tm_hour,buf.tm_min,buf.tm_sec,buf.tm_isdst);
+    time_t seconds_since_sunday = (buf->tm_sec + 60*(buf->tm_min + 60*(buf->tm_hour + 24*buf->tm_wday)));
+    t -= seconds_since_sunday;
+    //TODO should GPS UTC leap seconds differnce be added here?
+    // Tested, but it seems very wrong when I do. Perhaps this is added somewhere else
     return (double) t;
 }
 
@@ -120,15 +114,19 @@ void set_sbet_epoch(double ts){
 }
 
 int sbet_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
+    static int rcnt=0;
     if (sbet_epoch == 0)    //Cant decode this data unless we know SBET epoch
         return NO_NAV_DATA;
     char* dp = databuffer;
     double ts = *(((double*)(dp)));dp+=8;
     ts += sbet_epoch;
     *ts_out = ts;
-	//char str_buf[256];
-    //sprintf_unix_time(str_buf, ts);
-    //if(verbose) fprintf(stderr,"SBET data %s\n",str_buf);
+	
+    if(0){//rcnt%10000 ==0){
+        char str_buf[256];
+        sprintf_unix_time(str_buf, ts);
+        fprintf(stderr,"SBET data %d %s\n",rcnt, str_buf);
+    }
     //Put new data in next block of circular buffer
     navdata->ts = ts;
     navdata->lat = *(((double*)(dp)));dp+=8;
@@ -147,5 +145,6 @@ int sbet_process_packet(char* databuffer, uint32_t len, double* ts_out, double z
         latlon_to_kart(navdata->lon, navdata->lat , navdata->alt, proj, /*output*/ &(navdata->x), &(navdata->y) , &(navdata->z));
     }
     navdata->z += z_offset;
+    rcnt++;
     return (proj?NAV_DATA_PROJECTED:NAV_DATA_GEO);
 }

@@ -145,6 +145,7 @@ int wbms_fetch_next_packet(char * data, int fd){
 }
 
 int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* version){
+    static int rcnt=0;
 	packet_header_t* wbms_packet_header;
 	bath_data_packet_t* wbms_bath_packet;
 	char str_buf[256];
@@ -162,15 +163,17 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
 		return 0;
 	}
 	//if (verbose) fprintf(stderr, "Received WBMS packet type %d size %d  CRC = 0x%08x\n",wbms_packet_header->type, wbms_packet_header->size, wbms_packet_header->crc);	
+    rcnt++;
 	switch (wbms_packet_header->type){
 		case PACKET_TYPE_BATH_DATA: 
 			wbms_bath_packet = (bath_data_packet_t*) databuffer;
             if (version){
                 *version = wbms_bath_packet->header.version;
             }
-			if (verbose>2){
-				//sprintf_unix_time(str_buf, wbms_bath_packet->sub_header.time);
-				fprintf(stderr,"WBMS bathy: ver=%d ping=%7d  multi ping=%2d/%2d tx=%5.1fdeg %s\n",
+			if (0){//rcnt%100==0){
+				sprintf_unix_time(str_buf, wbms_bath_packet->sub_header.time);
+				fprintf(stderr,"WBMS bathy %d : ver=%d ping=%7d  multi ping=%2d/%2d tx=%5.1fdeg %s\n",
+                        rcnt,
                         wbms_bath_packet->header.version,
                         wbms_bath_packet->sub_header.ping_number,
                         wbms_bath_packet->sub_header.multiping_seq_nr,
