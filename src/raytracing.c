@@ -18,7 +18,7 @@ typedef SSIZE_T ssize_t;
 #endif
 
 #define INTERPOL_COR_TABLE
-//#define PYTHON_PRINTOUT
+#define PYTHON_PRINTOUT
 
 // Sometimes the SV cast might not contain data deep enough to cover the entire depth of the data.
 // The workaround is to just extrapolate the sv profile to the maximum depth of the data 
@@ -169,6 +169,7 @@ static int read_sv_from_file(char* fname, sv_meas_t* sv_meas_out, const size_t m
         // Python print input sv table
         FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","w");
         fprintf(ppfd,"import numpy as np\n");
+        fprintf(ppfd,"import matplotlib.pyplot as plt\n");
         fprintf(ppfd,"sv_raw=np.asarray([");
         for(size_t ix=0;ix<count_in;ix++){
             fprintf(ppfd,"[%6.2f, %7.2f],",sv_meas_in[ix].depth, sv_meas_in[ix].sv);
@@ -226,6 +227,8 @@ static int read_sv_from_file(char* fname, sv_meas_t* sv_meas_out, const size_t m
             fprintf(ppfd,"[%6.2f, %7.2f],",sv_meas_out[ix].depth, sv_meas_out[ix].sv);
         }
         fprintf(ppfd,"])\n");
+        fprintf(ppfd,"plt.figure('profile')\n");
+        fprintf(ppfd,"plt.plot(sv_raw[:,1],  -sv_raw[:,0]);plt.plot(sv_filt[:,1],  -sv_filt[:,0])\n");
         fclose(ppfd);
     }
 	#endif
@@ -488,7 +491,6 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
     if(1){
         FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","a");
         // Python print resampled sv table
-        fprintf(ppfd,"################ CUT START ##############\n");
         fprintf(ppfd,"import numpy as np\n");
         fprintf(ppfd,"import matplotlib.pyplot as plt\n");
         fprintf(ppfd,"c=np.asarray([");
@@ -558,6 +560,7 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
         fprintf(ppfd,"corr_range= corr_range[:,::-1,:]\n");
         fprintf(ppfd,"corr_invalid= corr_invalid[:,::-1,:]\n");
 
+        fprintf(ppfd,"plt.figure('table')\n");
         fprintf(ppfd,"ax1=plt.subplot(3,1,1)\n");
         fprintf(ppfd,"ax1.imshow(corr_angle[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='seismic',vmin=-5, vmax=5)\n");
         fprintf(ppfd,"ax1.set_title('Angle correction c=%%0.2fm/s'%%(c[0]))\n");
@@ -568,7 +571,6 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
         fprintf(ppfd,"ax3.imshow(corr_invalid[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='binary',vmin=0, vmax=1)\n");
         fprintf(ppfd,"ax3.set_title('Correction valid')\n");
         fprintf(ppfd,"plt.show()\n");
-        fprintf(ppfd,"################ CUT END ##############\n");
 
         fclose(ppfd);
     }
