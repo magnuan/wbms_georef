@@ -20,6 +20,13 @@ typedef SSIZE_T ssize_t;
 #define INTERPOL_COR_TABLE
 //#define PYTHON_PRINTOUT
 
+// Sometimes the SV cast might not contain data deep enough to cover the entire depth of the data.
+// The workaround is to just extrapolate the sv profile to the maximum depth of the data 
+// Because we do not know the maximum data depth when the sv data is read in, we do not know exactly how deep we need to extrapolate.
+// Too short, and we might have to discard data due to lacking sv profile, too long means unneccessary run-time / memory use.
+// As a initial compromise we set it to 2, assuming the SV cast is at least half the maximum data depth
+#define EXTRAPOLATE_SV (2.0)
+
 
 static int ray_bend_valid=0;
 static int ray_bend_invalid=0;
@@ -78,11 +85,11 @@ static int read_sv_from_file(char* fname, sv_meas_t* sv_meas_out, const size_t m
 	}
 
     //Swap sv and depth if this seems more likely
-    float min_sv=-1e9;
-    float max_sv=1e9;
+    float min_sv=1e9;
+    float max_sv=-1e9;
     float mean_sv=0;
-    float min_depth=-1e9;
-    float max_depth=1e9;
+    float min_depth=1e9;
+    float max_depth=-1e9;
     float mean_depth=0;
     for (size_t ix=0;ix<count_in;ix++){
         min_sv=MIN(min_sv,sv_meas_in[ix].sv);
@@ -109,10 +116,42 @@ static int read_sv_from_file(char* fname, sv_meas_t* sv_meas_out, const size_t m
             sv_meas_in[ix].sv = sv_meas_in[ix].depth;
             sv_meas_in[ix].depth = tmp;
         }
+        float tmp1 = min_depth;
+        float tmp2 = max_depth;
+        float tmp3 = mean_depth;
+        min_depth = min_sv;
+        max_depth = max_sv;
+        mean_depth = mean_sv;
+        min_sv = tmp1;
+        max_sv = tmp2;
+        mean_sv = tmp3;
     }
     else{
         fprintf(stderr, "Assuming SV file order: sv,depth\n");
     }
+   
+    #ifdef EXTRAPOLATE_SV
+    fprintf(stderr,"SV profile %ld values from %f to %f m depth\n",count_in,min_depth,max_depth);
+        
+    float max_depth_sv = 0;
+    for (size_t ix=0;ix<count_in;ix++){
+        if (sv_meas_in[ix].depth == max_depth){
+            max_depth_sv = sv_meas_in[ix].sv;
+        }
+    }
+    size_t ix = count_in;
+    float d = max_depth*1.1;
+    for (; (d<max_depth*EXTRAPOLATE_SV) && (ix<max_count); d*=1.1){
+         sv_meas_in[ix].depth = d;
+         sv_meas_in[ix].sv = max_depth_sv; // Just use last value. 0th order extrapolation
+         ix++;
+    }
+    count_in = ix;
+    fprintf(stderr,"Extrapolated SV profile %ld values, extrapolate %f to %f m depth to %fm/s\n",count_in,max_depth,d,max_depth_sv);
+    max_depth = d;
+
+    #endif
+
 
     // Resample SV data with this depth resolution (in meters)
     const float d_depth = 1.;
@@ -126,12 +165,17 @@ static int read_sv_from_file(char* fname, sv_meas_t* sv_meas_out, const size_t m
     fprintf(stderr,"])\n");
     */
 	#ifdef PYTHON_PRINTOUT
-	// Python print input sv table
-    fprintf(stderr,"sv_raw=np.asarray([");
-	for(size_t ix=0;ix<count_in;ix++){
-		fprintf(stderr,"[%6.2f, %7.2f],",sv_meas_in[ix].depth, sv_meas_in[ix].sv);
-	}
-    fprintf(stderr,"])\n");
+    if (1){
+        // Python print input sv table
+        FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","w");
+        fprintf(ppfd,"import numpy as np\n");
+        fprintf(ppfd,"sv_raw=np.asarray([");
+        for(size_t ix=0;ix<count_in;ix++){
+            fprintf(ppfd,"[%6.2f, %7.2f],",sv_meas_in[ix].depth, sv_meas_in[ix].sv);
+        }
+        fprintf(ppfd,"])\n");
+        fclose(ppfd);
+    }
 	#endif
 	
     fprintf(stderr,"# Sort measurements on depth\n");
@@ -174,12 +218,16 @@ static int read_sv_from_file(char* fname, sv_meas_t* sv_meas_out, const size_t m
     fprintf(stderr,"])\n");
     */
 	#ifdef PYTHON_PRINTOUT
-	// Python print input sv table
-    fprintf(stderr,"sv_filt=np.asarray([");
-	for(size_t ix=0;ix<count_out;ix++){
-		fprintf(stderr,"[%6.2f, %7.2f],",sv_meas_out[ix].depth, sv_meas_out[ix].sv);
-	}
-    fprintf(stderr,"])\n");
+    if(1){
+        // Python print input sv table
+        FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","a");
+        fprintf(ppfd,"sv_filt=np.asarray([");
+        for(size_t ix=0;ix<count_out;ix++){
+            fprintf(ppfd,"[%6.2f, %7.2f],",sv_meas_out[ix].depth, sv_meas_out[ix].sv);
+        }
+        fprintf(ppfd,"])\n");
+        fclose(ppfd);
+    }
 	#endif
 
 	for(size_t ix=0; ix < count_out;ix++){ 
@@ -355,12 +403,16 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
 	}
 	#endif
 	#ifdef PYTHON_PRINTOUT
-	// Python print resampled sv table
-    fprintf(stderr,"sv_resamp=np.asarray([");
-	for(ix=0;ix<NZ;ix++){
-		fprintf(stderr,"[%6.2f, %7.2f],",ix*DZ, sv_table[ix]);
-	}
-    fprintf(stderr,"])\n");
+    if(1){
+        FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","a");
+        // Python print resampled sv table
+        fprintf(ppfd,"sv_resamp=np.asarray([");
+        for(ix=0;ix<NZ;ix++){
+            fprintf(ppfd,"[%6.2f, %7.2f],",ix*DZ, sv_table[ix]);
+        }
+        fprintf(ppfd,"])\n");
+        fclose(ppfd);
+    }
 	#endif
 	
     if (generate_lut){
@@ -433,89 +485,93 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
     }
 	
     #ifdef PYTHON_PRINTOUT
-	// Python print resampled sv table
-    fprintf(stderr,"################ CUT START ##############\n");
-    fprintf(stderr,"import numpy as np\n");
-    fprintf(stderr,"import matplotlib.pyplot as plt\n");
-    fprintf(stderr,"c=np.asarray([");
-    int cix_sel = round( (1480.-MINIMUM_C)/DC);
-    for(int cix = cix_sel;cix<=cix_sel;cix++){
-        fprintf(stderr,"%6.2f,", MINIMUM_C+ (float)cix*DC);
-    }
-    fprintf(stderr,"])\n");
-    
-    fprintf(stderr,"z=np.asarray([");
-    for(int zix = 1;zix<NZ;zix++){
-        fprintf(stderr,"%6.2f,", (float)zix*DZ);
-    }
-    fprintf(stderr,"])\n");
-    
-    fprintf(stderr,"angle=np.asarray([");
-    for(int aix = 0;aix<NANGLE;aix++){
-        fprintf(stderr,"%6.3f,", (float)aix*DANGLE);
-    }
-    fprintf(stderr,"])\n");
-
-    fprintf(stderr,"corr_angle=np.asarray([");
-    for(int cix = cix_sel;cix<=cix_sel;cix++){
-        fprintf(stderr,"[");
-        for(int aix = 0;aix<NANGLE;aix++){
-            fprintf(stderr,"[");
-            for(int zix = 1;zix<NZ;zix++){      //Iterate over true depth 
-                fprintf(stderr,"%5.3f,",corr_angle[cix][aix][zix]);
-            }
-            fprintf(stderr,"],");
+    if(1){
+        FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","a");
+        // Python print resampled sv table
+        fprintf(ppfd,"################ CUT START ##############\n");
+        fprintf(ppfd,"import numpy as np\n");
+        fprintf(ppfd,"import matplotlib.pyplot as plt\n");
+        fprintf(ppfd,"c=np.asarray([");
+        int cix_sel = round( (1480.-MINIMUM_C)/DC);
+        for(int cix = cix_sel;cix<=cix_sel;cix++){
+            fprintf(ppfd,"%6.2f,", MINIMUM_C+ (float)cix*DC);
         }
-        fprintf(stderr,"],");
-    }
-    fprintf(stderr,"])\n");
-    
-    fprintf(stderr,"corr_range=np.asarray([");
-    for(int cix = cix_sel;cix<=cix_sel;cix++){
-        fprintf(stderr,"[");
-        for(int aix = 0;aix<NANGLE;aix++){
-            fprintf(stderr,"[");
-            for(int zix = 1;zix<NZ;zix++){      //Iterate over true depth 
-                fprintf(stderr,"%5.3f,",corr_range[cix][aix][zix]);
-            }
-            fprintf(stderr,"],");
+        fprintf(ppfd,"])\n");
+
+        fprintf(ppfd,"z=np.asarray([");
+        for(int zix = 1;zix<NZ;zix++){
+            fprintf(ppfd,"%6.2f,", (float)zix*DZ);
         }
-        fprintf(stderr,"],");
-    }
-    fprintf(stderr,"])\n");
-    
-    fprintf(stderr,"corr_invalid=np.asarray([");
-    for(int cix = cix_sel;cix<=cix_sel;cix++){
-        fprintf(stderr,"[");
+        fprintf(ppfd,"])\n");
+
+        fprintf(ppfd,"angle=np.asarray([");
         for(int aix = 0;aix<NANGLE;aix++){
-            fprintf(stderr,"[");
-            for(int zix = 1;zix<NZ;zix++){      //Iterate over true depth 
-                fprintf(stderr,"%d,",corr_invalid[cix][aix][zix]);
-            }
-            fprintf(stderr,"],");
+            fprintf(ppfd,"%6.3f,", (float)aix*DANGLE);
         }
-        fprintf(stderr,"],");
+        fprintf(ppfd,"])\n");
+
+        fprintf(ppfd,"corr_angle=np.asarray([");
+        for(int cix = cix_sel;cix<=cix_sel;cix++){
+            fprintf(ppfd,"[");
+            for(int aix = 0;aix<NANGLE;aix++){
+                fprintf(ppfd,"[");
+                for(int zix = 1;zix<NZ;zix++){      //Iterate over true depth 
+                    fprintf(ppfd,"%5.3f,",corr_angle[cix][aix][zix]);
+                }
+                fprintf(ppfd,"],");
+            }
+            fprintf(ppfd,"],");
+        }
+        fprintf(ppfd,"])\n");
+
+        fprintf(ppfd,"corr_range=np.asarray([");
+        for(int cix = cix_sel;cix<=cix_sel;cix++){
+            fprintf(ppfd,"[");
+            for(int aix = 0;aix<NANGLE;aix++){
+                fprintf(ppfd,"[");
+                for(int zix = 1;zix<NZ;zix++){      //Iterate over true depth 
+                    fprintf(ppfd,"%5.3f,",corr_range[cix][aix][zix]);
+                }
+                fprintf(ppfd,"],");
+            }
+            fprintf(ppfd,"],");
+        }
+        fprintf(ppfd,"])\n");
+
+        fprintf(ppfd,"corr_invalid=np.asarray([");
+        for(int cix = cix_sel;cix<=cix_sel;cix++){
+            fprintf(ppfd,"[");
+            for(int aix = 0;aix<NANGLE;aix++){
+                fprintf(ppfd,"[");
+                for(int zix = 1;zix<NZ;zix++){      //Iterate over true depth 
+                    fprintf(ppfd,"%d,",corr_invalid[cix][aix][zix]);
+                }
+                fprintf(ppfd,"],");
+            }
+            fprintf(ppfd,"],");
+        }
+        fprintf(ppfd,"])\n");
+
+        fprintf(ppfd,"## Angles here are in radians relative to horiziont. We want degrees relative to nadir, as that os the 'normal' convention used here.\n");
+        fprintf(ppfd,"angle= 90 - np.rad2deg(angle[::-1])\n");
+        fprintf(ppfd,"corr_angle= np.rad2deg(-corr_angle[:,::-1,:])\n");
+        fprintf(ppfd,"corr_range= corr_range[:,::-1,:]\n");
+        fprintf(ppfd,"corr_invalid= corr_invalid[:,::-1,:]\n");
+
+        fprintf(ppfd,"ax1=plt.subplot(3,1,1)\n");
+        fprintf(ppfd,"ax1.imshow(corr_angle[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='seismic',vmin=-5, vmax=5)\n");
+        fprintf(ppfd,"ax1.set_title('Angle correction c=%%0.2fm/s'%%(c[0]))\n");
+        fprintf(ppfd,"ax2=plt.subplot(3,1,2)\n");
+        fprintf(ppfd,"ax2.imshow(corr_range[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='seismic',vmin=-0.1, vmax=0.1)\n");
+        fprintf(ppfd,"ax2.set_title('Range correction')\n");
+        fprintf(ppfd,"ax3=plt.subplot(3,1,3)\n");
+        fprintf(ppfd,"ax3.imshow(corr_invalid[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='binary',vmin=0, vmax=1)\n");
+        fprintf(ppfd,"ax3.set_title('Correction valid')\n");
+        fprintf(ppfd,"plt.show()\n");
+        fprintf(ppfd,"################ CUT END ##############\n");
+
+        fclose(ppfd);
     }
-    fprintf(stderr,"])\n");
-
-    fprintf(stderr,"## Angles here are in radians relative to horiziont. We want degrees relative to nadir, as that os the 'normal' convention used here.\n");
-    fprintf(stderr,"angle= 90 - np.rad2deg(angle[::-1])\n");
-    fprintf(stderr,"corr_angle= np.rad2deg(-corr_angle[:,::-1,:])\n");
-    fprintf(stderr,"corr_range= corr_range[:,::-1,:]\n");
-    fprintf(stderr,"corr_invalid= corr_invalid[:,::-1,:]\n");
-
-    fprintf(stderr,"ax1=plt.subplot(3,1,1)\n");
-    fprintf(stderr,"ax1.imshow(corr_angle[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='seismic',vmin=-5, vmax=5)\n");
-    fprintf(stderr,"ax1.set_title('Angle correction c=%%0.2fm/s'%%(c[0]))\n");
-    fprintf(stderr,"ax2=plt.subplot(3,1,2)\n");
-    fprintf(stderr,"ax2.imshow(corr_range[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='seismic',vmin=-0.1, vmax=0.1)\n");
-    fprintf(stderr,"ax2.set_title('Range correction')\n");
-    fprintf(stderr,"ax3=plt.subplot(3,1,3)\n");
-    fprintf(stderr,"ax3.imshow(corr_invalid[0,:,:].T,extent=[angle[0],angle[-1],-z[-1],-z[0]],aspect='auto',cmap='binary',vmin=0, vmax=1)\n");
-    fprintf(stderr,"ax3.set_title('Correction valid')\n");
-    fprintf(stderr,"plt.show()\n");
-    fprintf(stderr,"################ CUT END ##############\n");
-
 	#endif
 
 	has_corr = 1;
