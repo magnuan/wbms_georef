@@ -1757,7 +1757,15 @@ int main(int argc,char *argv[])
                         if(navdata_count > NAVDATA_BUFFER_LEN){ //Need a full buffer before we can start doing georeferencing
                             switch (sensor_mode){
                                 case sensor_mode_wbms: case sensor_mode_wbms_v5:
-                                    datapoints = wbms_georef_data( (bath_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf, force_bath_version);
+                                    if (new_sensor_data == PACKET_TYPE_BATH_DATA){
+                                        datapoints = wbms_georef_data( (bath_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf, force_bath_version);
+                                    }
+                                    else if (new_sensor_data == PACKET_TYPE_SBP_DATA){
+                                        datapoints = wbms_georef_sbp_data( (sbp_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf);
+                                    }
+                                    else{
+                                        datapoints = 0;
+                                    }
                                     break;
                                 case sensor_mode_sim:
                                     datapoints = sim_georef_data( navdata, navdata_ix,  &sensor_params, outbuf);

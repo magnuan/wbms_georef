@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "bathy_packet.h"
+#include "loki_packet.h"
 #include <math.h>
 #include "time_functions.h"
 
@@ -23,7 +24,11 @@
 #include <corecrt_math_defines.h>
 #endif
 
-static uint8_t verbose = 0;
+
+#define FAKE_SBP_TIMESTAMP
+#define IGNORE_WBMS_CRC_FOR_SBP_DATA
+
+static uint8_t verbose = 1;
 
 static offset_t* sensor_offset;
 
@@ -50,6 +55,10 @@ uint8_t wbms_test_file(int fd, int* version){
             double ts;
             int type = wbms_identify_packet(data, len, &ts, version);
             if (type==PACKET_TYPE_BATH_DATA){
+                pass=1;
+                break;
+            }
+            else if (type==PACKET_TYPE_SBP_DATA){
                 pass=1;
                 break;
             }
@@ -148,8 +157,11 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
     static int rcnt=0;
 	packet_header_t* wbms_packet_header;
 	bath_data_packet_t* wbms_bath_packet;
+    sbp_data_packet_t* wbms_sbp_packet;
 	char str_buf[256];
-	uint32_t crc;
+    #ifdef FAKE_SBP_TIMESTAMP
+    static double fake_time = 0;
+    #endif
 
 	wbms_packet_header = (packet_header_t*) databuffer;
 
@@ -157,11 +169,23 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
 		if(verbose) fprintf(stderr,"malformed wbms packet received, discarding\n");
 		return 0;
 	}
-	crc = crc32_le(0,(uint8_t*)databuffer+24,len-24);
-	if (wbms_packet_header->crc != crc){
-		if(verbose) fprintf(stderr,"WBMS packet CRC error, discarding\n");
-		return 0;
-	}
+    #ifdef IGNORE_WBMS_CRC_FOR_SBP_DATA
+    if (wbms_packet_header->type != PACKET_TYPE_SBP_DATA){
+        uint32_t crc;
+        crc = crc32_le(0,(uint8_t*)databuffer+24,len-24);
+        if (wbms_packet_header->crc != crc){
+            if(verbose) fprintf(stderr,"WBMS packet CRC error, discarding\n");
+            return 0;
+        }
+    }
+    #else
+    uint32_t crc;
+    crc = crc32_le(0,(uint8_t*)databuffer+24,len-24);
+    if (wbms_packet_header->crc != crc){
+        if(verbose) fprintf(stderr,"WBMS packet CRC error, discarding\n");
+        return 0;
+    }
+    #endif
 	//if (verbose) fprintf(stderr, "Received WBMS packet type %d size %d  CRC = 0x%08x\n",wbms_packet_header->type, wbms_packet_header->size, wbms_packet_header->crc);	
     rcnt++;
 	switch (wbms_packet_header->type){
@@ -181,7 +205,6 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
                         wbms_bath_packet->sub_header.tx_angle*180/M_PI, 
                         str_buf);
 			}
-			*ts_out = wbms_bath_packet->sub_header.time+sensor_offset->time_offset;
 			#define GUESS_NEXT_WBMS_TS
 			#ifdef GUESS_NEXT_WBMS_TS
 			*ts_out = wbms_bath_packet->sub_header.time+sensor_offset->time_offset + (1./(wbms_bath_packet->sub_header.ping_rate));
@@ -201,6 +224,23 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
 		case PACKET_TYPE_GEOREF_SIDESCAN_DATA: 
 			if(verbose>2) fprintf(stderr,"Received WBMS georef sidescan data, Discarding!\n");
 			return 0;
+		case PACKET_TYPE_SBP_DATA: 
+			wbms_sbp_packet = (sbp_data_packet_t*) databuffer;
+            if (version){
+                *version = wbms_sbp_packet->header.version;
+            }
+            #ifdef FAKE_SBP_TIMESTAMP
+            wbms_sbp_packet->sub_header.time = fake_time;
+            wbms_sbp_packet->sub_header.ping_rate = 5.; 
+            fake_time += 1./(wbms_sbp_packet->sub_header.ping_rate);
+            #endif
+
+			#ifdef GUESS_NEXT_WBMS_TS
+			*ts_out = wbms_sbp_packet->sub_header.time+sensor_offset->time_offset + (1./(wbms_sbp_packet->sub_header.ping_rate));
+			#else
+			*ts_out = wbms_sbp_packet->sub_header.time+sensor_offset->time_offset;
+			#endif
+			return PACKET_TYPE_SBP_DATA;
 		default:
 			if(verbose>2) fprintf(stderr,"Received unknown WBMS data, Discarding!\n");
 			return 0;
@@ -767,5 +807,245 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     //printf("Nout2 = %d\n",Nout);
 	
     free(xs);free(ys);free(zs);
+	return Nout;
+}
+
+static uint32_t calc_match_filter(float fc,float bw,float len, float Fs, /*output*/ float* mfir){
+    float t,df,dfdn,dtdn;
+    uint32_t N,n;
+    N = (uint32_t) (len*Fs);
+
+    dtdn = (1./Fs);
+    t=-len/(2.*Fs);
+
+    df = -bw/2;
+    dfdn =  bw/(2.*len*Fs);
+    
+    for (n=0;n<N;n++){
+        float apz_val = 1.f;//(0.54+0.46*Q_cos((2.*M_PI*(n+0.5))/N-M_PI));
+        mfir[n] = sinf(2.*M_PI*(fc+df)*t) * apz_val;
+        df += dfdn;
+        t += dtdn; 
+    }
+    //Remove DC in filter
+    float dc = 0;
+    for (n=0;n<N;n++)
+        dc+=mfir[n];
+    dc/=N;
+    for (n=0;n<N;n++)
+        mfir[n] -= dc;
+    //printf("Calc match filter: freq %1.2fkHz bw %1.2fkHz  len %1.0f us Fs = %1.2fkHz %d taps\n",fc/1000,bw/1000,len*1e6,Fs/1000,N);
+    return N;
+}
+
+static void match_filter_data(/*Input*/ float* sig_in, float freq, float bw, float plen, float Fs, int32_t Nin, /*Output*/ float* sig_out){
+    uint32_t mfir_len = (uint32_t) (plen*Fs);
+    float* mfir = malloc(mfir_len * sizeof(float));
+    calc_match_filter(freq,bw,plen, Fs, /*output*/ mfir);
+
+    for (uint32_t ix = 0; ix < (mfir_len/2); ix++)
+        sig_out[ix] = 0;
+    for (uint32_t ix = mfir_len/2; ix < (Nin-mfir_len/2); ix++){
+        sig_out[ix] = 0;
+        for (uint32_t mix = 0; mix < mfir_len; mix++){
+            sig_out[ix] += sig_in[ix - mfir_len/2 + mix]  *  mfir[mix];
+        }
+    }
+    for (uint32_t ix = Nin-(mfir_len/2); ix < Nin; ix++)
+        sig_out[ix] = 0;
+
+    free(mfir);
+}
+    
+
+
+static void hilbert_envelope_data(/*Input*/ float* sig_in, int32_t Nin, /*Output*/ float* sig_out){
+    static const uint32_t hlen = 63;
+    static const float hcoef[] = {    -0.0162738 ,  0.01472801, -0.01798631,  0.01331904, -0.01990413,
+                                0.01202334, -0.02207802,  0.01082204, -0.02457624,  0.0096998 ,
+                               -0.02749287,  0.00864398, -0.03096146,  0.00764404, -0.03517822,
+                                0.00669104, -0.04044378,  0.00577731, -0.04724363,  0.00489618,
+                               -0.05641605,  0.00404177, -0.06954423,  0.0032088 , -0.09002035,
+                                0.00239247, -0.12666366,  0.00158833, -0.21181068,  0.00079219,
+                               -0.63648784,  0.        ,  0.63648784, -0.00079219,  0.21181068,
+                               -0.00158833,  0.12666366, -0.00239247,  0.09002035, -0.0032088 ,
+                                0.06954423, -0.00404177,  0.05641605, -0.00489618,  0.04724363,
+                               -0.00577731,  0.04044378, -0.00669104,  0.03517822, -0.00764404,
+                                0.03096146, -0.00864398,  0.02749287, -0.0096998 ,  0.02457624,
+                               -0.01082204,  0.02207802, -0.01202334,  0.01990413, -0.01331904,
+                                0.01798631, -0.01472801,  0.0162738 };
+                                
+    for (uint32_t ix = 0; ix < (hlen/2); ix++)
+        sig_out[ix] = 0;
+    
+    for (uint32_t ix = hlen/2; ix < (Nin-hlen/2); ix++){
+        float I = sig_in[ix];
+        float Q = 0;
+        for (uint32_t hix = 0; hix < hlen; hix++){
+            Q += sig_in[ix - hlen/2 + hix]  *  hcoef[hix];
+        }
+        sig_out[ix] = sqrtf(I*I + Q*Q);
+    }
+    for (uint32_t ix = Nin-(hlen/2); ix < Nin; ix++)
+        sig_out[ix] = 0;
+}
+
+uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf){
+     double* x = &(outbuf->x[0]);
+     double* y = &(outbuf->y[0]);
+     double* z = &(outbuf->z[0]);
+     float* intensity = &(outbuf->i[0]);
+     float* beam_range = &(outbuf->range[0]);
+     float* tx_freq_out = &(outbuf->tx_freq);
+     float* tx_bw_out = &(outbuf->tx_bw);
+     float* tx_plen_out = &(outbuf->tx_plen);
+     float* tx_voltage_out = &(outbuf->tx_voltage);
+     int* ping_number_out = &(outbuf->ping_number);
+     float* sv_out = &(outbuf->sv);
+
+	float sensor_r;
+
+	double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/
+	float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
+    float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
+    //uint32_t sbp_data_version =  sbp_data->header.version;
+	float Fs;
+	float c;
+	uint16_t Nin;
+    uint32_t ping_number;
+	uint16_t Nout;
+	int32_t ix_in,ix_out;
+    const uint16_t ix_in_stride = sensor_params->beam_decimate; 
+    const uint32_t ping_number_stride = sensor_params->ping_decimate; 
+    float tx_freq;
+    float tx_bw;
+    float tx_plen;
+    float tx_voltage;
+
+    
+    tx_freq = sbp_data->sub_header.tx_sec_freq;
+    tx_bw = sbp_data->sub_header.tx_sec_bw;
+    tx_plen = sbp_data->sub_header.tx_len;
+    tx_voltage = sbp_data->sub_header.tx_voltage;
+    Fs = sbp_data->sub_header.sample_rate;
+    c = DEFAULT_SBP_SV +sensor_params->sv_offset;
+    Nin = sbp_data->sub_header.N;
+    Nin = MIN(Nin,SBP_MAX_SAMPLES);
+    ping_number =  sbp_data->sub_header.ping_number;
+    int32_t* raw_sig = (int32_t *) &(sbp_data->payload[0]);
+
+
+    *sv_out = c; 
+    *tx_freq_out = tx_freq;
+    *tx_bw_out = tx_bw;
+    *tx_plen_out = tx_plen;
+    *tx_voltage_out = tx_voltage;
+    *ping_number_out = ping_number;
+	float c_div_2Fs = c/(2*Fs);
+
+    //Skip whole dataset condition
+    if (   ((ping_number < sensor_params->min_ping_number) || (sensor_params->max_ping_number && (ping_number > sensor_params->max_ping_number))) ||
+           ((ping_number%ping_number_stride) != 0)
+        ){
+        return(0);
+    }
+
+    //Find nav data for tx instant
+    //Generate a vector with interpolated roll starting at tx time, with 1ms samplerate, for 1/ping_rate duration
+    // This is tobe used to correct azimuth and heave data, as this is defined at rx (not tx) time
+    //To calculate angle-of insidence, we must sort beams on angle (Strictly only neccessary for ISS data)
+    //Sort sbp_data->dp[n] based on sbp_data->dp[n].angle for n in 0-Nin
+    if (calc_interpolated_nav_data( posdata, pos_ix, sbp_data->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){
+        if(verbose) fprintf(stderr, "Could not find navigation data for WBMS sbp record at time %f\n",sbp_data->sub_header.time+sensor_offset->time_offset);
+        return 0;
+    }
+
+	if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
+        return 0;
+    }
+
+    float *xs  = malloc(SBP_MAX_SAMPLES*sizeof(float));
+    float *ys  = malloc(SBP_MAX_SAMPLES*sizeof(float));
+    float *zs  = malloc(SBP_MAX_SAMPLES*sizeof(float));
+    float *sig = malloc(SBP_MAX_SAMPLES*sizeof(float));
+    float *temp_sig = malloc(SBP_MAX_SAMPLES*sizeof(float));
+
+    //printf("SBP data tp = %d\n",sbp_data->sub_header.tp);
+    switch(sbp_data->sub_header.tp){
+        case 0:   //Raw ADC data
+            for (uint32_t ix=0;ix<Nin;ix++){
+                sig[ix] = (float) raw_sig[ix];
+            }
+            match_filter_data(/*Input*/ sig, tx_freq, tx_bw, tx_plen,Fs ,Nin, /*Output*/ temp_sig);
+            hilbert_envelope_data(/*Input*/ temp_sig,  Nin, /*Output*/ sig);
+            break;
+        case 10: //Match filtered data
+            for (uint32_t ix=0;ix<Nin;ix++){
+                temp_sig[ix] = (float) raw_sig[ix];
+            }
+            hilbert_envelope_data(/*Input*/ temp_sig,  Nin, /*Output*/ sig);
+            break;
+        default: //Unknown testpoint
+            //TODO Rudimentary sig processing, fix match-filter bp-filter and envelope extraction
+            for (uint32_t ix=0;ix<Nin;ix++){
+                sig[ix] = (float) ABS(raw_sig[ix]);
+            }
+            break;
+    }
+
+    //Calculate sounding positions in sonar reference frame at tx instant
+	ix_out = 0;
+    //printf("Nin=%d\n",Nin);
+    float tx_delay_range = tx_plen*c/2;
+
+    int32_t ix_start = (int32_t) (roundf((sensor_params->min_range+tx_delay_range)/c_div_2Fs));
+    int32_t ix_stop  = (int32_t) (roundf((sensor_params->max_range+tx_delay_range)/c_div_2Fs));
+    ix_start = LIMIT(ix_start,0,Nin); 
+    ix_stop = LIMIT(ix_stop,ix_start,Nin); 
+
+	for (ix_in=ix_start;ix_in<ix_stop;ix_in+=ix_in_stride){
+            
+	    float inten;
+        uint32_t sample_number;
+        sample_number = ix_in;
+        
+        sensor_r   = sample_number*c_div_2Fs - tx_delay_range;	//Calculate range to each point en meters
+        inten = sig[ix_in];
+        sensor_r  += sensor_offset->r_err;
+        
+        if (sensor_params->intensity_range_comp){
+            inten *= sensor_r;                  //Only comp one-way spreading loss     
+            float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
+            inten *= powf(10.f,damping_dB/20); 
+        }
+
+        intensity[ix_out] = inten;
+        beam_range[ix_out] = sensor_r;
+        // Sub bottom profiler is always pointing straight down
+        xs[ix_out] = 0.; 
+        ys[ix_out] = 0.; 
+        zs[ix_out] = sensor_r;
+        ix_out++;
+    }
+    Nout = ix_out;
+
+    georef_to_global_frame(sensor_offset,xs, ys, zs,  Nout,c, nav_x, nav_y, nav_z,  nav_yaw, nav_pitch,  nav_roll, sensor_params->ray_tracing_mode,  sensor_params->mounting_depth, /*OUTPUT*/ x,y,z);
+	
+	//Post GEO-REF filtering
+	Nin = Nout;
+	ix_out = 0;
+	for (ix_in=0;ix_in<Nin;ix_in++){
+		x[ix_out] = x[ix_in];
+		y[ix_out] = y[ix_in];
+		z[ix_out] = z[ix_in];
+		intensity[ix_out] = intensity[ix_in];
+        beam_range[ix_out] = beam_range[ix_in];
+		if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
+
+		ix_out++;
+	}
+	Nout = ix_out;
+	
+    free(xs);free(ys);free(zs);free(sig);free(temp_sig);
 	return Nout;
 }
