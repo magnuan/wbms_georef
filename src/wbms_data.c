@@ -25,7 +25,7 @@
 #endif
 
 
-#define FAKE_SBP_TIMESTAMP
+//#define FAKE_SBP_TIMESTAMP
 #define IGNORE_WBMS_CRC_FOR_SBP_DATA
 
 static uint8_t verbose = 1;
@@ -188,6 +188,8 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
     #endif
 	//if (verbose) fprintf(stderr, "Received WBMS packet type %d size %d  CRC = 0x%08x\n",wbms_packet_header->type, wbms_packet_header->size, wbms_packet_header->crc);	
     rcnt++;
+    
+    //fprintf(stderr,"WBMS %d : type = %d ver=%d\n",rcnt,wbms_packet_header->type,wbms_packet_header->version);
 	switch (wbms_packet_header->type){
 		case PACKET_TYPE_BATH_DATA: 
 			wbms_bath_packet = (bath_data_packet_t*) databuffer;
@@ -229,11 +231,23 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
             if (version){
                 *version = wbms_sbp_packet->header.version;
             }
+            
+            //TODO remove this hack. ping_rate is not reported correctly, so to avoid div by zero error we set it fixed to 5Hz
+            wbms_sbp_packet->sub_header.ping_rate = 5.; 
+
             #ifdef FAKE_SBP_TIMESTAMP
             wbms_sbp_packet->sub_header.time = fake_time;
-            wbms_sbp_packet->sub_header.ping_rate = 5.; 
             fake_time += 1./(wbms_sbp_packet->sub_header.ping_rate);
             #endif
+				
+			if (0){//rcnt%100==0){
+                sprintf_unix_time(str_buf, wbms_sbp_packet->sub_header.time);
+                fprintf(stderr,"WBMS SBP %d : ver=%d ping=%7d  %s\n",
+                        rcnt,
+                        wbms_sbp_packet->header.version,
+                        wbms_sbp_packet->sub_header.ping_number,
+                        str_buf);
+            }
 
 			#ifdef GUESS_NEXT_WBMS_TS
 			*ts_out = wbms_sbp_packet->sub_header.time+sensor_offset->time_offset + (1./(wbms_sbp_packet->sub_header.ping_rate));
@@ -856,6 +870,47 @@ static void match_filter_data(/*Input*/ float* sig_in, float freq, float bw, flo
 
     free(mfir);
 }
+
+static void bp_filter_data(/*Input*/ float* sig_in, float freq, float bw, float Fs, int32_t Nin, /*Output*/ float* sig_out){
+    bw = LIMIT(bw,0,Fs);
+    uint32_t bpfir_len = (uint32_t) (2*Fs/bw);
+    float* bpfir = malloc(bpfir_len * sizeof(float));
+    
+    /*Windowed sinc with hamming window*/
+    float fcn = freq/Fs;     //Normalized center freq 
+    float bwn = bw/2/Fs;     //Normalized cutoff freq
+    //Sinc function
+    for (size_t ix = 0; ix<bpfir_len; ix++){
+        float ii = (float) ix-(0.5*(bpfir_len-1));
+        float phi = 2*M_PI*bwn*ii;
+        bpfir[ix] = phi==0?1.0f:sinf(phi)/phi;
+    }
+    //Mixing up to center freq
+    for (size_t ix = 0; ix<bpfir_len; ix++){
+        float ii = (float) ix-(0.5*(bpfir_len-1));
+        float phi = 2*M_PI*fcn*ii;
+        bpfir[ix] *= cosf(phi);
+    }
+    //Adding window function (hamming)
+    for (size_t ix = 0; ix<bpfir_len; ix++){
+        float ii = (float) ix-(0.5*(bpfir_len-1));
+        bpfir[ix] *= 0.54 + 0.46*cos((2.*M_PI*ii)/bpfir_len);
+    }
+
+    
+    for (uint32_t ix = 0; ix < (bpfir_len/2); ix++)
+        sig_out[ix] = 0;
+    for (uint32_t ix = bpfir_len/2; ix < (Nin-bpfir_len/2); ix++){
+        sig_out[ix] = 0;
+        for (uint32_t mix = 0; mix < bpfir_len; mix++){
+            sig_out[ix] += sig_in[ix - bpfir_len/2 + mix]  *  bpfir[mix];
+        }
+    }
+    for (uint32_t ix = Nin-(bpfir_len/2); ix < Nin; ix++)
+        sig_out[ix] = 0;
+
+    free(bpfir);
+}
     
 
 
@@ -974,9 +1029,10 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
     switch(sbp_data->sub_header.tp){
         case 0:   //Raw ADC data
             for (uint32_t ix=0;ix<Nin;ix++){
-                sig[ix] = (float) raw_sig[ix];
+                temp_sig[ix] = (float) raw_sig[ix];
             }
-            match_filter_data(/*Input*/ sig, tx_freq, tx_bw, tx_plen,Fs ,Nin, /*Output*/ temp_sig);
+            match_filter_data(/*Input*/ temp_sig, tx_freq, tx_bw, tx_plen,Fs ,Nin, /*Output*/ sig);
+            bp_filter_data(/*Input*/ sig, tx_freq, tx_bw, Fs ,Nin, /*Output*/ temp_sig);
             hilbert_envelope_data(/*Input*/ temp_sig,  Nin, /*Output*/ sig);
             break;
         case 10: //Match filtered data
