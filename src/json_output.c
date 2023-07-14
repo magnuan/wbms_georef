@@ -82,6 +82,25 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
             case multifreq: len += sprintf(&(outbuf[len]),"\"multifreq\":%1d",*multifreq_index);break;
                                   
             // Per sounding values (arrays)
+            case line_of_sight: 
+                        len += sprintf(&(outbuf[len]),"\"line_of_sight\":[");
+                        len += sprintf(&(outbuf[len]),"\"x\":[");
+                        for (ii = 0;ii<(n-1);ii++){
+                            len += sprintf(&(outbuf[len]),"%1.3f,",y_val[ii]-pos->y);
+                        }
+                        len += sprintf(&(outbuf[len]),"%1.3f]",y_val[ii]-pos->y);
+                        len += sprintf(&(outbuf[len]),"\"y\":[");
+                        for (ii = 0;ii<(n-1);ii++){
+                            len += sprintf(&(outbuf[len]),"%1.3f,",x_val[ii]-pos->x);
+                        }
+                        len += sprintf(&(outbuf[len]),"%1.3f]",x_val[ii]-pos->x);
+                        len += sprintf(&(outbuf[len]),"\"z\":[");
+                        for (ii = 0;ii<(n-1);ii++){
+                            len += sprintf(&(outbuf[len]),"%1.3f,",-(z_val[ii]-pos->z));
+                        }
+                        len += sprintf(&(outbuf[len]),"%1.3f]",-(z_val[ii]-pos->z));
+                        len += sprintf(&(outbuf[len]),"]");
+                        break;
             case x: 
                         len += sprintf(&(outbuf[len]),"\"x\":[");
                         for (ii = 0;ii<(n-1);ii++){

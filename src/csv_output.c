@@ -22,11 +22,18 @@ int sprint_output_format(char* str,output_format_e* format){
             return sptr-str;
         }
         if(cnt) sptr += sprintf(sptr,",");
-        switch (*fptr){
-#define foo(x) case x: sptr+=sprintf(sptr,STRINGIFY(x));break
-            iterate_output_format(foo);
-#undef foo
-            default: break;
+        if(*fptr == line_of_sight) {  // Handle line of sight vector (3 scalar fields)
+            sptr+=sprintf(sptr,"line_of_sight_x,");
+            sptr+=sprintf(sptr,"line_of_sight_y,");
+            sptr+=sprintf(sptr,"line_of_sight_z");
+        }
+        else{
+            switch (*fptr){
+    #define foo(x) case x: sptr+=sprintf(sptr,STRINGIFY(x));break
+                iterate_output_format(foo);
+    #undef foo
+                default: break;
+            }
         }
         fptr++;
     }
@@ -89,6 +96,13 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case x: len += sprintf(&(outbuf[len]),"%11.3f",y_val[ii]);break;
                 case y: len += sprintf(&(outbuf[len]),"%11.3f",x_val[ii]);break;
                 case z: len += sprintf(&(outbuf[len]),"%11.3f",-z_val[ii]);break;
+                
+                case line_of_sight: 
+                    len += sprintf(&(outbuf[len]),"%11.3f,",y_val[ii]-pos->y);
+                    len += sprintf(&(outbuf[len]),"%11.3f,",x_val[ii]-pos->x);
+                    len += sprintf(&(outbuf[len]),"%11.3f",-(z_val[ii]-pos->z));
+                    break;
+                
                 case z_var: len += sprintf(&(outbuf[len]),"%11.3f",z_var_val[ii]);break;
                 case z_stddev: len += sprintf(&(outbuf[len]),"%11.3f",sqrtf(z_var_val[ii]));break;
                 case teta: len += sprintf(&(outbuf[len]),"%11.3f",teta_val[ii]*180/M_PI);break;

@@ -27,11 +27,19 @@ int sprint_output_format_sbf(char* str,output_format_e* format){
         if(*fptr == x) {fptr++;continue;} //x,y,and z is mandatory in SBF, and not written to metafile
         if(*fptr == y) {fptr++;continue;} //x,y,and z is mandatory in SBF, and not written to metafile
         if(*fptr == z) {fptr++;continue;} //x,y,and z is mandatory in SBF, and not written to metafile
-        switch (*fptr){
+
+        if(*fptr == line_of_sight) {  // Handle line of sight vector (3 scalar fields)
+            sptr+=sprintf(sptr,"SF%d=line_of_sight_x\n",sfcnt++);
+            sptr+=sprintf(sptr,"SF%d=line_of_sight_y\n",sfcnt++);
+            sptr+=sprintf(sptr,"SF%d=line_of_sight_z\n",sfcnt++);
+        }
+        else{                             //Handle all scalar values
+            switch (*fptr){
 #define foo(x) case x: sptr+=sprintf(sptr,"SF%d=%s\n",sfcnt++,STRINGIFY(x));break
-            iterate_output_format(foo);
+                iterate_output_format(foo);
 #undef foo
-            default: break;
+                default: break;
+            }
         }
         fptr++;
     }
@@ -42,7 +50,10 @@ uint16_t output_format_count_fields(output_format_e format[MAX_OUTPUT_FIELDS]){
     uint16_t cnt = 0; 
     for(uint16_t jj=0; jj<MAX_OUTPUT_FIELDS; jj++){
         if (format[jj]==none) break;
-        cnt++;
+        switch(format[jj]){
+            case line_of_sight: cnt+=3;break;       //Line of sight vector adds three fields
+            default: cnt+=1;break;                      //All scalar fields adds one field each
+        }
     }
     return cnt;
 }
@@ -55,7 +66,7 @@ int write_sbf_meta_to_buffer(output_format_e format[MAX_OUTPUT_FIELDS], uint64_t
     len += sprintf(&(outbuf[len]),"Points=%ld\n", point_count);
     //When writing, we need to swap x and y coordinate and negate z since output is X-east Y-north Z-up
     len += sprintf(&(outbuf[len]),"GlobalShift=%f, %f, %f\n",-y_offset,-x_offset,z_offset);
-    len += sprintf(&(outbuf[len]),"SFCount=%d\n",field_count-3);
+    len += sprintf(&(outbuf[len]),"SFCount=%d\n",field_count-3); //x,y,z coordinates is mandatory, and not counted in the total number of fields
     len += sprint_output_format_sbf(&(outbuf[len]),format);
     return len;
 }
@@ -158,6 +169,12 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case x: write_f32_unaligned_bswap((uint8_t*)dp,(float)(y_val[ii]-y_offset)); dp+=4;break;
                 case y: write_f32_unaligned_bswap((uint8_t*)dp,(float)(x_val[ii]-x_offset)); dp+=4;break;
                 case z: write_f32_unaligned_bswap((uint8_t*)dp,(float)(-(z_val[ii]-z_offset))); dp+=4;break;
+                
+                case line_of_sight: 
+                    write_f32_unaligned_bswap((uint8_t*)dp,(float)(y_val[ii]-pos->y)); dp+=4;
+                    write_f32_unaligned_bswap((uint8_t*)dp,(float)(x_val[ii]-pos->x)); dp+=4;
+                    write_f32_unaligned_bswap((uint8_t*)dp,(float)(-(z_val[ii]-pos->z))); dp+=4;
+                    break;
                 
                 case z_var: write_f32_unaligned_bswap((uint8_t*)dp,(float)(z_var_val[ii])); dp+=4;break;
                 case z_stddev: write_f32_unaligned_bswap((uint8_t*)dp,(float)(sqrtf(z_var_val[ii]))); dp+=4;break;
