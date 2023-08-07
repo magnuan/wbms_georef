@@ -518,7 +518,15 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 intensity[ix_out] = inten;
       
                 //TODO insert uncertainty model here
-                z_var[ix_out] = 0.0f;
+                float beam_width = (0.1*M_PI/180.) / cosf(0.85*sensor_az);
+                float sigma_teta =  M_SQRT2 * beam_width;
+                const float sigma_range = M_SQRT2 * 1450./80e3;
+                const float sigma_t = M_SQRT2 * 0.005;
+                float sigma_z_teta  = sigma_teta*sensor_r*sinf(sensor_az);
+                float sigma_z_range = sigma_range*cosf(sensor_az);
+                float sigma_z_roll = nav_droll_dt * sigma_t *sensor_r*cosf(sensor_az);
+                float sigma_z_pitch = nav_dpitch_dt * sigma_t *sensor_r*cosf(sensor_az);
+                z_var[ix_out] =  sigma_z_teta*sigma_z_teta + sigma_z_range*sigma_z_range + sigma_z_roll*sigma_z_roll + sigma_z_pitch*sigma_z_pitch;
 
                 ix_out++;
 
