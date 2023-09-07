@@ -199,6 +199,24 @@ int sbet_csv_nav_seek_next_header(int fd){
 }
 
 int sbet_csv_nav_fetch_next_packet(char * data, int fd){
+    //TODO This is insanely much faster than reading byte by byte with read
+    //But in probably only works with file input.
+    //Ideally this should be chosen run-time based on if input is file or stream
+    //Should also consider this for all other file input.
+    #if 1
+    size_t len;
+    ssize_t read;
+    static FILE *file;
+    if (file==NULL){
+        file = fdopen(fd, "r");
+    }
+    if (file ==NULL) return -1;
+    read = getline(&data, &len,file);
+    if (read>=0){
+        return read;
+    }
+    else return 0;
+    #else
 	int rem,n;
     //Fetch POS_MODE_SBET_CSV_NAV data here
     //Read one line of data from fd into data buffer
@@ -209,6 +227,7 @@ int sbet_csv_nav_fetch_next_packet(char * data, int fd){
         if (data[rem]=='\n') break;
     }
     return rem;
+    #endif
 }
 
 int sbet_csv_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out){
@@ -252,14 +271,20 @@ int sbet_csv_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out)
 
 
 int sbet_csv_nav_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
+    static int rcnt=0;
 	double ts,lat,lon,east,north;
     float dist,alt1,alt2,roll,pitch,yaw;
-    float d_east,d_north,d_alt;
-    float sd_east,sd_north,sd_alt,sd_roll,sd_pitch,sd_yaw;
+    //float d_east,d_north,d_alt;
+    //float sd_east,sd_north,sd_alt,sd_roll,sd_pitch,sd_yaw;
 
     len = MIN(len,500); //SBET_CSV NAV line should be around 203 bytes, accept up to 500
     databuffer[len]=0;
     int ii = sscanf(databuffer, 
+        "%lf %f %lf %lf %f"  
+        "%lf %lf %f %f %f %f", 
+        &ts, &dist, &east, &north, &alt1,
+        &lat, &lon,&alt2, &roll, &pitch, &yaw);
+    /*int ii = sscanf(databuffer, 
         "%lf %f %lf %lf %f"  
         "%lf %lf %f %f %f %f" 
         "%f %f %f" 
@@ -267,9 +292,14 @@ int sbet_csv_nav_process_packet(char* databuffer, uint32_t len, double* ts_out, 
         &ts, &dist, &east, &north, &alt1,
         &lat, &lon,&alt2, &roll, &pitch, &yaw,
         &d_east, &d_north, &d_alt,
-        &sd_east, &sd_north, &sd_alt, &sd_roll, &sd_pitch, &sd_yaw);
+        &sd_east, &sd_north, &sd_alt, &sd_roll, &sd_pitch, &sd_yaw);*/
     
     if(ii>=11){
+        rcnt++;
+        #if 0
+        fprintf(stderr, "SBET CSV process %10d : ts=%f,lat=%f,lon=%f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,north=%7.3f,east=%7.3f\n",
+                rcnt, ts, lat,lon,alt2,roll,pitch,yaw,north,east);
+        #endif
         ts += sbet_epoch;
         *ts_out = ts;
 
@@ -289,7 +319,7 @@ int sbet_csv_nav_process_packet(char* databuffer, uint32_t len, double* ts_out, 
         }
         navdata->z += z_offset;
 
-        return 1;
+        return (proj?NAV_DATA_PROJECTED:NAV_DATA_GEO);
     }
     else{
         fprintf(stderr, "Invalid line in SBET_CSV NAV (only %d of minimum 11 read): %s\n",ii,databuffer);

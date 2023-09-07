@@ -218,6 +218,11 @@ else()
   set(PROJ_LIBRARY "")
 endif()
 
+# ENABLE PROFILING
+#  With this flag enabled, running the binary wil generate a file gmon.out,
+#  that can be investigated with gprof
+#  gprof ~/git/wbms_georef/build/src/wbms_georef gmon.out >analysis.txt
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")
 
 include(CheckSymbolExists)
 
