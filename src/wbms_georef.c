@@ -107,7 +107,7 @@ output_format_e output_format[MAX_OUTPUT_FIELDS];
 
 static PJ *proj_latlon_to_output_utm;
 
-typedef enum  { pos_mode_posmv=0, pos_mode_xtf=1,pos_mode_wbm_tool=2, pos_mode_sbet=3, pos_mode_sim=4, pos_mode_s7k=5, pos_mode_eelume=6,pos_mode_nmea=7, pos_mode_autodetect=10,pos_mode_unknown=11} pos_mode_e; 
+typedef enum  { pos_mode_posmv=0, pos_mode_xtf=1,pos_mode_wbm_tool=2, pos_mode_sbet=3, pos_mode_sim=4, pos_mode_s7k=5, pos_mode_eelume=6,pos_mode_nmea=7,pos_mode_sbet_csv=8, pos_mode_autodetect=10,pos_mode_unknown=11} pos_mode_e; 
 pos_mode_e pos_mode = pos_mode_autodetect;
 static const char *pos_mode_names[] = {
 	"Posmv102",
@@ -118,7 +118,7 @@ static const char *pos_mode_names[] = {
     "s7k",
     "eelume sbd",
     "nmea",
-    "-",
+    "SBET CSV",
     "-",
     "Autodetect",
     "Unknown"
@@ -721,6 +721,7 @@ uint8_t navigation_test_file(int fd, pos_mode_e mode){
     switch (mode){
         case pos_mode_posmv:    return  posmv_test_file(fd);
         case pos_mode_sbet:     return  sbet_test_file(fd);
+        case pos_mode_sbet_csv:     return  sbet_csv_test_file(fd);
         case pos_mode_xtf:      return  xtf_test_file(fd);
         case pos_mode_wbm_tool: return  wbm_tool_nav_test_file(fd);
         case pos_mode_sim:      return 1;
@@ -736,7 +737,7 @@ pos_mode_e navigation_autodetect_file(FILE* fp){
     int fd = fileno(fp);
     pos_mode_e ret = pos_mode_unknown;
 
-    for (pos_mode_e mode=pos_mode_posmv; mode<=pos_mode_nmea;mode++){
+    for (pos_mode_e mode=pos_mode_posmv; mode<=pos_mode_sbet_csv;mode++){
         if(mode==pos_mode_sim) continue;
         //fprintf(stderr,"Testing nav file in mode %s\n", pos_mode_names[mode]);
         if (navigation_test_file(fd,mode)){
@@ -759,6 +760,7 @@ int navigation_fetch_next_packet(char * data, int fd, pos_mode_e mode){
     switch (mode){
         case pos_mode_posmv:    len= posmv_fetch_next_packet(data,fd);break;
         case pos_mode_sbet:     len= sbet_nav_fetch_next_packet(data,fd);break;
+        case pos_mode_sbet_csv:     len= sbet_csv_nav_fetch_next_packet(data,fd);break;
         case pos_mode_xtf:      len= xtf_nav_fetch_next_packet(data,fd);break;
         case pos_mode_wbm_tool: len= wbm_tool_nav_fetch_next_packet(data,fd);break;
         case pos_mode_sim:      len= sim_nav_fetch_next_packet(data,fd);break;
@@ -783,6 +785,7 @@ int process_nav_data_packet(char* databuffer, uint32_t len, double ts_in, double
     switch (mode){
         case pos_mode_posmv:    ret= posmv_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_sbet:     ret= sbet_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
+        case pos_mode_sbet_csv:     ret= sbet_csv_nav_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_xtf:      ret = xtf_nav_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_wbm_tool: ret= wbm_tool_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_sim:      ret = sim_nav_process_packet(ts_in,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
@@ -1475,7 +1478,7 @@ int main(int argc,char *argv[])
 		fprintf(stderr,"Posmv source = %d: %s, Sensor source = %d: %s \n",input_navigation_source, input_source_names[input_navigation_source],input_sensor_source,  input_source_names[input_sensor_source]);
 	}
 
-    if ((pos_mode == pos_mode_sbet) && force_sbet_epoch){
+    if (((pos_mode == pos_mode_sbet)||(pos_mode == pos_mode_sbet_csv))  && force_sbet_epoch){
         set_sbet_epoch(sbet_epoch_week_ts);
     }
     //If bathy data is available fetch and process a bathy data packet to get time  (TODO for velodyne we need navigation time before sensor data is processed, as it does not send full time)
@@ -1492,7 +1495,7 @@ int main(int argc,char *argv[])
                 time_t raw_time = (time_t) ts_sensor;
                 fprintf(stderr,"First sensor data time: ts=%0.3f %s  ",ts_sensor,ctime(&raw_time));
                 //When using SBET navigation data, we need to set epoch to start of month, base this on first sensor timestamp 
-                if (pos_mode == pos_mode_sbet && (!force_sbet_epoch)){
+                if (((pos_mode == pos_mode_sbet)||(pos_mode == pos_mode_sbet_csv)) && (!force_sbet_epoch)){
                     set_sbet_epoch(ts_sensor);
                 }
                 break;
@@ -1500,7 +1503,7 @@ int main(int argc,char *argv[])
         }
         if (input_sensor_source==i_file) fseek(input_sensor_fileptr, 0, SEEK_SET); //Rewind
     }
-    if ((input_sensor_source == i_sim) && (pos_mode == pos_mode_sbet) && (!force_sbet_epoch)){
+    if ((input_sensor_source == i_sim) && ((pos_mode == pos_mode_sbet)||(pos_mode == pos_mode_sbet_csv)) && (!force_sbet_epoch)){
         fprintf(stderr,"Simulated sensor data, just setting SBET epoch to Unix epoch\n");
         set_sbet_epoch(0.);
     }
