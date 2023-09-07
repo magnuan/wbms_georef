@@ -53,4 +53,10 @@ int med_filter(const float* in, float* med, const size_t flen, const size_t len)
 
 int non_uniform_1order_savgol(const float* x_in, const float* y_in, const size_t len_in, const float* x_out, float* y_out, const size_t len_out, const float flen);
 
+double trigwrap(double x);
+/* wrap x -> [0,max) */
+double wrapMax(double x, double max);
+/* wrap x -> [min,max) */
+double wrapMinMax(double x, double min, double max);
+
 #endif

@@ -183,8 +183,11 @@ void default_projection(char* pstring,double lat, double lon){
     int utm_zone;
     if (lat==0 && lon==0)
         utm_zone = 33;
-    else
-        utm_zone = ((int)round((((lon/M_PI)+1)*30)))%60 +1;
+    else{
+        lon = wrapMinMax(lon,-M_PI, M_PI);
+        utm_zone = ((int)floor((lon+M_PI)*60./(2*M_PI)))+1;
+        //utm_zone = ((int)round((((lon/M_PI)+1)*30)))%60 +1;
+    }
 
     sprintf(proj_string,"+proj=utm +zone=%d +ellps=WGS84",utm_zone);
     fprintf(stderr,"Guessing UTM zone %d (lat = %8.5fdeg lon = %8.5fdeg)\n",utm_zone,lat*180/M_PI,lon*180/M_PI);

@@ -24,6 +24,24 @@
 /************ GENERAL MATH FUNCTIONS ***************************************************/
 /***************************************************************************************/
 
+
+double trigwrap(double x){
+    return atan2(sin(x),cos(x));
+}
+
+/* wrap x -> [0,max) */
+double wrapMax(double x, double max)
+{
+    /* integer math: `(max + x % max) % max` */
+    return fmod(max + fmod(x, max), max);
+}
+/* wrap x -> [min,max) */
+double wrapMinMax(double x, double min, double max)
+{
+    return min + wrapMax(x - min, max - min);
+}
+
+
 /***************************************************************************//**
 * @brief    Ceil of log2 of value 
 *
