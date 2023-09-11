@@ -143,11 +143,13 @@ int sbet_process_packet(char* databuffer, uint32_t len, double* ts_out, double z
     navdata->heave = 0;
     dp+=24;  //Skip time derivates
     
-    /*if (rcnt <100){
-    fprintf(stderr, "SBET wtime=%13.5f lat=%10.4f,lon=%10.4f,alt=%6.3f,roll=%7.4f,pitch=%7.4f,yaw=%7.4f,course=%5.2f\n",
-                                navdata->ts-sbet_epoch, navdata->lat*180/M_PI,navdata->lon*180/M_PI,navdata->alt,
-                                navdata->roll*180/M_PI,navdata->pitch*180/M_PI,navdata->yaw*180/M_PI,navdata->course*180/M_PI);
-    }*/
+    #if 0
+    if (rcnt <100){
+        fprintf(stderr, "SBET wtime=%13.5f lat=%10.4f,lon=%10.4f,alt=%6.3f,roll=%7.4f,pitch=%7.4f,yaw=%7.4f,course=%5.2f\n",
+                                    navdata->ts-sbet_epoch, navdata->lat*180/M_PI,navdata->lon*180/M_PI,navdata->alt,
+                                    navdata->roll*180/M_PI,navdata->pitch*180/M_PI,navdata->yaw*180/M_PI,navdata->course*180/M_PI);
+    }
+    #endif
     if (proj){
         navdata->yaw += north_to_northing_offset(navdata->lon, navdata->lat, proj);
         latlon_to_kart(navdata->lon, navdata->lat , navdata->alt, proj, /*output*/ &(navdata->x), &(navdata->y) , &(navdata->z));
@@ -201,8 +203,7 @@ int sbet_csv_nav_seek_next_header(int fd){
 int sbet_csv_nav_fetch_next_packet(char * data, int fd){
     //TODO This is insanely much faster than reading byte by byte with read
     //But in probably only works with file input.
-    //Ideally this should be chosen run-time based on if input is file or stream
-    //Should also consider this for all other file input.
+    //Ideally this should be chosen run-time based on wether input is file or stream
     #if 1
     size_t len;
     ssize_t read;
@@ -256,7 +257,6 @@ int sbet_csv_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out)
     fprintf(stderr, "SBET CSV indentify ts=%f,lat=%f,lon=%f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,north=%7.3f,east=%7.3f\n",
             ts, lat,lon,alt2,roll,pitch,yaw,north,east);
     #endif
-    fprintf(stderr,"  1");
     if ((ts<0) ||(ts>(60*60*24*7))) return 0;
     if ((alt2<-11034.) ||(alt2>8848.)) return 0;
     if ((lat<-(90.f)) ||(lat>(90.f))) return 0;
@@ -293,13 +293,11 @@ int sbet_csv_nav_process_packet(char* databuffer, uint32_t len, double* ts_out, 
         &lat, &lon,&alt2, &roll, &pitch, &yaw,
         &d_east, &d_north, &d_alt,
         &sd_east, &sd_north, &sd_alt, &sd_roll, &sd_pitch, &sd_yaw);*/
+    /*fprintf(stderr, "SBET CSV process %10d : ts=%f,lat=%f,lon=%f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,north=%7.3f,east=%7.3f\n",
+            rcnt, ts, lat,lon,alt2,roll,pitch,yaw,north,east);*/
     
     if(ii>=11){
         rcnt++;
-        #if 0
-        fprintf(stderr, "SBET CSV process %10d : ts=%f,lat=%f,lon=%f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,north=%7.3f,east=%7.3f\n",
-                rcnt, ts, lat,lon,alt2,roll,pitch,yaw,north,east);
-        #endif
         ts += sbet_epoch;
         *ts_out = ts;
 
@@ -313,6 +311,13 @@ int sbet_csv_nav_process_packet(char* databuffer, uint32_t len, double* ts_out, 
         navdata->yaw = yaw * M_PI/180;
         navdata->course = navdata->yaw;
         navdata->heave = 0.;
+        #if 0
+        if (rcnt <100){
+            fprintf(stderr, "SBET wtime=%13.5f lat=%10.4f,lon=%10.4f,alt=%6.3f,roll=%7.4f,pitch=%7.4f,yaw=%7.4f,course=%5.2f\n",
+                                        navdata->ts-sbet_epoch, navdata->lat*180/M_PI,navdata->lon*180/M_PI,navdata->alt,
+                                        navdata->roll*180/M_PI,navdata->pitch*180/M_PI,navdata->yaw*180/M_PI,navdata->course*180/M_PI);
+        }
+        #endif
         if (proj){
             navdata->yaw += north_to_northing_offset(navdata->lon, navdata->lat, proj);
             latlon_to_kart(navdata->lon, navdata->lat , navdata->alt, proj, /*output*/ &(navdata->x), &(navdata->y) , &(navdata->z));
@@ -322,7 +327,7 @@ int sbet_csv_nav_process_packet(char* databuffer, uint32_t len, double* ts_out, 
         return (proj?NAV_DATA_PROJECTED:NAV_DATA_GEO);
     }
     else{
-        fprintf(stderr, "Invalid line in SBET_CSV NAV (only %d of minimum 11 read): %s\n",ii,databuffer);
+        fprintf(stderr, "Invalid line in SBET_CSV NAV (only %d of minimum 11 read): %s",ii,databuffer);
     }
     return 0;
 }
