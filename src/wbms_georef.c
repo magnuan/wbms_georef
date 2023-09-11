@@ -1028,7 +1028,9 @@ int main(int argc,char *argv[])
         while ((c = getopt (argc, argv, "c:i:s:p:P:S:F:w:y:o:?hVxC5")) != -1) {
 		switch (c) {
 			case 'c':
-				read_config_from_file(optarg);
+				if(read_config_from_file(optarg)){
+                    exit(-1);
+                }
 				break;
 			case 'i':
 				input_sensor_source_string= optarg;
@@ -1083,18 +1085,22 @@ int main(int argc,char *argv[])
 	}
 
 	if (sv_file_name){
+        int ret = 0;
         switch(sensor_params.ray_tracing_mode){
             case ray_trace_fixed_depth_lut: //Fixed depth LUT
-                generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 1); //In LUT mode, we asume that the sonar draft is fixed, and generate the table with respect to this
+                ret = generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 1); //In LUT mode, we asume that the sonar draft is fixed, and generate the table with respect to this
                 break;
             case ray_trace_fixed_depth_direct: //Fixed depth, direct
-                generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 0); //In direct raytracing, wixed depth, we generate the table with respect to sonar
+                ret = generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 0); //In direct raytracing, wixed depth, we generate the table with respect to sonar
                 break;
             case ray_trace_var_depth: //Variable depth, direct
-                generate_ray_bending_table_from_sv_file(sv_file_name, 0., 0); //In direct raytracing, we generate the table with respect to water surface, and input sonar position wrt. this when doing raytracing
+                ret= generate_ray_bending_table_from_sv_file(sv_file_name, 0., 0); //In direct raytracing, we generate the table with respect to water surface, and input sonar position wrt. this when doing raytracing
                 break;
             case ray_trace_none:
                 break;
+        }
+        if (ret<0){
+            exit(-1);
         }
     }
     else{
@@ -1263,6 +1269,10 @@ int main(int argc,char *argv[])
 			fprintf(stderr,"Reading pos data from FILE: %s\n",input_navigation_source_string);
 			input_navigation_source = i_file;
 			input_navigation_fileptr = fopen(input_navigation_source_string,"rb");
+            if (input_navigation_fileptr == NULL){
+                fprintf(stderr,"Could not open navigation data file%s\n",input_navigation_source_string);
+                exit(-1);
+            }
             //Try to autodetect file format
             if (pos_mode==pos_mode_autodetect){
                 pos_mode = navigation_autodetect_file(input_navigation_fileptr);
@@ -1355,6 +1365,10 @@ int main(int argc,char *argv[])
 			fprintf(stderr,"Reading sensor data from FILE: %s\n",input_sensor_source_string);
 			input_sensor_source = i_file;
 			input_sensor_fileptr = fopen(input_sensor_source_string,"rb");
+            if (input_sensor_fileptr == NULL){
+                fprintf(stderr,"Could not open sensor data file%s\n",input_sensor_source_string);
+                exit(-1);
+            }
             //Try to autodetect file format
             if (sensor_mode==sensor_mode_autodetect){
                 sensor_mode = sensor_autodetect_file(input_sensor_fileptr);
