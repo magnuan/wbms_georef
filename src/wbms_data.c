@@ -309,6 +309,20 @@ static float calc_sonar_to_cp_corrections(float azimuth, float elevation, float 
     return  asin ( ( cos(az1)*sin_az2 + sin(az1)*sqrt(1-sin2_az2-sin2_el) )/cos_el )-az;
 }
 
+static float calc_shallow_angle_skew_corrections(float angle, float range, float att){
+    angle = LIMIT(angle,-80.f*M_PI/180.f, 80.f*M_PI/180.f);
+    //Opening angle model
+    const float psi0 = 0.5*M_PI/180;        //Nadir opening angle for WH
+    float psi = psi0/cosf(angle);         //Opening angle at specific angle
+    //Convert opening angle to k-value for exponential function
+    // 1./(sqrt(2*np.log(2))) = 0.849321   
+    float k = psi*0.84932f;
+
+    //Convert attenuation in dB/km (one way) to damping factor alpha
+    //  np.log(10)/20e3 = 0.0001151292
+    float alpha = att * 0.0001151292f;
+    return -(k*k)/2 * (1+alpha*range) * tanf(angle);
+}
 
 uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
      double* x = &(outbuf->x[0]);
@@ -682,6 +696,14 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         #ifdef STX_GEOM_COR
         sensor_az += calc_sonar_to_cp_corrections(sensor_az,sensor_el,sensor_elec_steer);
         #endif
+
+
+    
+        //#define SHALLOW_ANGLE_SKEW_COR
+        #ifdef SHALLOW_ANGLE_SKEW_COR
+        sensor_az += calc_shallow_angle_skew_corrections(sensor_az,sensor_r, sensor_params->intensity_range_attenuation);
+        #endif
+
             
         #ifdef FORCE_MULTIDETECT_TO_QUALITY3
         if (priority_flags==1 || priority_flags ==2){
