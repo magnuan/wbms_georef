@@ -789,7 +789,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             float sigma_z_range = sigma_range*cosf(sensor_az);
             float sigma_z_roll = nav_droll_dt * sigma_t *sensor_r*cosf(sensor_az);
             float sigma_z_pitch = nav_dpitch_dt * sigma_t *sensor_r*cosf(sensor_az);
-            z_var[ix_out] =  sigma_z_teta*sigma_z_teta + sigma_z_range*sigma_z_range + sigma_z_roll*sigma_z_roll + sigma_z_pitch*sigma_z_pitch;
+            float sigma_aoi = 5e-4f * sensor_r * powf(cosf(aoi[ix_out]),2); 
+            z_var[ix_out] =  sigma_z_teta*sigma_z_teta + sigma_z_range*sigma_z_range + sigma_z_roll*sigma_z_roll + sigma_z_pitch*sigma_z_pitch + sigma_aoi*sigma_aoi;
             //z_var[ix_out] =  sigma_z_pitch*sigma_z_pitch;
 
 			ix_out++;
