@@ -33,7 +33,7 @@ typedef struct{
 	r7k_DataRecordFrame_T DRF;
 	r7k_RecordTypeHeader_xxxx_t RTH;
 	r7k_RecordData_xxxx_t RD;
-	r7k_Checksum_t CS;
+	//r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
 }r7k_Record;
 */
 
@@ -46,7 +46,7 @@ typedef struct{
 	float	 sec; //0.0 - 59.999
 	uint8_t  hour; //0-23
 	uint8_t  min; //0-59
-	uint16_t res1;			//Moved the reserved 16-bit entry into here to make the size a multiple of 4
+	uint16_t record_ver;			//Moved the previously reserved 16-bit entry into here to make the size a multiple of 4
 }r7k_Time_t;	//12B
 
 typedef struct{
@@ -136,7 +136,8 @@ typedef struct{
 typedef struct{
 	r7k_DataRecordFrame_t DRF;
 	r7k_RecordTypeHeader_7000_t RTH;
-	//r7k_Checksum_t CS;
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+
 }r7k_Record_7000_t;
 
 
@@ -157,7 +158,8 @@ typedef struct{
 	r7k_DataRecordFrame_t DRF;
 	r7k_RecordTypeHeader_7001_t RTH;
 	r7k_RecordData_7001_t RD;
-	//r7k_Checksum_t CS;
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+
 }r7k_Record_7001_t;
 
 // ****7004 Beam Geometry ****
@@ -176,7 +178,8 @@ typedef struct{
 	r7k_DataRecordFrame_t DRF;
 	r7k_RecordTypeHeader_7004_t RTH;
 	r7k_RecordData_7004_t RD;
-	//r7k_Checksum_t CS;
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+
 }r7k_Record_7004_t;
 
 
@@ -201,7 +204,8 @@ typedef struct{
 	r7k_DataRecordFrame_t DRF;
 	r7k_RecordTypeHeader_7006_t RTH;
 	r7k_RecordData_7006_t RD;
-	//r7k_Checksum_t CS;
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+
 }r7k_Record_7006_t;
 
 // ****7027 Raw detection Data ****
@@ -234,13 +238,21 @@ typedef struct{
 	r7k_DataRecordFrame_t DRF;
 	r7k_RecordTypeHeader_7027_t RTH;
 	r7k_RecordData_7027_t RD[];
-	//r7k_Checksum_t CS;
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+
 }r7k_Record_7027_t;
 
 // ****7610 Sound velocity ****
 typedef struct{
 	float sv; //Sound velocity in m/s
 }r7k_RecordTypeHeader_7610_t;
+typedef struct{
+	r7k_NetworkFrame_t NF;
+	r7k_DataRecordFrame_t DRF;
+    r7k_RecordTypeHeader_7610_t RTH;
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+
+}r7k_Record_7610_t;
 
 
 

@@ -118,6 +118,7 @@ typedef struct{
 	float   up_gate[MAX_DP];
 	float   low_gate[MAX_DP];
     float   quality[MAX_DP];
+    int     quality_flags[MAX_DP];
     float   priority[MAX_DP];
     float   strength[MAX_DP];
     float   tx_angle;

@@ -339,6 +339,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
      float* upper_gate_range = &(outbuf->up_gate[0]);
      float* lower_gate_range = &(outbuf->low_gate[0]);
      float* quality = &(outbuf->quality[0]);
+     int*   quality_flags = &(outbuf->quality_flags[0]);
      float* priority = &(outbuf->priority[0]);
      float* strength = &(outbuf->strength[0]);
      float* tx_angle_out = &(outbuf->tx_angle);
@@ -560,7 +561,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 	float prev_sensor_az = 0.;
 
 	float inten;
-    uint8_t quality_flags;
+    uint8_t sensor_quality_flags;
     uint8_t priority_flags;
     uint16_t flags;
 
@@ -589,7 +590,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             sensor_t = sample_number*div_Fs;		//Calculate tx to rx time for each point 
             sensor_az  = bath->dp[ix_in].angle;
             sensor_elec_steer = 0;                                  // Batt version prev 5 does not contain this information
-            quality_flags = bath->dp[ix_in].quality_flags;
+            sensor_quality_flags = bath->dp[ix_in].quality_flags;
             flags = bath->dp[ix_in].flags;
             inten = bath->dp[ix_in].intensity;
         }
@@ -612,7 +613,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
             sensor_az  = (float) bath_v104->dp[ix_in].angle;
             sensor_elec_steer = 0;
-            quality_flags = bath_v104->dp[ix_in].quality_flags;
+            sensor_quality_flags = bath_v104->dp[ix_in].quality_flags;
             flags = bath_v104->dp[ix_in].flags;
             inten = (float) bath_v104->dp[ix_in].intensity;
         }
@@ -635,7 +636,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
             sensor_az  = bath_v5->dp[ix_in].angle;
             sensor_elec_steer = bath_v5->dp[ix_in].steer_angle;
-            quality_flags = bath_v5->dp[ix_in].quality_flags;
+            sensor_quality_flags = bath_v5->dp[ix_in].quality_flags;
             flags = bath_v5->dp[ix_in].flags;
             inten = bath_v5->dp[ix_in].intensity;
         }
@@ -659,7 +660,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             sensor_t = sample_number*div_Fs;		//Calculate tx to rx time for each point 
             sensor_az  = bath_v7->dp[ix_in].angle;
             sensor_elec_steer = 0;                                  // Batt version prev 5 does not contain this information
-            quality_flags = bath_v7->dp[ix_in].quality_flags;
+            sensor_quality_flags = bath_v7->dp[ix_in].quality_flags;
             flags = bath_v7->dp[ix_in].flags;
             inten = bath_v7->dp[ix_in].intensity;
         }
@@ -682,7 +683,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
             sensor_az  = bath_v8->dp[ix_in].angle;
             sensor_elec_steer = bath_v8->dp[ix_in].steer_angle;
-            quality_flags = bath_v8->dp[ix_in].quality_flags;
+            sensor_quality_flags = bath_v8->dp[ix_in].quality_flags;
             flags = bath_v8->dp[ix_in].flags;
             inten = bath_v8->dp[ix_in].intensity;
         }
@@ -707,17 +708,17 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             
         #ifdef FORCE_MULTIDETECT_TO_QUALITY3
         if (priority_flags==1 || priority_flags ==2){
-            quality_flags = 3;
+            sensor_quality_flags = 3;
         }
         #endif
         
         // Add correction for roll during tx2rx period for each beam individually
         sensor_az_tx2rx_corr = -roll_vector[(size_t) round(sensor_t*ROLL_VECTOR_RATE)]; //Roll is given in opposite angles than sonar azimuth
         sensor_z_tx2rx_corr = z_vector[(size_t) round((sensor_t/2)*ROLL_VECTOR_RATE)]; // Z correction is for half tx to rx time
-        //printf("quality_flags=%d,  sensor_params->min_priority_flag=%d, sensor_az=%fdeg, sensor_el=%fdeg\n",quality_flags,((flags)>>9) & (0x0F),sensor_az*180/M_PI, sensor_el*180/M_PI);
+        //printf("sensor_quality_flags=%d,  sensor_params->min_priority_flag=%d, sensor_az=%fdeg, sensor_el=%fdeg\n",sensor_quality_flags,((flags)>>9) & (0x0F),sensor_az*180/M_PI, sensor_el*180/M_PI);
         //printf("sonar_min_quality_flag=%d, sensor_params->max_quality_flag=%d, sensor_params->min_priority_flag=%d, sensor_params->max_priority_flag=%d\n",sensor_params->min_quality_flag,sensor_params->max_quality_flag,sensor_params->min_priority_flag,sensor_params->max_priority_flag);
-		if (	(quality_flags >= sensor_params->min_quality_flag) && 
-				(quality_flags <= sensor_params->max_quality_flag) &&
+		if (	(sensor_quality_flags >= sensor_params->min_quality_flag) && 
+				(sensor_quality_flags <= sensor_params->max_quality_flag) &&
 		        (priority_flags >= sensor_params->min_priority_flag) && 
 				(priority_flags <= sensor_params->max_priority_flag) &&
 				(sensor_az > sensor_params->min_azimuth) && (sensor_az < sensor_params->max_azimuth) &&
@@ -734,8 +735,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
             #ifdef OUTPUT_QUALITY_VAL
                 quality[ix_out] = sensor_quality;
             #else
-                quality[ix_out] = (float) quality_flags;
+                quality[ix_out] = (float) sensor_quality_flags;
             #endif
+            quality_flags[ix_out] = (float) sensor_quality_flags;
             priority[ix_out] = (float) priority_flags;
             *tx_angle_out = sensor_el;
 			
@@ -801,7 +803,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 			prev_sensor_az = sensor_az;
 		}
         //else{
-            //printf("quality_flags=%d,  sensor_params->min_priority_flag=%d, sensor_r=%f, sensor_az=%fdeg, sensor_el=%fdeg\n",quality_flags,((flags)>>9) & (0x0F),sensor_r,sensor_az*180/M_PI, sensor_el*180/M_PI);
+            //printf("sensor_quality_flags=%d,  sensor_params->min_priority_flag=%d, sensor_r=%f, sensor_az=%fdeg, sensor_el=%fdeg\n",sensor_quality_flags,((flags)>>9) & (0x0F),sensor_r,sensor_az*180/M_PI, sensor_el*180/M_PI);
             //printf("sensor_params->min_quality_flag=%d, sensor_params->max_quality_flag=%d, sensor_params->min_priority_flag=%d, sensor_params->max_priority_flag=%d\n",sensor_params->min_quality_flag,sensor_params->max_quality_flag,sensor_params->min_priority_flag,sensor_params->max_priority_flag);
         //}
     }

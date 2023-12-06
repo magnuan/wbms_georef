@@ -15,6 +15,7 @@ list(APPEND wbms_georef_SOURCES
     crc32.c
     cmath.c
     reson7k.c
+    reson7k_output.c
     wbms_data.c
     sim_data.c
     velodyne.c
