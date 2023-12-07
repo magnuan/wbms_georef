@@ -913,6 +913,7 @@ static const char *input_source_names[] = {
 };
 
 
+#ifdef ENABLE_NETWORK_IO
 void udp_broadcast(void* data, int len,int fd, struct sockaddr* addr){
     #define MAX_UDP_LEN 65504
     int bc_len = 0;
@@ -931,7 +932,7 @@ void udp_broadcast(void* data, int len,int fd, struct sockaddr* addr){
         }
     }
 }
-		
+#endif		
 
 int main(int argc,char *argv[])
 {

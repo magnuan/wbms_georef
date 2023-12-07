@@ -14,6 +14,7 @@
 #include "time_functions.h"
 #if defined(_MSC_VER)
 #include "non_posix.h"
+typedef SSIZE_T ssize_t;
 #include <io.h>
 #endif
 
