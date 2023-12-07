@@ -11,8 +11,13 @@
 #endif
 #define ENABLE_NETWORK_IO
 
+
 #ifdef ENABLE_NETWORK_IO
+#ifdef __unix__
 #include <arpa/inet.h>
+#else
+#include <winsock2.h>
+#endif
 #include <netdb.h>
 #include <errno.h>
 #endif
