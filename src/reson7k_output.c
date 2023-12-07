@@ -12,11 +12,18 @@
 #include "cmath.h"
 
 #define R7K_VERSION 5
-#define R7K_DEV_ID 1
+#define R7K_DEV_ID 14001
 #define R7K_OUTPUT_FS 78125.
 
 static uint8_t recorded_not_live = 1;
 static uint8_t write_network_frame = 0;
+static uint32_t max_packet_size = 0;
+
+void set_r7k_output_parameters(uint8_t rec, uint8_t net, uint32_t max){
+    recorded_not_live = rec;
+    write_network_frame = net;
+    max_packet_size = max;
+}
 
 /* packet_size is payload + drf + checksum   i
  * =  payload_size + sizeof(r7k_DataRecordFrame) + sizeof(r7k_Checksum_t)
@@ -85,7 +92,9 @@ int write_r7k_bathy_to_buffer(double ts, output_data_t* data, uint32_t N, /*OUTP
     size_t total_data_size = 0;
     char* dp = outbuf;
     size_t record_size;
-    #if 1
+
+    // TODO split data into network framnes based on max_packet_size  (Only neccessary for UDP output streams)
+
     // Add 7027 record to data stream
     record_size = sizeof(r7k_Record_7027_t) + N*sizeof(r7k_RecordData_7027_t);
     record_size += sizeof(r7k_Checksum_t);     
@@ -121,7 +130,7 @@ int write_r7k_bathy_to_buffer(double ts, output_data_t* data, uint32_t N, /*OUTP
     dp += record_size;
     total_data_size += record_size;
     free(rec1);
-    #endif
+
     //Add 7610 record to data stream
     record_size = sizeof(r7k_Record_7610_t); 
     record_size += sizeof(r7k_Checksum_t);     

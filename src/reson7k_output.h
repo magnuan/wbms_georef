@@ -3,6 +3,9 @@
 
 #include "wbms_georef.h"
 
+
+void set_r7k_output_parameters(uint8_t recorded_not_live, uint8_t write_network_frame, uint32_t max_packet_size);
+
 /* r7k_Record_7000_t            Sonar settings
 *  r7k_RecordData_7001_t        Configuration
 */

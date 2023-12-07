@@ -855,6 +855,7 @@ sensor_mode_e sensor_autodetect_file(FILE* fp){
 
 int sensor_fetch_next_packet(char * data, int fd, sensor_mode_e mode){ 
     int len=0;
+    //fprintf(stderr,"sensor_fetch_next_packet mode=%d\n",mode);
 	switch (mode){
 		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
 			len = wbms_fetch_next_packet(data, fd);break;
@@ -1079,6 +1080,9 @@ int main(int argc,char *argv[])
 				break;
 			case '7':
 				output_mode = output_s7k;
+                //If output mode is set to s7k by parameter, we set the default filters to basically pass anything
+                sensor_params.min_range = -1000;
+                sensor_params.min_quality_flag = 0;
 				break;
 			case '5':
 				force_bath_version = 5;
@@ -1529,6 +1533,16 @@ int main(int argc,char *argv[])
         fprintf(stderr,"Simulated sensor data, just setting SBET epoch to Unix epoch\n");
         set_sbet_epoch(0.);
     }
+
+    if (output_mode==output_s7k){
+        switch (output_drain){
+            case o_file:    set_r7k_output_parameters(1, 0, 0); break;          //Output to file, S7K should be marked as recorded data, and no network frame, no packet size limit
+            case o_stdout:  set_r7k_output_parameters(0, 0, 0); break;          //Output to stdout, S7K should be marked as live data, and no network frame, no packet size limit
+            case o_tcp:     set_r7k_output_parameters(0, 1, 0); break;          //Output to tcp, S7K should be marked as live data, with network frame, no packet size limit
+            case o_udp:     set_r7k_output_parameters(0, 1, 65536); break;      //Output to file, S7K should be marked as live data, with network frame, 64k packet size limit
+        }
+    }
+
     //Fetch and process a few pos datasets to guess correct UTM zone and finding offset values for Northing and Easting
     double first_lat=0; 
     double first_lon=0;
@@ -1607,6 +1621,7 @@ int main(int argc,char *argv[])
             case output_nmea: break;
             case output_json: break;
             case output_sbf: break;
+            case output_s7k: break;
             default: break;
         }
     }
@@ -1640,7 +1655,7 @@ int main(int argc,char *argv[])
 			sprintf_unix_time(str_buf, ts_min);
 			fprintf(stderr,"%s",str_buf);
 			if (input_navigation_fd>0) fprintf(stderr,"| NAV   %6d (%5d/s) %4dMB (%5dkB/s)  ",navigation_total_packets,(navigation_total_packets-prev_navigation_total_packets),	navigation_total_data>>20, (navigation_total_data-prev_navigation_total_data)/1024);
-			if (input_sensor_fd>0) fprintf(stderr,"| WBMS  %6d (%5d/s) %4dMB (%5dkB/s)  ",sensor_total_packets,(sensor_total_packets-prev_sensor_total_packets),	sensor_total_data>>20, (sensor_total_data-prev_sensor_total_data)/1024);
+			if (input_sensor_fd>0) fprintf(stderr,"| SENSOR  %6d (%5d/s) %4dMB (%5dkB/s)  ",sensor_total_packets,(sensor_total_packets-prev_sensor_total_packets),	sensor_total_data>>20, (sensor_total_data-prev_sensor_total_data)/1024);
 			fprintf(stderr,"| OUT   %4dMB (%4dkB/s)  ",	output_total_data>>20, (output_total_data-prev_output_total_data)/1024);
 			fprintf(stderr,"|\n");
 			prev_navigation_total_packets = navigation_total_packets;
@@ -1720,9 +1735,7 @@ int main(int argc,char *argv[])
 		
 		output_databuffer_len = 0;	
 
-		ts_min = 10000000000.;
-		if(input_sensor_source != i_none) ts_min = MIN(ts_min, ts_sensor);
-		double ts_detections = ts_min;	//Minimum time stamp for non-navigation data
+		double ts_detections = ts_sensor;	//Minimum time stamp for non-navigation data
 	
         //fprintf(stderr,".");
 		if((input_navigation_source == i_sim) && (ts_detections<prev_ts_detections)){
@@ -1731,33 +1744,50 @@ int main(int argc,char *argv[])
 		}
 		prev_ts_detections = ts_detections;
 
-		if(input_navigation_source != i_none) ts_min = MIN(ts_min, ts_pos-ts_pos_lookahead);
 
+		ts_min = 10000000000.;
+		if(input_sensor_source != i_none) ts_min = MIN(ts_min, ts_sensor);
+        if(input_navigation_source != i_none) ts_min = MIN(ts_min, ts_pos-ts_pos_lookahead);
 
 		//** Process new data from navigation source
-		if ((input_navigation_source!=i_none) && (input_navigation_source!=i_zero) && (ts_pos-ts_pos_lookahead==ts_min || (input_navigation_source != i_file && input_navigation_source != i_sim))){ //Dont run if NON or ZERO or (SIM or FILE) unless this has lowest timestamp
-			navigation_data_buffer_len = 0;
-			uint8_t runnavigation = 0;
-			if (input_navigation_source==i_sim) runnavigation=1;
-			else if (input_navigation_source==i_file) runnavigation=1;
-			else if (FD_ISSET(input_navigation_fd,&read_fds)) runnavigation=1;
-			if (runnavigation){
-				if(input_navigation_source==i_udp) navigation_data_buffer_len = read(input_navigation_fd,navigation_data_buffer,MAX_NAVIGATION_PACKET_SIZE);
-				else if(input_navigation_source==i_sim) navigation_data_buffer_len = 1; //Just mark that we have data
-				else navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_navigation_fd,pos_mode);
-				
-				if (navigation_data_buffer_len>0){
-					navigation_total_data += navigation_data_buffer_len;
-			
-					if (process_nav_data_packet(navigation_data_buffer,navigation_data_buffer_len,ts_detections, &ts_pos,pos_mode,z_off)){
-						navigation_total_packets++;
-					}
-				}
-				else if((navigation_data_buffer_len==0))  {
-                    input_navigation_source = i_none;
+        if((ts_pos-ts_pos_lookahead == ts_min)){
+            while(1){
+
+                if ((input_navigation_source==i_none) || (input_navigation_source==i_zero)) break;  //Dont run at all if input source is ZERO or NONE 
+
+                if (1){ //Here is the data fetch loop 
+                    navigation_data_buffer_len = 0;
+                    uint8_t runnavigation = 0;
+                    if (input_navigation_source==i_sim) runnavigation=1;
+                    else if (input_navigation_source==i_file) runnavigation=1;
+                    else if (FD_ISSET(input_navigation_fd,&read_fds)) runnavigation=1;
+                    if (runnavigation){
+                        if(input_navigation_source==i_udp) navigation_data_buffer_len = read(input_navigation_fd,navigation_data_buffer,MAX_NAVIGATION_PACKET_SIZE);
+                        else if(input_navigation_source==i_sim) navigation_data_buffer_len = 1; //Just mark that we have data
+                        else navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_navigation_fd,pos_mode);
+
+                        if (navigation_data_buffer_len>0){
+                            navigation_total_data += navigation_data_buffer_len;
+
+                            if (process_nav_data_packet(navigation_data_buffer,navigation_data_buffer_len,ts_detections, &ts_pos,pos_mode,z_off)){
+                                navigation_total_packets++;
+                            }
+                        }
+                        else if((navigation_data_buffer_len==0))  {
+                            input_navigation_source = i_none;
+                        }
+                    }
                 }
-			}
-		}
+                if ((input_navigation_source==i_tcp) || (input_navigation_source==i_udp) || (input_navigation_source==i_stdin)) break;  //Run once per turn,  if input source is a stream (TCP, UDP, STDIN)
+
+                //fprintf(stderr, "ts_pos = %f, ts_pos-ts_pos_lookahead = %f, ts_sensor=%f\n", ts_pos,ts_pos-ts_pos_lookahead, ts_sensor);
+                if (ts_pos-ts_pos_lookahead>ts_sensor ) break;       //If input source is a file or simulator, run until we are ahead of sensor
+            }
+        }
+		
+        ts_min = 10000000000.;
+		if(input_sensor_source != i_none) ts_min = MIN(ts_min, ts_sensor);
+        if(input_navigation_source != i_none) ts_min = MIN(ts_min, ts_pos-ts_pos_lookahead);
 		
 
 		//** Process new data from sensor source
@@ -1778,13 +1808,13 @@ int main(int argc,char *argv[])
 					new_sensor_data = sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &new_ts_sensor, sensor_mode);
 					//ts_sensor += sensor_offset.time_offset;
 				    //if(new_sensor_data) fprintf(stderr,"new_sensor_data = %d\n", new_sensor_data);
-                    //fprintf(stderr,"Ts_sensor = %f, Ts_pos =%f\n",ts_sensor, ts_pos);
+                    //fprintf(stderr,"Ts_sensor = %f, Ts_pos =%f navdata_count=%d\n",ts_sensor, ts_pos,navdata_count);
 
 		
 
 					if (new_sensor_data){ 
                         ts_sensor = new_ts_sensor;
-                        if(navdata_count > NAVDATA_BUFFER_LEN){ //Need a full buffer before we can start doing georeferencing
+                        if((navdata_count > NAVDATA_BUFFER_LEN) || (pos_mode == pos_mode_sim)){ //Need a full buffer before we can start doing georeferencing
                             switch (sensor_mode){
                                 case sensor_mode_wbms: case sensor_mode_wbms_v5:
                                     if (new_sensor_data == PACKET_TYPE_BATH_DATA){

@@ -136,6 +136,7 @@ int wbms_fetch_next_packet(char * data, int fd){
 	int rem,n;
 	char * dp;
 	uint32_t size;
+	//fprintf(stderr,"wbms_fetch_next_packet\n");
 	if(wbms_seek_next_header(fd)) return 0;
 	((uint32_t*)data)[0] = 0xDEADBEEF;
 	//Fetch main header
