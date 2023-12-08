@@ -1224,7 +1224,12 @@ int main(int argc,char *argv[])
             setsockopt(input_navigation_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
             #endif
 			
+            #ifdef __unix__
             bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
+            #else
+            ZeroMemory((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
+            #endif
+
 			input_navigation_serv_addr.sin_family = AF_INET;
 			input_navigation_serv_addr.sin_port = htons(input_navigation_portno);
 			#define UDP_BROADCAST
@@ -1264,7 +1269,11 @@ int main(int argc,char *argv[])
 			input_navigation_fd = socket(AF_INET, SOCK_STREAM, 0);
 			if (input_navigation_fd < 0) 
 				error("ERROR opening socket");
+            #ifdef __unix__
 			bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
+            #else
+			ZeroMemory((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
+            #endif
 			input_navigation_serv_addr.sin_family = AF_INET;
 			input_navigation_serv_addr.sin_port = htons(input_navigation_portno);
 
