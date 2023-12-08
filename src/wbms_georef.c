@@ -73,7 +73,11 @@ static char verbose = 0;
 #define MAX_NAVIGATION_PACKET_SIZE (4*1024*1024)
 
 #ifdef ENABLE_NETWORK_IO
-    #define TCP_SEND_FLAGS (MSG_NOSIGNAL)
+    #ifdef __unix__
+        #define TCP_SEND_FLAGS (MSG_NOSIGNAL)
+    #else
+        #define TCP_SEND_FLAGS (0)
+    #endif
 #else
     //typedef int fd_set;
     int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout){ 
