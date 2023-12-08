@@ -926,7 +926,7 @@ void udp_broadcast(void* data, int len,int fd, struct sockaddr* addr){
     int ret = 0;
     while (bc_sent<len){
         bc_len = MIN(len-bc_sent,MAX_UDP_LEN);
-        ret = sendto(fd, data + bc_sent, bc_len, 0, addr, sizeof(struct sockaddr_in));
+        ret = sendto(fd, ((char*)data) + bc_sent, bc_len, 0, addr, sizeof(struct sockaddr_in));
         if (ret<0){
             fprintf(stderr,"Broadcasting %d bytes data on UDP, fails with %s\n",bc_len,strerror(errno));
             break;
@@ -1214,7 +1214,11 @@ int main(int argc,char *argv[])
 			if (input_navigation_fd < 0) 
 				error("ERROR opening socket");
             
-            setsockopt(input_navigation_fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int));
+            #ifdef __unix__
+            setsockopt(input_navigation_fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int));  //TODO consider to just use REUSEADDR for linux as well (https://www.geeksforgeeks.org/difference-between-so_reuseaddr-and-so_reuseport/)
+            #else
+            setsockopt(input_navigation_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+            #endif
 			
             bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
 			input_navigation_serv_addr.sin_family = AF_INET;
