@@ -77,6 +77,9 @@ static char verbose = 0;
         #define TCP_SEND_FLAGS (MSG_NOSIGNAL)
     #else
         #define TCP_SEND_FLAGS (0)
+        //#define bzero(a,b) (ZeroMemory(a,b))
+        #define bzero(s, n) memset((s), 0, (n))
+        #define bcopy(s1, s2, n) memmove((s2), (s1), (n))
     #endif
 #else
     //typedef int fd_set;
@@ -1224,12 +1227,7 @@ int main(int argc,char *argv[])
             setsockopt(input_navigation_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
             #endif
 			
-            #ifdef __unix__
             bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
-            #else
-            ZeroMemory((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
-            #endif
-
 			input_navigation_serv_addr.sin_family = AF_INET;
 			input_navigation_serv_addr.sin_port = htons(input_navigation_portno);
 			#define UDP_BROADCAST
@@ -1269,11 +1267,7 @@ int main(int argc,char *argv[])
 			input_navigation_fd = socket(AF_INET, SOCK_STREAM, 0);
 			if (input_navigation_fd < 0) 
 				error("ERROR opening socket");
-            #ifdef __unix__
 			bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
-            #else
-			ZeroMemory((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
-            #endif
 			input_navigation_serv_addr.sin_family = AF_INET;
 			input_navigation_serv_addr.sin_port = htons(input_navigation_portno);
 
