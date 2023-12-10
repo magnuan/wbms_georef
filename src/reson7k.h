@@ -102,7 +102,8 @@ typedef struct{
 	uint32_t tx_type; // 0 = CW, 1 = Chirp
 	uint32_t tx_taper; // 0 = tapered rect, 1 = Tukey
 	float tx_taper_param; // = 0
-	uint32_t tx_pulse_res; // = 0
+	uint16_t tx_pulse_mode; // = 1 (single ping)
+	uint16_t tx_pulse_res; // = 0
 	float max_ping_rate;
 	float ping_per; //Seconds since last ping
 	float range; // in Meter
@@ -134,6 +135,7 @@ typedef struct{
 }r7k_RecordTypeHeader_7000_t; //7k Sonar Settings  (No record data section)
 
 typedef struct{
+	r7k_NetworkFrame_t NF;
 	r7k_DataRecordFrame_t DRF;
 	r7k_RecordTypeHeader_7000_t RTH;
     //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
@@ -148,13 +150,15 @@ typedef struct{
 }r7k_RecordTypeHeader_7001_t; 
 typedef struct{
 	uint32_t id; //Unique id number
-	char     desc[64]; //ASCII string decribing device
+	char     desc[60]; //ASCII string decribing device
+    uint32_t alpha_data_card; //Defines the type of the AlphaData card. 0x0400 – Virtex 2 card 0x0800 – Virtex 5 card 0x1000 – Virtex 6 card
 	uint64_t serial;
 	uint32_t info_len; // = 0 (in bytes)
-	//char	info;	//XML stuff, hope we don't need this
+	char	info[];	    //XML info about device
 }r7k_RecordData_7001_t;
 
 typedef struct{
+	r7k_NetworkFrame_t NF;
 	r7k_DataRecordFrame_t DRF;
 	r7k_RecordTypeHeader_7001_t RTH;
 	r7k_RecordData_7001_t RD;
@@ -175,6 +179,7 @@ typedef struct{
 }r7k_RecordData_7004_t; 
 
 typedef struct{
+	r7k_NetworkFrame_t NF;
 	r7k_DataRecordFrame_t DRF;
 	r7k_RecordTypeHeader_7004_t RTH;
 	r7k_RecordData_7004_t RD;
@@ -201,6 +206,7 @@ typedef struct{
 	float max_gate_range[256];
 }r7k_RecordData_7006_t; 
 typedef struct{
+	r7k_NetworkFrame_t NF;
 	r7k_DataRecordFrame_t DRF;
 	r7k_RecordTypeHeader_7006_t RTH;
 	r7k_RecordData_7006_t RD;
@@ -239,8 +245,76 @@ typedef struct{
 	r7k_RecordTypeHeader_7027_t RTH;
 	r7k_RecordData_7027_t RD[];
     //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
-
 }r7k_Record_7027_t;
+
+
+// ****7030 Sonar installation parameters ****
+typedef struct{
+    float Frequency;
+    uint16_t Length_of_firmware_version_info;
+    char  Firmware_version_info[128];
+    uint16_t Length_of_software_version_info;
+    char  Software_version_info[128];
+    uint16_t  Length_of_s7k_software_version_info;
+    char  s7k_software_version_info[128];
+    uint16_t  Length_of_record_protocol_info;
+    char  Record_protocol_version_info[128];
+    float  Transmit_array_X; //X_offset_in_meters
+    float  Transmit_array_Y; //Y_offset_in_meters
+    float  Transmit_array_Z;//Z_offset_in_meters
+    float  Transmit_array_roll; //Radians
+    float  Transmit_array_pitch; //Radians
+    float  Transmit_array_heading; //Radians
+    float  Receive_array_X; //X_offset_in_meters
+    float  Receive_array_Y; //Y_offset_in_meters
+    float  Receive_array_Z; //Z_offset_in_meters
+    float  Receive_array_roll; //Radians
+    float  Receive_array_pitch; //Radians
+    float  Receive_array_heading; //Radians
+    float  Motion_sensor_X; //X_offset_in_meters
+    float  Motion_sensor_Y; //Y_offset_in_meters
+    float  Motion_sensor_Z; //Z_offset_in_meters
+    float  Motion_sensor_roll_calibration; //Radians
+    float  Motion_sensor_pitch_calibration; //Radians
+    float  Motion_sensor_heading_calibration; //Radians
+    uint16_t  Motion_sensor_time_delay; //Milliseconds
+    float  Position_sensor_X; //X_offset_in_meters
+    float  Position_sensor_Y; //Y_offset_in_meters
+    float  Position_sensor_Z; //Z_offset_in_meters
+    uint16_t  Position_sensor_time_delay; //Milliseconds_
+    float  Water_line_vertical_offset; //Vertical offset from reference point to waterline in meters
+}r7k_RecordTypeHeader_7030_t;
+typedef struct{
+	r7k_NetworkFrame_t NF;
+	r7k_DataRecordFrame_t DRF;
+    r7k_RecordTypeHeader_7030_t RTH;
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+}r7k_Record_7030_t;
+
+// ****7200 Sonar installation parameters ****
+typedef struct{
+    uint64_t File_identifier[2];
+    uint16_t Version_number; //File_format_version_number
+    uint16_t Reserved;
+    uint64_t Session_identifier[2]; //User_defined_session_identifier._Used_to_associate_multiple_files_for_a_given_session.
+    uint32_t Record_data_size; //Size_of_record_data._0_–_If_not_present
+    uint32_t N; //Number_of_devices_(N_≥_0)
+    char Recording_name[64]; //Null_terminated_UTF-8_string
+    char Recording_program_version_number[16]; //Null_terminated_UTF-8_string
+    char User_defined_name[64];
+    char Notes[128];
+}r7k_RecordTypeHeader_7200_t;
+typedef struct{
+    uint32_t dev_id;    // Identifier for record type of embedded data
+    uint16_t sys_enum;  // Identifier for the device enumerator
+}r7k_RecordData_7200_t; 
+typedef struct{
+	r7k_NetworkFrame_t NF;
+	r7k_DataRecordFrame_t DRF;
+    r7k_RecordTypeHeader_7200_t RTH;
+	r7k_RecordData_7200_t RD[];
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+}r7k_Record_7200_t;
 
 // ****7610 Sound velocity ****
 typedef struct{

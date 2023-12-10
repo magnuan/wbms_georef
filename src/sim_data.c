@@ -63,6 +63,7 @@ uint32_t sim_georef_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, s
     float* quality = &(outbuf->quality[0]);
     float* strength = &(outbuf->strength[0]);
     float* tx_angle_out = &(outbuf->tx_angle);
+    float* fs_out = &(outbuf->sample_rate);
     float* sv_out = &(outbuf->sv);
     float* tx_freq_out = &(outbuf->tx_freq);
     int* multiping_index_out = &(outbuf->multiping_index);
@@ -99,6 +100,7 @@ uint32_t sim_georef_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, s
     quality[0] = 3;
     strength[0] = 0.f;
     tx_angle_out[0] = 0.f;
+    fs_out[0] = 78125.f;
     sv_out[0] = 0.f;
     tx_freq_out[0] = 0.f;
     multiping_index_out[0] = 0;

@@ -344,6 +344,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
      float* priority = &(outbuf->priority[0]);
      float* strength = &(outbuf->strength[0]);
      float* tx_angle_out = &(outbuf->tx_angle);
+     float* fs_out = &(outbuf->sample_rate);
+     float* ping_rate_out = &(outbuf->ping_rate);
      float* sv_out = &(outbuf->sv);
      float* tx_freq_out = &(outbuf->tx_freq);
      float* tx_bw_out = &(outbuf->tx_bw);
@@ -376,6 +378,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     bath_data_packet_v104_t* bath_v104 = (bath_data_packet_v104_t*) bath; /* Cast to v5 packet, could use an union type here as well */
     float tx_angle; 
 	float Fs;
+    float ping_rate;
 	float c;
 	uint16_t Nin;
     uint32_t ping_number;
@@ -413,6 +416,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         multifreq_index = ((bath->sub_header.flags)>>4) & 0x03;
         ping_number =  bath->sub_header.ping_number;
         multiping_index =  bath->sub_header.multiping_seq_nr;
+        ping_rate =  bath->sub_header.ping_rate;
     }
     else if (bath_version == 104){
         tx_freq = bath_v104->sub_header.tx_freq;
@@ -425,7 +429,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         Nin = bath_v104->sub_header.N;
         multifreq_index = ((bath_v104->sub_header.flags)>>4) & 0x03;
         ping_number =  bath_v104->sub_header.ping_number;
-        multiping_index =  bath->sub_header.multiping_seq_nr;
+        multiping_index =  bath_v104->sub_header.multiping_seq_nr;
+        ping_rate =  bath_v104->sub_header.ping_rate;
     }
     else if ((bath_version == 5) || (bath_version == 6)){
         tx_freq = bath_v5->sub_header.tx_freq;
@@ -438,7 +443,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         Nin = bath_v5->sub_header.N;
         multifreq_index = ((bath_v5->sub_header.flags)>>4) & 0x03;
         ping_number =  bath_v5->sub_header.ping_number;
-        multiping_index =  bath->sub_header.multiping_seq_nr;
+        multiping_index =  bath_v5->sub_header.multiping_seq_nr;
+        ping_rate =  bath_v5->sub_header.ping_rate;
     }
     else if (bath_version == 7){
         tx_freq = bath_v7->sub_header.tx_freq;
@@ -452,6 +458,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         multifreq_index =bath_v7->sub_header.multifreq_band_index;
         ping_number =  bath_v7->sub_header.ping_number;
         multiping_index =  bath_v7->sub_header.multiping_scan_index;
+        ping_rate =  bath_v7->sub_header.ping_rate;
     }
     else {//if (bath_version == 8){
         tx_freq = bath_v8->sub_header.tx_freq;
@@ -465,6 +472,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
         multifreq_index =bath_v8->sub_header.multifreq_band_index;
         ping_number =  bath_v8->sub_header.ping_number;
         multiping_index =  bath_v8->sub_header.multiping_scan_index;
+        ping_rate =  bath_v8->sub_header.ping_rate;
     }
     *sv_out = c; 
     *multiping_index_out = multiping_index;
@@ -474,6 +482,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     *tx_plen_out = tx_plen;
     *tx_voltage_out = tx_voltage;
     *ping_number_out = ping_number;
+    *fs_out = Fs;
+    *ping_rate_out = ping_rate;
 	float div_Fs = 1.f/Fs;
 	float c_div_2Fs = c/(2*Fs);
     /*printf("ping_number=%9d, multiping= %d tx_angle=%5.1f multifreq_index=%d\n", 
@@ -983,6 +993,8 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
      float* tx_bw_out = &(outbuf->tx_bw);
      float* tx_plen_out = &(outbuf->tx_plen);
      float* tx_voltage_out = &(outbuf->tx_voltage);
+     float* fs_out = &(outbuf->sample_rate);
+     float* ping_rate_out = &(outbuf->ping_rate);
      int* ping_number_out = &(outbuf->ping_number);
      float* sv_out = &(outbuf->sv);
 
@@ -1024,6 +1036,8 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
     *tx_plen_out = tx_plen;
     *tx_voltage_out = tx_voltage;
     *ping_number_out = ping_number;
+    *fs_out = Fs;
+    *ping_rate_out = sbp_data->sub_header.ping_rate;
 	float c_div_2Fs = c/(2*Fs);
 
     //Skip whole dataset condition

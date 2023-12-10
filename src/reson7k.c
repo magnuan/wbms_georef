@@ -305,6 +305,8 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     int*   quality_flags = &(outbuf->quality_flags[0]);
     float* priority = &(outbuf->priority[0]);
     float* tx_angle_out = &(outbuf->tx_angle);
+    float* fs_out = &(outbuf->sample_rate);
+    float* ping_rate_out = &(outbuf->ping_rate);
     float* sv_out = &(outbuf->sv);
     float* tx_freq_out = &(outbuf->tx_freq);
     float* tx_bw_out = &(outbuf->tx_bw);
@@ -315,6 +317,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     static float sv;
     static float tx_freq;
     static float tx_bw;
+    static float ping_rate;
 
 	r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
  	double ts = r7k_r7ktime_to_ts(&(drf->time));
@@ -339,11 +342,13 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     if (drf->record_id == 7000){
        tx_freq = rth.r7000->tx_freq ;
        tx_bw = rth.r7000->bw ;
+       ping_rate = 1./(rth.r7000->ping_per);
        //fprintf(stderr, "Read in tx freq from S7K 7000  tx_freq=%f\n", tx_freq);
        return 0;
     }
     *tx_freq_out = tx_freq;
     *tx_bw_out = tx_bw;
+    *ping_rate_out = ping_rate;
        
 
 	if (drf->record_id == 7027){
@@ -482,6 +487,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 beam_range[ix_out] = sensor_r;
                 upper_gate_range[ix_out] = sensor_ug;
                 lower_gate_range[ix_out] = sensor_lg;
+                *fs_out = Fs;
                 *tx_angle_out = sensor_el;
                 *multifreq_index_out = multifreq_index;
                 *ping_number_out = ping_number;

@@ -130,6 +130,8 @@ typedef struct{
     int     ping_number;
     int     multiping_index;
     int     multifreq_index;
+    float   sample_rate;
+    float   ping_rate;
 }output_data_t;
 
 

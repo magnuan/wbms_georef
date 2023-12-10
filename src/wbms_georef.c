@@ -1655,7 +1655,7 @@ int main(int argc,char *argv[])
     }
 
     if((output_drain == o_file) && (output_mode==output_s7k)){
-        output_databuffer_len = write_r7k_header_to_buffer(output_databuffer);
+        output_databuffer_len = write_r7k_header_to_buffer(ts_sensor, output_databuffer);
 		fwrite(output_databuffer,1,output_databuffer_len,output_fileptr );
     }
 
@@ -1713,6 +1713,7 @@ int main(int argc,char *argv[])
             udp_broadcast(output_databuffer, output_databuffer_len, output_broadcaster, (struct sockaddr*) &output_my_addr);
         }
 		else if (output_drain == o_tcp){
+            int new_clients = 0;
 			//** Checking if new client has connected as drain
 			if (FD_ISSET(output_listener, &read_fds)){ 
 				addrlen = sizeof(output_clientaddr);
@@ -1720,6 +1721,7 @@ int main(int argc,char *argv[])
 				else if (output_clientlist_available()){
 					output_clientlist_add(output_client);
 					fprintf(stderr,"New connection from %s on socket %d\n",  inet_ntoa(output_clientaddr.sin_addr), output_client);
+                    new_clients++;
 				}
 				else{
 					fprintf(stderr,"Politely rejecting connection from %s on socket %d, clientlist full\n",  inet_ntoa(output_clientaddr.sin_addr), output_client);
@@ -1729,6 +1731,13 @@ int main(int argc,char *argv[])
 				}
 
 			}
+            
+            //If a new client has connected, and we are streaming s7k data, resend the header sequence  
+            if(new_clients && (output_mode==output_s7k)){
+			    fprintf(stderr,"Resending s7k header to TCP clients\n");
+                output_databuffer_len += write_r7k_header_to_buffer(ts_sensor, &(output_databuffer[output_databuffer_len]));
+            }
+
 			//Sending data to all ready clients
 			for(ii = 0;ii< MAX_CLIENTS;ii++){
 				output_client = output_clientlist[ii];
