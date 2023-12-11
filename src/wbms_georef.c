@@ -50,7 +50,6 @@
 
 
 #if defined(_MSC_VER)
-//#include <winsock2.h>
 #include "non_posix.h"
 #include <corecrt_math_defines.h>
 #include <BaseTsd.h>
@@ -59,6 +58,55 @@ typedef SSIZE_T ssize_t;
 #include <windows.h>
 #include <tchar.h>
 #include "XGetopt.h"
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+// Need to link with Ws2_32.lib
+#pragma comment(lib, "ws2_32.lib")
+
+int init_windows_winsock_dll(void)
+{
+    WORD wVersionRequested;
+    WSADATA wsaData;
+    int err;
+
+    /* Use the MAKEWORD(lowbyte, highbyte) macro declared in Windef.h */
+    wVersionRequested = MAKEWORD(2, 2);
+
+    err = WSAStartup(wVersionRequested, &wsaData);
+    if (err != 0) {
+        /* Tell the user that we could not find a usable */
+        /* Winsock DLL.                                  */
+        fprintf(stderr,"WSAStartup failed with error: %d\n", err);
+        return 1;
+    }
+
+    /* Confirm that the WinSock DLL supports 2.2.*/
+    /* Note that if the DLL supports versions greater    */
+    /* than 2.2 in addition to 2.2, it will still return */
+    /* 2.2 in wVersion since that is the version we      */
+    /* requested.                                        */
+    if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+        /* Tell the user that we could not find a usable */
+        /* WinSock DLL.                                  */
+        fprintf(stderr,"Could not find a usable version of Winsock.dll\n");
+        WSACleanup();
+        return 1;
+    }
+    else
+        fprintf(stderr,"The Winsock 2.2 dll was found okay\n");
+
+    /* The Winsock DLL is acceptable. Proceed to use it. */
+    /* Add network programming using Winsock here */
+    /* then call WSACleanup when done using the Winsock dll */
+    return 0;
+}
+
+void close_windows_winsock_dll(void){
+    WSACleanup();
+}
+
 #endif
 
 #define MAX_CLIENTS 8
@@ -207,6 +255,9 @@ int atobool(char* str){
     if (strstr(str,"1")) return 1;
     return 0;
 }
+
+
+
 
 void showUsage(char *pgmname)
 {
@@ -990,6 +1041,7 @@ int main(int argc,char *argv[])
 	int output_client = 0;
 	unsigned int addrlen;
 	int yes = 1;
+    
 	#endif
 	
 	//File descriptor sets (for select)
@@ -1658,6 +1710,15 @@ int main(int argc,char *argv[])
         output_databuffer_len = write_r7k_header_to_buffer(ts_sensor, output_databuffer);
 		fwrite(output_databuffer,1,output_databuffer_len,output_fileptr );
     }
+    
+    #ifdef ENABLE_NETWORK_IO
+    #if defined(_MSC_VER)
+    if init_windows_winsock_dll(){
+        fprintf(stderr,"Could not init winsock dll\n");
+        exit(-1);
+    }
+    #endif
+    #endif
 
 	// While PosMV is a valid source OR PosMv is zero-source or sim and one of the other sources is available
 	while ( 
@@ -1706,12 +1767,12 @@ int main(int argc,char *argv[])
         
 		
 		if(select(fdmax+1, &read_fds, &write_fds, NULL, NULL) == -1){ 
-            #ifdef __unix__
-            fprintf(stderr,"Server-select() error\n");
-            exit(1);
-            #else
+            #if defined(_MSC_VER)
             int error_code = WSAGetLastError();
             fprintf(stderr,"Server-select() error. Error code = %d\n", error_code);
+            exit(1);
+            #else
+            fprintf(stderr,"Server-select() error\n");
             exit(1);
             #endif
 
@@ -1935,6 +1996,12 @@ int main(int argc,char *argv[])
 			dataset_counter++;
 		}
 	}
+    
+    #ifdef ENABLE_NETWORK_IO
+    #if defined(_MSC_VER)
+    close_windows_winsock_dll();
+    #endif
+    #endif
     
     //SBF format requires number of points to be written in header. So we must rewind the file and update this now that we know
     if((output_drain == o_file) && (output_mode==output_sbf)){
