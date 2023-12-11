@@ -59,6 +59,8 @@ typedef SSIZE_T ssize_t;
 #include <tchar.h>
 #include "XGetopt.h"
 
+
+#ifdef ENABLE_NETWORK_IO
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -107,6 +109,7 @@ void close_windows_winsock_dll(void){
     WSACleanup();
 }
 
+#endif
 #endif
 
 #define MAX_CLIENTS 8
