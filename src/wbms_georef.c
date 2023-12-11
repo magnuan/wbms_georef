@@ -1232,6 +1232,14 @@ int main(int argc,char *argv[])
 	if (output_string==NULL ){ fprintf(stderr,"No output data drain given, must be set with the -o  parameter\n");return(0);}
 	if(verbose) fprintf(stderr,"Verbose...\n");
 
+    #ifdef ENABLE_NETWORK_IO
+    #if defined(_MSC_VER)
+    if (init_windows_winsock_dll()!=0){
+        fprintf(stderr,"Could not init winsock dll\n");
+        exit(-1);
+    }
+    #endif
+    #endif
 
 	if (input_navigation_source_string==NULL){ 
 		fprintf(stderr,"No nav source given, Using simulated nav data\n");
@@ -1711,14 +1719,6 @@ int main(int argc,char *argv[])
 		fwrite(output_databuffer,1,output_databuffer_len,output_fileptr );
     }
     
-    #ifdef ENABLE_NETWORK_IO
-    #if defined(_MSC_VER)
-    if (init_windows_winsock_dll()!=0){
-        fprintf(stderr,"Could not init winsock dll\n");
-        exit(-1);
-    }
-    #endif
-    #endif
 
 	// While PosMV is a valid source OR PosMv is zero-source or sim and one of the other sources is available
 	while ( 
