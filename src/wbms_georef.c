@@ -1713,7 +1713,7 @@ int main(int argc,char *argv[])
     
     #ifdef ENABLE_NETWORK_IO
     #if defined(_MSC_VER)
-    if init_windows_winsock_dll(){
+    if (init_windows_winsock_dll()!=0){
         fprintf(stderr,"Could not init winsock dll\n");
         exit(-1);
     }
