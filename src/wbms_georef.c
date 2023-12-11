@@ -1705,7 +1705,17 @@ int main(int argc,char *argv[])
 		fdmax = MAX(fdmax,output_clientlist_max());	
         
 		
-		if(select(fdmax+1, &read_fds, &write_fds, NULL, NULL) == -1){ fprintf(stderr,"Server-select() error\n");exit(1);}
+		if(select(fdmax+1, &read_fds, &write_fds, NULL, NULL) == -1){ 
+            #ifdef __unix__
+            fprintf(stderr,"Server-select() error\n");
+            exit(1);
+            #else
+            int error_code = WSAGetLastError()
+            fprintf(stderr,"Server-select() error. Error code = %d\n", error_code);
+            exit(1);
+            #endif
+
+        }
 
 		// IF OUTPUT DRAIN IS A (OR MANY) TCP CLIENT(S), WE HANDLE CLIENTS CONNECTING / DISCONNECTING AND SNEDING DATA TO THEM HERE
 		#ifdef ENABLE_NETWORK_IO
