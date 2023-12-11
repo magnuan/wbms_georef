@@ -8,8 +8,8 @@
 
 #ifdef __unix__
 #include <unistd.h>
-#endif
 #define ENABLE_NETWORK_IO
+#endif
 
 
 #ifdef ENABLE_NETWORK_IO
