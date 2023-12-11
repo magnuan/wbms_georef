@@ -51,10 +51,9 @@ static void fill_out_data_record_frame(/*INPUT*/ size_t record_size, double ts, 
     //fprintf(stderr,"fill_out_data_record_frame record_size=%d, record_id=%d\n",record_size,record_id);
     //Input record size is from start of network frame to end of checksum
     drf->version = R7K_VERSION;                     // (= 5) Protocol version of this frame
-    drf->offset = sizeof(r7k_DataRecordFrame_t) - 4;  //Size from start of sync pattern to start of RecordTypeHeader 
+    drf->offset = sizeof(r7k_DataRecordFrame_t) - 4;  //Size from start of sync pattern to start of RecordTypeHeader, that is DataRecordFrame, except version and offset field (4 bytes)
     drf->sync = 0x0000FFFF; 
-    drf->size = record_size - sizeof(r7k_NetworkFrame_t) -4;  //TODO understand the -4 , shoudl be from start of r7k_DataRecordFrame.version to end of r7k_Checksum 
-    drf->size += sizeof(r7k_Checksum_t);     
+    drf->size = record_size - sizeof(r7k_NetworkFrame_t);  //Size is  start of r7k_DataRecordFrame.version to end of r7k_Checksum, that is entire record except network frame header
     drf->opt_offset  = 0;
     drf->opt_id = 0;
     r7k_ts_to_r7ktime(ts, &(drf->time));
@@ -178,6 +177,10 @@ static void fill_out_7001_record_type_data( /*OUTPUT*/ r7k_RecordData_7001_t* rd
     rd->info_len = sizeof(sonar_info_xml);
     strcpy(&(rd->info[0]), sonar_info_xml);
  }
+
+
+
+
 
 /* s7k packets to write on stream connection
 * 7000 Sonar settings
