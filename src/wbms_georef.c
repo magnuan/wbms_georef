@@ -1710,7 +1710,7 @@ int main(int argc,char *argv[])
             fprintf(stderr,"Server-select() error\n");
             exit(1);
             #else
-            int error_code = WSAGetLastError()
+            int error_code = WSAGetLastError();
             fprintf(stderr,"Server-select() error. Error code = %d\n", error_code);
             exit(1);
             #endif
