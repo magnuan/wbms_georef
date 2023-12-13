@@ -1846,7 +1846,7 @@ int main(int argc,char *argv[])
 
 
 		ts_min = 10000000000.;
-		if(input_sensor_source != i_none) ts_min = MIN(ts_min, ts_sensor);
+		if((input_sensor_source != i_none) && (input_sensor_source!=i_sim) ) ts_min = MIN(ts_min, ts_sensor);
         if(input_navigation_source != i_none) ts_min = MIN(ts_min, ts_pos-ts_pos_lookahead);
 
 		//** Process new data from navigation source
