@@ -158,7 +158,14 @@ int r7k_fetch_next_packet(char * data, int fd){
 int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
     
 	r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
- 	double ts = r7k_r7ktime_to_ts(&(drf->time));
+    
+    //Ignore 7030 records for now
+    // These could be used to read sensor offset data, but becuase they sometimes are out of order wrt time stamp,
+    // we should at least not forward navigation time based on this
+	if (drf->record_id == 7030)
+		return 0;	
+ 	
+    double ts = r7k_r7ktime_to_ts(&(drf->time));
     // If record data is from sensor (sonar) add sensor time offset
     if ( drf->record_id >= 7000  && drf->record_id < 8000){
         ts += sensor_offset->time_offset;
@@ -186,7 +193,14 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 	static uint8_t have_attitude; 
 
     r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
- 	double ts = r7k_r7ktime_to_ts(&(drf->time));
+	
+    //Ignore 7030 records for now
+    // These could be used to read sensor offset data, but becuase they sometimes are out of order wrt time stamp,
+    // we should at least not forward navigation time based on this
+	if (drf->record_id == 7030)
+		return NO_NAV_DATA;	
+ 	
+    double ts = r7k_r7ktime_to_ts(&(drf->time));
 	*ts_out = ts;
 
     //fprintf(stderr,"S7K record  id:%d dev:%d  Y=%d doy=%d  %02d:%02d:%09.6f   ts = %f\n",drf->record_id,drf->dev_id,drf->time.year,drf->time.day,drf->time.hour,drf->time.min,drf->time.sec,ts);

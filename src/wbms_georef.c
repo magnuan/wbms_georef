@@ -1907,7 +1907,7 @@ int main(int argc,char *argv[])
                     double new_ts_sensor;
 					new_sensor_data = sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &new_ts_sensor, sensor_mode);
 					//ts_sensor += sensor_offset.time_offset;
-				    //if(new_sensor_data) fprintf(stderr,"new_sensor_data = %d\n", new_sensor_data);
+				    //if(new_sensor_data) fprintf(stderr,"new_sensor_data = %d Ts_sensor = %f  Ts_pos =%f navdata_count=%d\n", new_sensor_data, ts_sensor, ts_pos,navdata_count);
                     //fprintf(stderr,"Ts_sensor = %f, Ts_pos =%f navdata_count=%d\n",ts_sensor, ts_pos,navdata_count);
 
 		
