@@ -473,6 +473,7 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  tx bandwidth :             bw\n");
     fprintf(fp,"#  tx pulselength :           plen\n");
     fprintf(fp,"#  tx voltage :               voltage\n");
+    fprintf(fp,"#  pingrate :                 pingrate\n");
     fprintf(fp,"#  multiping index :          multiping\n");
     fprintf(fp,"#  multifreq index :          multifreq\n");
     fprintf(fp,"#  ping number :              pingnumber\n");
@@ -491,6 +492,7 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  vessel attitude:           YAW,PITCH,ROLL\n");
     fprintf(fp,"#  vessel pos accuracy:       HOR_ACC,VERT_ACC\n");
     fprintf(fp,"#  vessel speed:              SPEED\n");
+    fprintf(fp,"#  vessel movement (meter per ping):  MOVEMENT\n");
     fprintf(fp,"#  vessel course:             COURSE\n");
     fprintf(fp,"#  vessel satellites:         SATELLITES\n");
     fprintf(fp,"#  vessel accuracy(=HOR_ACC): GPS_ACCURACY\n");

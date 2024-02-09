@@ -34,6 +34,8 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
     float* tx_freq = &(data->tx_freq);
     int*   multiping_index = &(data->multiping_index);
     int*   multifreq_index = &(data->multifreq_index);
+    int*   ping_number = &(data->ping_number);
+    float*   ping_rate = &(data->ping_rate);
 
     uint32_t ii,jj,len;
     len = 0;
@@ -70,12 +72,15 @@ int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t po
             case PITCH: len += sprintf(&(outbuf[len]),"\"pitch\":%1.3f",pos->pitch*180/M_PI);break;
             case ROLL: len += sprintf(&(outbuf[len]),"\"roll\":%1.3f",pos->roll*180/M_PI);break;
             case SPEED: len += sprintf(&(outbuf[len]),"\"speed\":%1.3f",speed);break;
+            case MOVEMENT: len += sprintf(&(outbuf[len]),"\"movement\":%1.3f",speed/(*ping_rate));break;
             case COURSE: len += sprintf(&(outbuf[len]),"\"course\":%1.3f",pos->course*180/M_PI);break; 
             case GPS_ACCURACY: len += sprintf(&(outbuf[len]),"\"gps_accuracy\":%1.3f",aux_navdata->hor_accuracy);break; //TODO
             case GPS_STATUS: len += sprintf(&(outbuf[len]),"\"gps_status\":%1d",aux_navdata->gps_status);break; //TODO
             case SATELLITES: len += sprintf(&(outbuf[len]),"\"satellites\":%1d",aux_navdata->sv_n);break; //TODO*/
             case t: len += sprintf(&(outbuf[len]),"\"ts\":%12.5f",ts);break;
             case c: len += sprintf(&(outbuf[len]),"\"sound_velocity\":%8.3f",*sv);break;
+            case pingrate: len += sprintf(&(outbuf[len]),"\"ping_rate\":%8.3f",*ping_rate);break;
+            case pingnumber: len += sprintf(&(outbuf[len]),"\"ping_number\":%1d",*ping_number);break;
             case el: len += sprintf(&(outbuf[len]),"\"tx_angle\":%1.3f",*tx_angle*180/M_PI);break;
             case freq: len += sprintf(&(outbuf[len]),"\"freq\":%1.3f",*tx_freq);break;
             case multiping: len += sprintf(&(outbuf[len]),"\"multiping\":%1d",*multiping_index);break;

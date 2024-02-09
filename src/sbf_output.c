@@ -147,6 +147,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     int*   multiping_index = &(data->multiping_index);
     int*   multifreq_index = &(data->multifreq_index);
     int*   ping_number = &(data->ping_number);
+    float*   ping_rate = &(data->ping_rate);
     static int prev_ping_number;
 
 	char * dp = outbuf;
@@ -215,6 +216,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case multiping: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*multiping_index)); dp+=4;break;
                 case multifreq: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*multifreq_index)); dp+=4;break;
                 case pingnumber: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*ping_number)); dp+=4;break;
+                case pingrate: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*ping_rate)); dp+=4;break;
                 case pingdiff: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*ping_number-prev_ping_number)); dp+=4;break;
 
                 case X: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->y-y_offset)); dp+=4;break;
@@ -226,6 +228,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case VERT_ACC: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aux_navdata->vert_accuracy)); dp+=4;break;
                 
                 case SPEED: write_f32_unaligned_bswap((uint8_t*)dp,(float)(speed)); dp+=4;break;
+                case MOVEMENT: write_f32_unaligned_bswap((uint8_t*)dp,(float)(speed/(*ping_rate))); dp+=4;break;
                 
                 case GPS_ACCURACY: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aux_navdata->hor_accuracy)); dp+=4;break;
                 case GPS_STATUS: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aux_navdata->gps_status)); dp+=4;break;

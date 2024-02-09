@@ -71,6 +71,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     int*   multiping_index = &(data->multiping_index);
     int*   multifreq_index = &(data->multifreq_index);
     int*   ping_number = &(data->ping_number);
+    float*   ping_rate = &(data->ping_rate);
     static int prev_ping_number;
 
 	uint32_t ii,jj,len;
@@ -130,6 +131,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case multiping: len += sprintf(&(outbuf[len]),"%11d",*multiping_index);break;
                 case multifreq: len += sprintf(&(outbuf[len]),"%11d",*multifreq_index);break;
                 case pingnumber: len += sprintf(&(outbuf[len]),"%11d",*ping_number);break;
+                case pingrate: len += sprintf(&(outbuf[len]),"%11.3f",*ping_rate);break;
                 case pingdiff: len += sprintf(&(outbuf[len]),"%11d",*ping_number-prev_ping_number);break;
                 
                 case LAT: len += sprintf(&(outbuf[len]),"%11.7f",pos->lat*180/M_PI);break;
@@ -146,6 +148,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 
                 case COURSE: len += sprintf(&(outbuf[len]),"%11.3f",pos->course*180/M_PI);break;
                 case SPEED: len += sprintf(&(outbuf[len]),"%7.3f",speed);break;
+                case MOVEMENT: len += sprintf(&(outbuf[len]),"%7.3f",speed/(*ping_rate));break;
                 case GPS_ACCURACY: len += sprintf(&(outbuf[len]),"%11.3f",aux_navdata->hor_accuracy);break;
                 case GPS_STATUS: len += sprintf(&(outbuf[len]),"%1d",aux_navdata->gps_status);break;
                 case SATELLITES: len += sprintf(&(outbuf[len]),"%2d",aux_navdata->sv_n);break;
