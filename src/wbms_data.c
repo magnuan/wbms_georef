@@ -264,24 +264,10 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
 }
 
 //Sorting functions
-int cmp_wbms_dp_on_angle_func (const void * a, const void * b) {
-	detectionpoint_t *dp_a, *dp_b;
-	dp_a = (detectionpoint_t*) a;
-	dp_b = (detectionpoint_t*) b;
-	
-	return ( dp_a->angle - dp_b->angle )>0?1:-1;
-}
-int cmp_wbms_v5_dp_on_angle_func (const void * a, const void * b) {
-	detectionpoint_v5_t *dp_a, *dp_b;
-	dp_a = (detectionpoint_v5_t*) a;
-	dp_b = (detectionpoint_v5_t*) b;
-	
-	return ( dp_a->angle - dp_b->angle )>0?1:-1;
-}
-int cmp_wbms_v104_dp_on_angle_func (const void * a, const void * b) {
-	detectionpoint_v104_t *dp_a, *dp_b;
-	dp_a = (detectionpoint_v104_t*) a;
-	dp_b = (detectionpoint_v104_t*) b;
+int cmp_wbms_vX_dp_on_angle_func (const void * a, const void * b) {
+	detectionpoint_vX_t *dp_a, *dp_b;
+	dp_a = (detectionpoint_vX_t*) a;
+	dp_b = (detectionpoint_vX_t*) b;
 	
 	return ( dp_a->angle - dp_b->angle )>0?1:-1;
 }
@@ -325,7 +311,191 @@ static float calc_shallow_angle_skew_corrections(float angle, float range, float
     return -(k*k)/2 * (1+alpha*range) * tanf(angle);
 }
 
-uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
+static bath_data_packet_vX_t bvX;
+
+bath_data_packet_vX_t* bath_convert_to_universal(bath_data_packet_t* bath_in, uint32_t force_bath_version){
+    uint32_t bath_version =  bath_in->header.version;
+    if (force_bath_version>0){
+        bath_version =  force_bath_version;
+    }
+    
+    if (bath_version < 5){
+        bath_data_packet_t* bath_v4 = (bath_data_packet_t*) bath_in; 
+        bvX.sub_header.snd_velocity         = bath_v4->sub_header.snd_velocity;
+        bvX.sub_header.sample_rate          = bath_v4->sub_header.sample_rate;
+        bvX.sub_header.N                    = bath_v4->sub_header.N;
+        bvX.sub_header.ping_number          = bath_v4->sub_header.ping_number;
+        bvX.sub_header.time                 = bath_v4->sub_header.time;
+        bvX.sub_header.time_net             = bath_v4->sub_header.time_net;
+        bvX.sub_header.ping_rate            = bath_v4->sub_header.ping_rate;
+        bvX.sub_header.type                 = bath_v4->sub_header.type;
+        bvX.sub_header.flags                = bath_v4->sub_header.flags;
+        bvX.sub_header.sonar_mode           = bath_v4->sub_header.sonar_mode;
+        bvX.sub_header.time_uncertainty     = bath_v4->sub_header.time_uncertainty;
+        bvX.sub_header.multiping_scan_number= bath_v4->sub_header.multiping;
+        bvX.sub_header.multifreq_band_number= 0;
+        bvX.sub_header.multiping_scan_index = bath_v4->sub_header.multiping_seq_nr;
+        bvX.sub_header.multifreq_band_index = 1;
+        bvX.sub_header.tx_angle             = bath_v4->sub_header.tx_angle;
+        bvX.sub_header.gain                 = bath_v4->sub_header.gain;
+        bvX.sub_header.tx_freq              = bath_v4->sub_header.tx_freq;
+        bvX.sub_header.tx_bw                = bath_v4->sub_header.tx_bw;
+        bvX.sub_header.tx_len               = bath_v4->sub_header.tx_len;
+        bvX.sub_header.snd_velocity_raw     = bath_v4->sub_header.snd_velocity_raw;
+        bvX.sub_header.tx_voltage           = bath_v4->sub_header.tx_voltage;
+        bvX.sub_header.swath_dir            = bath_v4->sub_header.swath_dir;
+        bvX.sub_header.swath_open           = bath_v4->sub_header.swath_open;
+        bvX.sub_header.gate_tilt            = bath_v4->sub_header.gate_tilt;
+        bvX.sub_header.intensity_noise_ref  = 0;
+        bvX.sub_header.strength_noise_ref   = 0; 
+        for (uint32_t n=0; n<bvX.sub_header.N;n++){
+            bvX.dp[n].sample_number =  bath_v4->dp[n].sample_number;   
+            bvX.dp[n].angle         =  bath_v4->dp[n].angle        ;   
+            bvX.dp[n].steer_angle   =  0;   
+            bvX.dp[n].upper_gate    =  bath_v4->dp[n].upper_gate   ;   
+            bvX.dp[n].lower_gate    =  bath_v4->dp[n].lower_gate   ;   
+            bvX.dp[n].intensity     =  bath_v4->dp[n].intensity    ;   
+            bvX.dp[n].strength      =  0;   
+            bvX.dp[n].flags         =  bath_v4->dp[n].flags        ;   
+            bvX.dp[n].quality_flags =  bath_v4->dp[n].quality_flags;   
+            bvX.dp[n].quality_val   =  bath_v4->dp[n].quality_val  ;   
+            bvX.dp[n].beam_number   =  n;   
+        }
+        
+    }
+    else if ((bath_version == 5) || (bath_version == 6)){
+        bath_data_packet_v5_t* bath_v5 = (bath_data_packet_v5_t*) bath_in; /* Cast to v5/v6 packet, could use an union type here as well */
+        bvX.sub_header.snd_velocity         = bath_v5->sub_header.snd_velocity;
+        bvX.sub_header.sample_rate          = bath_v5->sub_header.sample_rate;
+        bvX.sub_header.N                    = bath_v5->sub_header.N;
+        bvX.sub_header.ping_number          = bath_v5->sub_header.ping_number;
+        bvX.sub_header.time                 = bath_v5->sub_header.time;
+        bvX.sub_header.time_net             = bath_v5->sub_header.time_net;
+        bvX.sub_header.ping_rate            = bath_v5->sub_header.ping_rate;
+        bvX.sub_header.type                 = bath_v5->sub_header.type;
+        bvX.sub_header.flags                = bath_v5->sub_header.flags;
+        bvX.sub_header.sonar_mode           = bath_v5->sub_header.sonar_mode;
+        bvX.sub_header.time_uncertainty     = bath_v5->sub_header.time_uncertainty;
+        bvX.sub_header.multiping_scan_number= bath_v5->sub_header.multiping;
+        bvX.sub_header.multifreq_band_number= 0;
+        bvX.sub_header.multiping_scan_index = bath_v5->sub_header.multiping_seq_nr;
+        bvX.sub_header.multifreq_band_index = 1;
+        bvX.sub_header.tx_angle             = bath_v5->sub_header.tx_angle;
+        bvX.sub_header.gain                 = bath_v5->sub_header.gain;
+        bvX.sub_header.tx_freq              = bath_v5->sub_header.tx_freq;
+        bvX.sub_header.tx_bw                = bath_v5->sub_header.tx_bw;
+        bvX.sub_header.tx_len               = bath_v5->sub_header.tx_len;
+        bvX.sub_header.snd_velocity_raw     = bath_v5->sub_header.snd_velocity_raw;
+        bvX.sub_header.tx_voltage           = bath_v5->sub_header.tx_voltage;
+        bvX.sub_header.swath_dir            = bath_v5->sub_header.swath_dir;
+        bvX.sub_header.swath_open           = bath_v5->sub_header.swath_open;
+        bvX.sub_header.gate_tilt            = bath_v5->sub_header.gate_tilt;
+        bvX.sub_header.intensity_noise_ref  = bath_v5->sub_header.intensity_noise_ref;
+        bvX.sub_header.strength_noise_ref   = bath_v5->sub_header.strength_noise_ref ; 
+        for (uint32_t n=0; n<bvX.sub_header.N;n++){
+            bvX.dp[n].sample_number =  bath_v5->dp[n].sample_number;   
+            bvX.dp[n].angle         =  bath_v5->dp[n].angle        ;   
+            bvX.dp[n].steer_angle   =  bath_v5->dp[n].steer_angle  ;   
+            bvX.dp[n].upper_gate    =  bath_v5->dp[n].upper_gate   ;   
+            bvX.dp[n].lower_gate    =  bath_v5->dp[n].lower_gate   ;   
+            bvX.dp[n].intensity     =  bath_v5->dp[n].intensity    ;   
+            bvX.dp[n].strength      =  bath_v5->dp[n].strength     ;   
+            bvX.dp[n].flags         =  bath_v5->dp[n].flags        ;   
+            bvX.dp[n].quality_flags =  bath_v5->dp[n].quality_flags;   
+            bvX.dp[n].quality_val   =  bath_v5->dp[n].quality_val  ;   
+            bvX.dp[n].beam_number   =  n;   
+        }
+    }
+    else if (bath_version == 7){
+        bath_data_packet_v7_t* bath_v7 = (bath_data_packet_v7_t*) bath_in; /* Cast to v5/v6 packet, could use an union type here as well */
+        bvX.sub_header.snd_velocity         = bath_v7->sub_header.snd_velocity;
+        bvX.sub_header.sample_rate          = bath_v7->sub_header.sample_rate;
+        bvX.sub_header.N                    = bath_v7->sub_header.N;
+        bvX.sub_header.ping_number          = bath_v7->sub_header.ping_number;
+        bvX.sub_header.time                 = bath_v7->sub_header.time;
+        bvX.sub_header.time_net             = bath_v7->sub_header.time_net;
+        bvX.sub_header.ping_rate            = bath_v7->sub_header.ping_rate;
+        bvX.sub_header.type                 = bath_v7->sub_header.type;
+        bvX.sub_header.flags                = bath_v7->sub_header.flags;
+        bvX.sub_header.sonar_mode           = bath_v7->sub_header.sonar_mode;
+        bvX.sub_header.time_uncertainty     = bath_v7->sub_header.time_uncertainty;
+        bvX.sub_header.multiping_scan_number= bath_v7->sub_header.multiping_scan_number;
+        bvX.sub_header.multifreq_band_number= bath_v7->sub_header.multifreq_band_number;
+        bvX.sub_header.multiping_scan_index = bath_v7->sub_header.multiping_scan_index ;
+        bvX.sub_header.multifreq_band_index = bath_v7->sub_header.multifreq_band_index ;
+        bvX.sub_header.tx_angle             = bath_v7->sub_header.tx_angle;
+        bvX.sub_header.gain                 = bath_v7->sub_header.gain;
+        bvX.sub_header.tx_freq              = bath_v7->sub_header.tx_freq;
+        bvX.sub_header.tx_bw                = bath_v7->sub_header.tx_bw;
+        bvX.sub_header.tx_len               = bath_v7->sub_header.tx_len;
+        bvX.sub_header.snd_velocity_raw     = bath_v7->sub_header.snd_velocity_raw;
+        bvX.sub_header.tx_voltage           = bath_v7->sub_header.tx_voltage;
+        bvX.sub_header.swath_dir            = bath_v7->sub_header.swath_dir;
+        bvX.sub_header.swath_open           = bath_v7->sub_header.swath_open;
+        bvX.sub_header.gate_tilt            = bath_v7->sub_header.gate_tilt;
+        bvX.sub_header.intensity_noise_ref  = 0; 
+        bvX.sub_header.strength_noise_ref   = 0;
+        for (uint32_t n=0; n<bvX.sub_header.N;n++){
+            bvX.dp[n].sample_number =  bath_v7->dp[n].sample_number;   
+            bvX.dp[n].angle         =  bath_v7->dp[n].angle        ;   
+            bvX.dp[n].steer_angle   =  0;   
+            bvX.dp[n].upper_gate    =  bath_v7->dp[n].upper_gate   ;   
+            bvX.dp[n].lower_gate    =  bath_v7->dp[n].lower_gate   ;   
+            bvX.dp[n].intensity     =  bath_v7->dp[n].intensity    ;   
+            bvX.dp[n].strength      =  0;   
+            bvX.dp[n].flags         =  bath_v7->dp[n].flags        ;   
+            bvX.dp[n].quality_flags =  bath_v7->dp[n].quality_flags;   
+            bvX.dp[n].quality_val   =  bath_v7->dp[n].quality_val  ;   
+            bvX.dp[n].beam_number   =  n;   
+        }
+    }
+    else {//if (bath_version == 8){
+        bath_data_packet_v8_t* bath_v8 = (bath_data_packet_v8_t*) bath_in; /* Cast to v5/v6 packet, could use an union type here as well */
+        bvX.sub_header.snd_velocity         = bath_v8->sub_header.snd_velocity;
+        bvX.sub_header.sample_rate          = bath_v8->sub_header.sample_rate;
+        bvX.sub_header.N                    = bath_v8->sub_header.N;
+        bvX.sub_header.ping_number          = bath_v8->sub_header.ping_number;
+        bvX.sub_header.time                 = bath_v8->sub_header.time;
+        bvX.sub_header.time_net             = bath_v8->sub_header.time_net;
+        bvX.sub_header.ping_rate            = bath_v8->sub_header.ping_rate;
+        bvX.sub_header.type                 = bath_v8->sub_header.type;
+        bvX.sub_header.flags                = bath_v8->sub_header.flags;
+        bvX.sub_header.sonar_mode           = bath_v8->sub_header.sonar_mode;
+        bvX.sub_header.time_uncertainty     = bath_v8->sub_header.time_uncertainty;
+        bvX.sub_header.multiping_scan_number= bath_v8->sub_header.multiping_scan_number;
+        bvX.sub_header.multifreq_band_number= bath_v8->sub_header.multifreq_band_number;
+        bvX.sub_header.multiping_scan_index = bath_v8->sub_header.multiping_scan_index ;
+        bvX.sub_header.multifreq_band_index = bath_v8->sub_header.multifreq_band_index ;
+        bvX.sub_header.tx_angle             = bath_v8->sub_header.tx_angle;
+        bvX.sub_header.gain                 = bath_v8->sub_header.gain;
+        bvX.sub_header.tx_freq              = bath_v8->sub_header.tx_freq;
+        bvX.sub_header.tx_bw                = bath_v8->sub_header.tx_bw;
+        bvX.sub_header.tx_len               = bath_v8->sub_header.tx_len;
+        bvX.sub_header.snd_velocity_raw     = bath_v8->sub_header.snd_velocity_raw;
+        bvX.sub_header.tx_voltage           = bath_v8->sub_header.tx_voltage;
+        bvX.sub_header.swath_dir            = bath_v8->sub_header.swath_dir;
+        bvX.sub_header.swath_open           = bath_v8->sub_header.swath_open;
+        bvX.sub_header.gate_tilt            = bath_v8->sub_header.gate_tilt;
+        bvX.sub_header.intensity_noise_ref  = bath_v8->sub_header.intensity_noise_ref;
+        bvX.sub_header.strength_noise_ref   = bath_v8->sub_header.strength_noise_ref ; 
+        for (uint32_t n=0; n<bvX.sub_header.N;n++){
+            bvX.dp[n].sample_number =  bath_v8->dp[n].sample_number;   
+            bvX.dp[n].angle         =  bath_v8->dp[n].angle        ;   
+            bvX.dp[n].steer_angle   =  bath_v8->dp[n].steer_angle  ;   
+            bvX.dp[n].upper_gate    =  bath_v8->dp[n].upper_gate   ;   
+            bvX.dp[n].lower_gate    =  bath_v8->dp[n].lower_gate   ;   
+            bvX.dp[n].intensity     =  bath_v8->dp[n].intensity    ;   
+            bvX.dp[n].strength      =  bath_v8->dp[n].strength     ;   
+            bvX.dp[n].flags         =  bath_v8->dp[n].flags        ;   
+            bvX.dp[n].quality_flags =  bath_v8->dp[n].quality_flags;   
+            bvX.dp[n].quality_val   =  bath_v8->dp[n].quality_val  ;   
+            bvX.dp[n].beam_number   =  n;   
+        }
+    }
+    return &bvX;
+}
+
+uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
      double* x = &(outbuf->x[0]);
      double* y = &(outbuf->y[0]);
      double* z = &(outbuf->z[0]);
@@ -371,11 +541,6 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 	double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/
 	float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
     float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
-    uint32_t bath_version =  bath->header.version;
-    bath_data_packet_v5_t* bath_v5 = (bath_data_packet_v5_t*) bath; /* Cast to v5/v6 packet, could use an union type here as well */
-    bath_data_packet_v7_t* bath_v7 = (bath_data_packet_v7_t*) bath; /* Cast to v7 packet, could use an union type here as well */
-    bath_data_packet_v8_t* bath_v8 = (bath_data_packet_v8_t*) bath; /* Cast to v8 packet, could use an union type here as well */
-    bath_data_packet_v104_t* bath_v104 = (bath_data_packet_v104_t*) bath; /* Cast to v5 packet, could use an union type here as well */
     float tx_angle; 
 	float Fs;
     float ping_rate;
@@ -398,82 +563,22 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     float tx_bw;
     float tx_plen;
     float tx_voltage;
-    
-    if (force_bath_version>0){
-        bath_version =  force_bath_version;
-    }
 
-    //fprintf(stderr,"Bathy packet version = %d\n",bath_version);
-    if (bath_version < 5){
-        tx_freq = bath->sub_header.tx_freq;
-        tx_bw = bath->sub_header.tx_bw;
-        tx_plen = bath->sub_header.tx_len;
-        tx_voltage = bath->sub_header.tx_voltage;
-        tx_angle = bath->sub_header.tx_angle;
-        Fs = bath->sub_header.sample_rate;
-        c = bath->sub_header.snd_velocity+sensor_params->sv_offset;
-        Nin = bath->sub_header.N;
-        multifreq_index = ((bath->sub_header.flags)>>4) & 0x03;
-        ping_number =  bath->sub_header.ping_number;
-        multiping_index =  bath->sub_header.multiping_seq_nr;
-        ping_rate =  bath->sub_header.ping_rate;
-    }
-    else if (bath_version == 104){
-        tx_freq = bath_v104->sub_header.tx_freq;
-        tx_bw = bath_v104->sub_header.tx_bw;
-        tx_plen = bath_v104->sub_header.tx_len;
-        tx_voltage = bath_v104->sub_header.tx_voltage;
-        tx_angle = bath_v104->sub_header.tx_angle;
-        Fs = bath_v104->sub_header.sample_rate;
-        c = bath_v104->sub_header.snd_velocity+sensor_params->sv_offset;
-        Nin = bath_v104->sub_header.N;
-        multifreq_index = ((bath_v104->sub_header.flags)>>4) & 0x03;
-        ping_number =  bath_v104->sub_header.ping_number;
-        multiping_index =  bath_v104->sub_header.multiping_seq_nr;
-        ping_rate =  bath_v104->sub_header.ping_rate;
-    }
-    else if ((bath_version == 5) || (bath_version == 6)){
-        tx_freq = bath_v5->sub_header.tx_freq;
-        tx_bw = bath_v5->sub_header.tx_bw;
-        tx_plen = bath_v5->sub_header.tx_len;
-        tx_angle = bath_v5->sub_header.tx_angle;
-        tx_voltage = bath_v5->sub_header.tx_voltage;
-        Fs = bath_v5->sub_header.sample_rate;
-        c = bath_v5->sub_header.snd_velocity+sensor_params->sv_offset;
-        Nin = bath_v5->sub_header.N;
-        multifreq_index = ((bath_v5->sub_header.flags)>>4) & 0x03;
-        ping_number =  bath_v5->sub_header.ping_number;
-        multiping_index =  bath_v5->sub_header.multiping_seq_nr;
-        ping_rate =  bath_v5->sub_header.ping_rate;
-    }
-    else if (bath_version == 7){
-        tx_freq = bath_v7->sub_header.tx_freq;
-        tx_bw = bath_v7->sub_header.tx_bw;
-        tx_plen = bath_v7->sub_header.tx_len;
-        tx_angle = bath_v7->sub_header.tx_angle;
-        tx_voltage = bath_v7->sub_header.tx_voltage;
-        Fs = bath_v7->sub_header.sample_rate;
-        c = bath_v7->sub_header.snd_velocity+sensor_params->sv_offset;
-        Nin = bath_v7->sub_header.N;
-        multifreq_index =bath_v7->sub_header.multifreq_band_index;
-        ping_number =  bath_v7->sub_header.ping_number;
-        multiping_index =  bath_v7->sub_header.multiping_scan_index;
-        ping_rate =  bath_v7->sub_header.ping_rate;
-    }
-    else {//if (bath_version == 8){
-        tx_freq = bath_v8->sub_header.tx_freq;
-        tx_bw = bath_v8->sub_header.tx_bw;
-        tx_plen = bath_v8->sub_header.tx_len;
-        tx_angle = bath_v8->sub_header.tx_angle;
-        tx_voltage = bath_v8->sub_header.tx_voltage;
-        Fs = bath_v8->sub_header.sample_rate;
-        c = bath_v8->sub_header.snd_velocity+sensor_params->sv_offset;
-        Nin = bath_v8->sub_header.N;
-        multifreq_index =bath_v8->sub_header.multifreq_band_index;
-        ping_number =  bath_v8->sub_header.ping_number;
-        multiping_index =  bath_v8->sub_header.multiping_scan_index;
-        ping_rate =  bath_v8->sub_header.ping_rate;
-    }
+    bath_data_packet_vX_t* bath_vX = bath_convert_to_universal(bath_in,force_bath_version);
+    
+        tx_freq = bath_vX->sub_header.tx_freq;
+        tx_bw = bath_vX->sub_header.tx_bw;
+        tx_plen = bath_vX->sub_header.tx_len;
+        tx_angle = bath_vX->sub_header.tx_angle;
+        tx_voltage = bath_vX->sub_header.tx_voltage;
+        Fs = bath_vX->sub_header.sample_rate;
+        c = bath_vX->sub_header.snd_velocity+sensor_params->sv_offset;
+        Nin = bath_vX->sub_header.N;
+        multifreq_index =bath_vX->sub_header.multifreq_band_index;
+        ping_number =  bath_vX->sub_header.ping_number;
+        multiping_index =  bath_vX->sub_header.multiping_scan_index;
+        ping_rate =  bath_vX->sub_header.ping_rate;
+
     *sv_out = c; 
     *multiping_index_out = multiping_index;
     *multifreq_index_out = multifreq_index;
@@ -507,55 +612,15 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     // This is tobe used to correct azimuth and heave data, as this is defined at rx (not tx) time
     //To calculate angle-of insidence, we must sort beams on angle (Strictly only neccessary for ISS data)
     //Sort bath->dp[n] based on bath->dp[n].angle for n in 0-Nin
-    if (bath_version < 5){
-        if (calc_interpolated_nav_data( posdata, pos_ix, bath->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){
-            if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
-            return 0;
-        }
-        calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath->sub_header.time+sensor_offset->time_offset, (1.f/bath->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
-        if(sensor_params->calc_aoi){
-            qsort(bath->dp, Nin, sizeof(detectionpoint_t), cmp_wbms_dp_on_angle_func);
-        }
+    const uint8_t unsorted_data = 0;  //TODO set this flag when data is exported from a HDS mode system 
+    
+    if (calc_interpolated_nav_data( posdata, pos_ix, bath_vX->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
+        if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath_vX->sub_header.time+sensor_offset->time_offset);
+        return 0;
     }
-    else if(bath_version==104){ //Same, but for v104 packets
-        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v104->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){
-            if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
-            return 0;
-        }
-        calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath_v104->sub_header.time+sensor_offset->time_offset, (1.f/bath_v104->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
-        if(sensor_params->calc_aoi){
-            qsort(bath_v104->dp, Nin, sizeof(detectionpoint_v104_t), cmp_wbms_v104_dp_on_angle_func);
-        }
-    }
-    else if ((bath_version==5)||(bath_version==6)){ //Same, but for v5 packets
-        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v5->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
-            if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
-            return 0;
-        }
-        calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath_v5->sub_header.time+sensor_offset->time_offset, (1.f/bath_v5->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
-        if(sensor_params->calc_aoi){
-            qsort(bath_v5->dp, Nin, sizeof(detectionpoint_v5_t), cmp_wbms_v5_dp_on_angle_func);
-        }
-    }
-    else if (bath_version==7){ //Same, but for v7 packets
-        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v7->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
-            if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
-            return 0;
-        }
-        calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath_v7->sub_header.time+sensor_offset->time_offset, (1.f/bath_v5->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
-        if(sensor_params->calc_aoi){
-            qsort(bath_v7->dp, Nin, sizeof(detectionpoint_v5_t), cmp_wbms_v5_dp_on_angle_func);
-        }
-    }
-    else {//if (bath_version==8){ //Same, but for v8 packets
-        if (calc_interpolated_nav_data( posdata, pos_ix, bath_v8->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
-            if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",bath->sub_header.time+sensor_offset->time_offset);
-            return 0;
-        }
-        calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath_v8->sub_header.time+sensor_offset->time_offset, (1.f/bath_v5->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
-        if(sensor_params->calc_aoi){
-            qsort(bath_v8->dp, Nin, sizeof(detectionpoint_v5_t), cmp_wbms_v5_dp_on_angle_func);
-        }
+    calc_interpolated_roll_and_z_vector(posdata, pos_ix, bath_vX->sub_header.time+sensor_offset->time_offset, (1.f/bath_vX->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
+    if(sensor_params->calc_aoi && unsorted_data){
+        qsort(bath_vX->dp, Nin, sizeof(detectionpoint_vX_t), cmp_wbms_vX_dp_on_angle_func);
     }
 
 	if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
@@ -581,123 +646,31 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
     //printf("Nin=%d\n",Nin);
 
 	for (ix_in=0;ix_in<Nin;ix_in+=ix_in_stride){
-        if (bath_version < 5){
-            uint32_t sample_number;
-            if (sensor_params->sonar_sample_mode == upper_gate) 
-                sample_number = bath->dp[ix_in].upper_gate;
-            else if (sensor_params->sonar_sample_mode == lower_gate) 
-                sample_number = bath->dp[ix_in].lower_gate;
-            else if (sensor_params->sonar_sample_mode == center_gate) 
-                sample_number = bath->dp[ix_in].lower_gate/2 + bath->dp[ix_in].upper_gate/2;
-            else
-                sample_number = bath->dp[ix_in].sample_number;
-            sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
-            sensor_ug = bath->dp[ix_in].upper_gate*c_div_2Fs;
-            sensor_lg = bath->dp[ix_in].lower_gate*c_div_2Fs;
-            #ifdef OUTPUT_QUALITY_VAL
-            sensor_quality = (float)(bath->dp[ix_in].quality_val);
-            #endif
-            sensor_strength = 0.0f;
-            sensor_t = sample_number*div_Fs;		//Calculate tx to rx time for each point 
-            sensor_az  = bath->dp[ix_in].angle;
-            sensor_elec_steer = 0;                                  // Batt version prev 5 does not contain this information
-            sensor_quality_flags = bath->dp[ix_in].quality_flags;
-            flags = bath->dp[ix_in].flags;
-            inten = bath->dp[ix_in].intensity;
-        }
-        else if(bath_version ==104){
-            float sample_number;
-            if (sensor_params->sonar_sample_mode == upper_gate) 
-                sample_number = (float) bath_v104->dp[ix_in].upscaled_upper_gate;
-            else if (sensor_params->sonar_sample_mode == lower_gate) 
-                sample_number = (float) bath_v104->dp[ix_in].upscaled_lower_gate;
-            else
-                sample_number = (float) bath_v104->dp[ix_in].upscaled_sample_number;
+    
+        float sample_number;
+        if (sensor_params->sonar_sample_mode == upper_gate) 
+            sample_number = bath_vX->dp[ix_in].upper_gate;
+        else if (sensor_params->sonar_sample_mode == lower_gate) 
+            sample_number = bath_vX->dp[ix_in].lower_gate;
+        else
+            sample_number = bath_vX->dp[ix_in].sample_number;
 
-            sensor_r   = sample_number*c_div_2Fs/SAMPLE_NUMBER_V104_UPSCALE;	//Calculate range to each point en meters
-            sensor_ug = (float) bath_v104->dp[ix_in].upscaled_upper_gate*c_div_2Fs/SAMPLE_NUMBER_V104_UPSCALE;
-            sensor_lg = (float) bath_v104->dp[ix_in].upscaled_lower_gate*c_div_2Fs/SAMPLE_NUMBER_V104_UPSCALE;
-            #ifdef OUTPUT_QUALITY_VAL
-            sensor_quality = (float)(bath_v104->dp[ix_in].quality_val);
-            #endif
-            sensor_strength = 0.0f;
-            sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
-            sensor_az  = (float) bath_v104->dp[ix_in].angle;
-            sensor_elec_steer = 0;
-            sensor_quality_flags = bath_v104->dp[ix_in].quality_flags;
-            flags = bath_v104->dp[ix_in].flags;
-            inten = (float) bath_v104->dp[ix_in].intensity;
-        }
-        else if ((bath_version==5)||(bath_version==6)){
-            float sample_number;
-            if (sensor_params->sonar_sample_mode == upper_gate) 
-                sample_number = bath_v5->dp[ix_in].upper_gate;
-            else if (sensor_params->sonar_sample_mode == lower_gate) 
-                sample_number = bath_v5->dp[ix_in].lower_gate;
-            else
-                sample_number = bath_v5->dp[ix_in].sample_number;
+        sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
+        sensor_ug = bath_vX->dp[ix_in].upper_gate*c_div_2Fs;
+        sensor_lg = bath_vX->dp[ix_in].lower_gate*c_div_2Fs;
+        #ifdef OUTPUT_QUALITY_VAL
+        sensor_quality = (float)(bath_vX->dp[ix_in].quality_val);
+        #endif
+        sensor_strength = (float)(bath_vX->dp[ix_in].strength);
+        sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
+        sensor_az  = bath_vX->dp[ix_in].angle;
+        sensor_elec_steer = bath_vX->dp[ix_in].steer_angle;
+        sensor_quality_flags = bath_vX->dp[ix_in].quality_flags;
+        flags = bath_vX->dp[ix_in].flags;
+        inten = bath_vX->dp[ix_in].intensity;
 
-            sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
-            sensor_ug = bath_v5->dp[ix_in].upper_gate*c_div_2Fs;
-            sensor_lg = bath_v5->dp[ix_in].lower_gate*c_div_2Fs;
-            #ifdef OUTPUT_QUALITY_VAL
-            sensor_quality = (float)(bath_v5->dp[ix_in].quality_val);
-            #endif
-            sensor_strength = (float)(bath_v5->dp[ix_in].strength);
-            sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
-            sensor_az  = bath_v5->dp[ix_in].angle;
-            sensor_elec_steer = bath_v5->dp[ix_in].steer_angle;
-            sensor_quality_flags = bath_v5->dp[ix_in].quality_flags;
-            flags = bath_v5->dp[ix_in].flags;
-            inten = bath_v5->dp[ix_in].intensity;
-        }
-        else if (bath_version==7){
-            uint32_t sample_number;
-            if (sensor_params->sonar_sample_mode == upper_gate) 
-                sample_number = bath_v7->dp[ix_in].upper_gate;
-            else if (sensor_params->sonar_sample_mode == lower_gate) 
-                sample_number = bath_v7->dp[ix_in].lower_gate;
-            else if (sensor_params->sonar_sample_mode == center_gate) 
-                sample_number = bath_v7->dp[ix_in].lower_gate/2 + bath_v7->dp[ix_in].upper_gate/2;
-            else
-                sample_number = bath_v7->dp[ix_in].sample_number;
-            sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
-            sensor_ug = (float)(bath_v7->dp[ix_in].upper_gate)*c_div_2Fs;
-            sensor_lg = (float)(bath_v7->dp[ix_in].lower_gate)*c_div_2Fs;
-            #ifdef OUTPUT_QUALITY_VAL
-            sensor_quality = (float)(bath_v7->dp[ix_in].quality_val);
-            #endif
-            sensor_strength = 0.0f;
-            sensor_t = sample_number*div_Fs;		//Calculate tx to rx time for each point 
-            sensor_az  = bath_v7->dp[ix_in].angle;
-            sensor_elec_steer = 0;                                  // Batt version prev 5 does not contain this information
-            sensor_quality_flags = bath_v7->dp[ix_in].quality_flags;
-            flags = bath_v7->dp[ix_in].flags;
-            inten = bath_v7->dp[ix_in].intensity;
-        }
-        else {//if (bath_version==8){
-            float sample_number;
-            if (sensor_params->sonar_sample_mode == upper_gate) 
-                sample_number = bath_v8->dp[ix_in].upper_gate;
-            else if (sensor_params->sonar_sample_mode == lower_gate) 
-                sample_number = bath_v8->dp[ix_in].lower_gate;
-            else
-                sample_number = bath_v8->dp[ix_in].sample_number;
 
-            sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
-            sensor_ug = bath_v8->dp[ix_in].upper_gate*c_div_2Fs;
-            sensor_lg = bath_v8->dp[ix_in].lower_gate*c_div_2Fs;
-            #ifdef OUTPUT_QUALITY_VAL
-            sensor_quality = (float)(bath_v8->dp[ix_in].quality_val);
-            #endif
-            sensor_strength = (float)(bath_v8->dp[ix_in].strength);
-            sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
-            sensor_az  = bath_v8->dp[ix_in].angle;
-            sensor_elec_steer = bath_v8->dp[ix_in].steer_angle;
-            sensor_quality_flags = bath_v8->dp[ix_in].quality_flags;
-            flags = bath_v8->dp[ix_in].flags;
-            inten = bath_v8->dp[ix_in].intensity;
-        }
+
         priority_flags = ((flags)>>9) & (0x0F);
         sensor_r  += sensor_offset->r_err;
         sensor_ug  += sensor_offset->r_err;
@@ -736,7 +709,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 				(sensor_r > sensor_params->min_range) && (sensor_r < sensor_params->max_range) 
 			){
             
-            beam_number[ix_out] = ix_in;
+            beam_number[ix_out] = bath_vX->dp[ix_in].beam_number;
             beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis
             beam_steer[ix_out] = sensor_elec_steer;
             beam_range[ix_out] = sensor_r;
@@ -754,7 +727,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 			
 			//Compensate intensity for range and AOI
             if (sensor_params->calc_aoi){
-                aoi[ix_out] = atan2f((sensor_r-prev_sensor_r), (sensor_az-prev_sensor_az)*sensor_r);         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
+                aoi[ix_out] = atan2f((sensor_r-prev_sensor_r), ABS(sensor_az-prev_sensor_az)*sensor_r);         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
             }
             else{
                 aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
