@@ -17,6 +17,7 @@
 */
 
 #include "bathy_packet.h"
+#include "wbms_georef.h"
 
 //@{
 /** WBMS packet type  
@@ -33,8 +34,10 @@
 
 
 /* The following limitations is not inherent packet format limitations, but just for specifying assignment of memory */
-/** Max size in bytes of a watercolumn packet payload section  (128x1024 32-bit data) */
-#define SBP_MAX_SAMPLES (16*1024)
+/** Max size in bytes of a watercolumn packet payload section  (128x1024 32-bit data) 
+* wbms georef treats each sample in the SBP data as a sounding, so we can not have more samples than the max allowed number of detection points per ping
+*/
+#define SBP_MAX_SAMPLES (MAX_DP)
 #define SBP_DATA_MAX_PAYLOAD_SIZE    (4*SBP_MAX_SAMPLES)
 
 #define DEFAULT_SBP_SV 1470.

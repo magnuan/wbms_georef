@@ -962,6 +962,11 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
      double* z = &(outbuf->z[0]);
      float* intensity = &(outbuf->i[0]);
      float* beam_range = &(outbuf->range[0]);
+
+     float* beam_angle = &(outbuf->teta[0]);
+     float* beam_steer = &(outbuf->steer[0]);
+     int * beam_number = &(outbuf->beam[0]);
+
      float* tx_freq_out = &(outbuf->tx_freq);
      float* tx_bw_out = &(outbuf->tx_bw);
      float* tx_plen_out = &(outbuf->tx_plen);
@@ -1033,6 +1038,11 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
 	if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
         return 0;
     }
+    
+    if (sensor_params->sbp_motion_stab){
+        nav_pitch=0;
+        nav_roll=0;
+    }
 
     float *xs  = malloc(SBP_MAX_SAMPLES*sizeof(float));
     float *ys  = malloc(SBP_MAX_SAMPLES*sizeof(float));
@@ -1092,6 +1102,9 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
 
         intensity[ix_out] = inten;
         beam_range[ix_out] = sensor_r;
+        beam_angle[ix_out] = 0;
+        beam_steer[ix_out] = 0;
+        beam_number[ix_out] = sample_number;
         // Sub bottom profiler is always pointing straight down
         xs[ix_out] = 0.; 
         ys[ix_out] = 0.; 
@@ -1099,6 +1112,7 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
         ix_out++;
     }
     Nout = ix_out;
+    //fprintf(stderr,"Nout=%d\n",Nout);
 
     georef_to_global_frame(sensor_offset,xs, ys, zs,  Nout,c, nav_x, nav_y, nav_z,  nav_yaw, nav_pitch,  nav_roll, sensor_params->ray_tracing_mode,  sensor_params->mounting_depth, /*OUTPUT*/ x,y,z);
 	
@@ -1110,6 +1124,10 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
 		y[ix_out] = y[ix_in];
 		z[ix_out] = z[ix_in];
 		intensity[ix_out] = intensity[ix_in];
+		beam_angle[ix_out] = beam_angle[ix_in];
+        beam_range[ix_out] = beam_range[ix_in];
+        beam_number[ix_out] = beam_number[ix_in];
+        beam_steer[ix_out] = beam_steer[ix_in];
         beam_range[ix_out] = beam_range[ix_in];
 		if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
 

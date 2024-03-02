@@ -431,6 +431,10 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# Only for navigation data in projected coordinates, specify navigation data projection parameters\n");
 	fprintf(fp,"# projection_input +proj=utm +zone=33 +ellps=WGS84\n\n\n");
 	
+    fprintf(fp,"#### SPECIAL OPTIONS ####\n");
+	fprintf(fp,"# Motion stabilized SBP. Set to 1 to assume sub bottom profiler has perfectlymotion stabilized tx \n");
+	fprintf(fp,"# sbp_motion_stab 1\n");
+	
 	fprintf(fp,"#### DATA SOURCE ####\n");
 	fprintf(fp,"# Normally given as input argument with -i or -p and -s, but can also be specified here\n");
 	fprintf(fp,"# Define source and output drain: '-' for stdin/stdout ':' separated TCP ip/port '#' separated UDP ip/port else filename\n");
@@ -545,6 +549,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->max_abs_droll_dt=0;
     s->max_abs_dpitch_dt=0;
     s->max_abs_dyaw_dt=0;
+    s->sbp_motion_stab = 0;
 }
 
 
@@ -625,6 +630,8 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"sensor_sv_offset",16)==0)  sensor_params.sv_offset = (float)atof(c+16);
 			if (strncmp(c,"alt_mode",8)==0) alt_mode = atoi(c+8);	
 			if (strncmp(c,"vert_offset",11)==0) z_off = (float)atof(c+11);
+			
+            if (strncmp(c,"sbp_motion_stab",15)==0) sensor_params.sbp_motion_stab = atoi(c+15);	
 			
             if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
             if (strncmp(c,"raytrace_use_table_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(0);

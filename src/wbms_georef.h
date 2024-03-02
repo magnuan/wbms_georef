@@ -4,7 +4,7 @@
 #define NAVDATA_BUFFER_LEN (2*128)
 //Use input sound velocity profile to correct for ray bending 
 
-#define MAX_DP 8*1024					//Maximum number of detection points in one dataset
+#define MAX_DP 16*1024					//Maximum number of detection points in one dataset
 #define MAX_LINELEN 128			//Maximum number of characters to represent one datapoint in output data CSV or BIN (11+1+11+1+8+1+3+1+8+1+8+2=56 +fudge = 128)
 
 #define STRINGIFY0(v) #v
@@ -100,6 +100,7 @@ typedef struct{
     sonar_sample_mode_e sonar_sample_mode; 
     uint32_t beam_decimate;
     uint32_t ping_decimate;
+    uint8_t sbp_motion_stab;
 }sensor_params_t;
 
 
