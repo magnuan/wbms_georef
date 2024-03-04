@@ -524,6 +524,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
      int* ping_number_out = &(outbuf->ping_number);
      int* multiping_index_out = &(outbuf->multiping_index);
      int* multifreq_index_out = &(outbuf->multifreq_index);
+     int* classification_val = &(outbuf->classification[0]);
 
 	float sensor_strength;
     #ifdef OUTPUT_QUALITY_VAL
@@ -721,7 +722,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
             #else
                 quality[ix_out] = (float) sensor_quality_flags;
             #endif
-            quality_flags[ix_out] = (float) sensor_quality_flags;
+            quality_flags[ix_out] = sensor_quality_flags;
+            classification_val[ix_out] = (sensor_quality_flags==3);  //Just calssify as Seafloor (=1) if Q=3 and Noise(=0) otherwise
             priority[ix_out] = (float) priority_flags;
             *tx_angle_out = sensor_el;
 			

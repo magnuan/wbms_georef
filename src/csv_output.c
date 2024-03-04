@@ -72,6 +72,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     int*   multifreq_index = &(data->multifreq_index);
     int*   ping_number = &(data->ping_number);
     float*   ping_rate = &(data->ping_rate);
+    int* classification_val = &(data->classification[0]);
     static int prev_ping_number;
 
 	uint32_t ii,jj,len;
@@ -113,6 +114,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case el: len += sprintf(&(outbuf[len]),"%11.3f",(*tx_angle)*180/M_PI);break;
                 case val: len += sprintf(&(outbuf[len]),"%17.8f",intensity_val[ii]);break;
                 case quality: len += sprintf(&(outbuf[len]),"%11.3f",quality_val[ii]);break;
+                case classification: len += sprintf(&(outbuf[len]),"%11d",classification_val[ii]);break;
                 case priority: len += sprintf(&(outbuf[len]),"%11.3f",priority_val[ii]);break;
                 case strength: len += sprintf(&(outbuf[len]),"%11.3f",strength_val[ii]);break;
                 case swath_y: len += sprintf(&(outbuf[len]),"%11.3f",swath_y_val[ii]);break;

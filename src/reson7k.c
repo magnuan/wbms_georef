@@ -327,6 +327,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     int* ping_number_out = &(outbuf->ping_number);
     //int* multiping_index_out = &(outbuf->multiping_index);
     int* multifreq_index_out = &(outbuf->multifreq_index);
+    int* classification_val = &(outbuf->classification[0]);
 
     static float sv;
     static float tx_freq;
@@ -493,7 +494,8 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 
               
                 quality[ix_out] = (float) sensor_quality_flags;
-                quality_flags[ix_out] = (float) sensor_quality_flags;
+                quality_flags[ix_out] = sensor_quality_flags;
+                classification_val[ix_out] = (sensor_quality_flags==3);  //Just calssify as Seafloor (=1) if Q=3 and Noise(=0) otherwise
                 priority[ix_out] = (float) priority_flags;
                 beam_number[ix_out] = ix_in;
                 beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis

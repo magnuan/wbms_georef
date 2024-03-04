@@ -33,6 +33,9 @@ int sprint_output_format_sbf(char* str,output_format_e* format){
             sptr+=sprintf(sptr,"SF%d=line_of_sight_y\n",sfcnt++);
             sptr+=sprintf(sptr,"SF%d=line_of_sight_z\n",sfcnt++);
         }
+        else if(*fptr == classification) {                          // Should write classification with capital C like CloudCompare has
+            sptr+=sprintf(sptr,"SF%d=Classification\n",sfcnt++);
+        }
         else{                             //Handle all scalar values
             switch (*fptr){
 #define foo(x) case x: sptr+=sprintf(sptr,"SF%d=%s\n",sfcnt++,STRINGIFY(x));break
@@ -148,6 +151,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     int*   multifreq_index = &(data->multifreq_index);
     int*   ping_number = &(data->ping_number);
     float*   ping_rate = &(data->ping_rate);
+    int* classification_val = &(data->classification[0]);
     static int prev_ping_number;
 
 	char * dp = outbuf;
@@ -197,6 +201,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case quality: write_f32_unaligned_bswap((uint8_t*)dp,(float)(quality_val[ii])); dp+=4;break;
                 case priority: write_f32_unaligned_bswap((uint8_t*)dp,(float)(priority_val[ii])); dp+=4;break;
                 case strength: write_f32_unaligned_bswap((uint8_t*)dp,(float)(strength_val[ii])); dp+=4;break;
+                case classification: write_f32_unaligned_bswap((uint8_t*)dp,(float)(classification_val[ii])); dp+=4;break;
                 
                 case cgate: write_f32_unaligned_bswap((uint8_t*)dp,(float)((range_val[ii]-0.5*(low_gate[ii]+up_gate[ii]))*200/(low_gate[ii]+up_gate[ii]))); dp+=4;break;
                 //case ugate: write_f32_unaligned_bswap((uint8_t*)dp,(float)((range_val[ii]-up_gate[ii])*100/range_val[ii])); dp+=4;break;
