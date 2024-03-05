@@ -315,6 +315,11 @@ static bath_data_packet_vX_t bvX;
 
 bath_data_packet_vX_t* bath_convert_to_universal(bath_data_packet_t* bath_in, uint32_t force_bath_version){
     uint32_t bath_version =  bath_in->header.version;
+    static first_run=1;
+    if (first_run){
+        fprintf(stderr, "bath_version = %d\n",bath_version);
+        first_run = 0;
+    }
     if (force_bath_version>0){
         bath_version =  force_bath_version;
     }
