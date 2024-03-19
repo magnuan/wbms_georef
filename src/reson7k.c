@@ -39,13 +39,14 @@ uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types){
     if (data==NULL){
         return 0;
     }
-    for(int test=0;test<200;test++){     //Test the first 200 packets, if none of them contains requested data it is pobably not a valid data file
+    for(int test=0;test<1000;test++){     //Test the first 1000 packets, if none of them contains requested data it is pobably not a valid data file
         int len; 
         len = r7k_fetch_next_packet(data, fd);
-        //printf("r7k_test_file, %d len=%d\n",req_types[0],len);
+        //printf("r7k_test_file, %d len=%d test_cnt=%d\n",req_types[0],len,test);
         if (len > 0 ){
             double ts;
             int type = r7k_identify_sensor_packet(data, len, &ts);
+            //fprintf(stderr,"type = %d\n",type);fflush(stderr);
             for (size_t req_type_ix = 0; req_type_ix<n_req_types;req_type_ix++){
                 if (type==req_types[req_type_ix]){
                     pass=1;
@@ -150,8 +151,8 @@ int r7k_fetch_next_packet(char * data, int fd){
     /*uint16_t s7k_version = ((uint16_t*) data)[0];
 	uint16_t s7k_offset = ((uint16_t*) data)[1];
     uint32_t s7k_record_id = ((uint32_t*) data)[8];
-	fprintf(stderr, "FETCH: S7K ver = %d, S7K off = %d,  size = %d recordID = %d\n",s7k_version,s7k_offset, s7k_size, s7k_record_id);
-	*/
+	fprintf(stderr, "FETCH: S7K ver = %d, S7K off = %d,  size = %d recordID = %d\n",s7k_version,s7k_offset, s7k_size, s7k_record_id);*/
+	
     return s7k_size;
 }
 
@@ -368,6 +369,9 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
 
 	if (drf->record_id == 7027){
         float sensor_el = rth.r7027->tx_angle;
+        if (sensor_params->ignore_tx_angle){
+            sensor_el=0;
+        }
         uint16_t multifreq_index = rth.r7027->multi_ping;
         float Fs = rth.r7027->fs;
         float c = sv;

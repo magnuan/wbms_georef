@@ -101,6 +101,7 @@ typedef struct{
     uint32_t beam_decimate;
     uint32_t ping_decimate;
     uint8_t sbp_motion_stab;
+    uint8_t ignore_tx_angle;
 }sensor_params_t;
 
 

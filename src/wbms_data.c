@@ -600,6 +600,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     /*printf("ping_number=%9d, multiping= %d tx_angle=%5.1f multifreq_index=%d\n", 
     ping_number, multiping_index,tx_angle*180/M_PI, multifreq_index);*/
     //printf("tx_angle=%f, Fs=%f, c=%f, Nin=%d, multifreq_index=%d\n", tx_angle,  Fs,  c,  Nin,  multifreq_index);
+    if (sensor_params->ignore_tx_angle){
+        tx_angle=0;
+    }
 
     //Skip whole dataset condition
     sensor_el  = tx_angle;								 

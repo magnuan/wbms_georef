@@ -434,6 +434,8 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#### SPECIAL OPTIONS ####\n");
 	fprintf(fp,"# Motion stabilized SBP. Set to 1 to assume sub bottom profiler has perfectlymotion stabilized tx \n");
 	fprintf(fp,"# sbp_motion_stab 1\n");
+	fprintf(fp,"# Ignore elevation (tx angle) from sonar data \n");
+	fprintf(fp,"# ignore_tx_angle 1\n");
 	
 	fprintf(fp,"#### DATA SOURCE ####\n");
 	fprintf(fp,"# Normally given as input argument with -i or -p and -s, but can also be specified here\n");
@@ -551,6 +553,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->max_abs_dpitch_dt=0;
     s->max_abs_dyaw_dt=0;
     s->sbp_motion_stab = 0;
+    s->ignore_tx_angle = 0;
 }
 
 
@@ -633,6 +636,7 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"vert_offset",11)==0) z_off = (float)atof(c+11);
 			
             if (strncmp(c,"sbp_motion_stab",15)==0) sensor_params.sbp_motion_stab = atoi(c+15);	
+            if (strncmp(c,"ignore_tx_angle",15)==0) sensor_params.ignore_tx_angle = atoi(c+15);	
 			
             if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
             if (strncmp(c,"raytrace_use_table_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(0);
