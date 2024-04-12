@@ -160,23 +160,20 @@ int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
     
 	r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
     
-    //Ignore 7030 records for now
-    // These could be used to read sensor offset data, but becuase they sometimes are out of order wrt time stamp,
-    // we should at least not forward navigation time based on this
-	if (drf->record_id == 7030)
-		return 0;	
- 	
-    double ts = r7k_r7ktime_to_ts(&(drf->time));
-    // If record data is from sensor (sonar) add sensor time offset
-    if ( drf->record_id >= 7000  && drf->record_id < 8000){
-        ts += sensor_offset->time_offset;
+	//So far we only process s7k record 7000, 7027  and 7610  
+    // we dont care about time stamps in any other records as they could come out ot order (like 7030)
+    if ((drf->record_id == 7000) || (drf->record_id == 7027) || (drf->record_id == 7610)){
+        double ts = r7k_r7ktime_to_ts(&(drf->time));
+        // If record data is from sensor (sonar) add sensor time offset
+        if ( drf->record_id >= 7000  && drf->record_id < 8000){
+            ts += sensor_offset->time_offset;
+        }
+        *ts_out = ts;
     }
-	*ts_out = ts;
 	//union r7k_RecordTypeHeader rth;
 	//rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (databuffer+4+(drf->offset));
-	
     //fprintf(stderr,"IDENTIFY: len:%d S7K record  id:%d dev:%d  Y=%d doy=%d  %02d:%02d:%09.6f   ts = %f\n",len, drf->record_id,drf->dev_id,drf->time.year,drf->time.day,drf->time.hour,drf->time.min,drf->time.sec,ts);
-	return drf->record_id;
+    return drf->record_id;
 }
 
 
@@ -195,12 +192,10 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 
     r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
 	
-    //Ignore 7030 records for now
-    // These could be used to read sensor offset data, but becuase they sometimes are out of order wrt time stamp,
-    // we should at least not forward navigation time based on this
-	if (drf->record_id == 7030)
+	//So far we only process s7k record 1015 and 1016 for navigation  (we dont care about time stamps in any other records)
+	if ((drf->record_id != 1015) && (drf->record_id != 1016))
 		return NO_NAV_DATA;	
- 	
+	
     double ts = r7k_r7ktime_to_ts(&(drf->time));
 	*ts_out = ts;
 
@@ -209,9 +204,6 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 	union r7k_RecordTypeHeader rth;
 	rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (databuffer+4+(drf->offset));
 	
-	//So far we only process s7k record 1015 and 1016 for navigation
-	if ((drf->record_id != 1015) && (drf->record_id != 1016))
-		return NO_NAV_DATA;	
 
     // The data collector needs to collect one set of posision and one set of attitude data with same timestamp
     // to generate a navigation out entry. 
@@ -279,7 +271,9 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			navdata_collector.pitch = rth.r1016->entry[0].pitch;
 			navdata_collector.yaw = rth.r1016->entry[0].heading;
 			navdata_collector.heave = rth.r1016->entry[0].heave;
-			last_heave = rth.r1016->entry[0].heave;
+            
+
+            last_heave = navdata_collector.heave;
 			
 			if (alt_mode ==2){ 
 				navdata_collector.z = -navdata_collector.heave;  //heave from posmv is positive up ( Without RTK it is usually better to use heave + tide  (TODO add some ay to input tide files)) 
@@ -346,7 +340,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     float xs[MAX_DP], ys[MAX_DP], zs[MAX_DP];	/*Coordinate with respect to sensor (forward,starboard, down)*/
 	#endif
 
-	//So far we only process s7k record 7027  and 7610
+	//So far we only process s7k record 7000, 7027  and 7610
     //fprintf(stderr,"S7K record  id:%d dev:%d  Y=%d doy=%d  %02d:%02d:%09.6f   ts = %f\n",drf->record_id,drf->dev_id,drf->time.year,drf->time.day,drf->time.hour,drf->time.min,drf->time.sec,ts);
     if (drf->record_id == 7610){
        sv = rth.r7610->sv ;
