@@ -281,7 +281,7 @@ int cmp_wbms_vX_dp_on_angle_func (const void * a, const void * b) {
 * @return difference from corrected azimuth angle
 *
 ******************************************************************************/
-static float calc_sonar_to_cp_corrections(float azimuth, float elevation, float steer){
+__attribute__((unused)) static float calc_sonar_to_cp_corrections(float azimuth, float elevation, float steer){
     //See assembla ticket #1725
     float az,az1,az2,el,cos_el,sin2_el, sin_az2, sin2_az2;
     el = elevation;
@@ -296,7 +296,7 @@ static float calc_sonar_to_cp_corrections(float azimuth, float elevation, float 
     return  asin ( ( cos(az1)*sin_az2 + sin(az1)*sqrt(1-sin2_az2-sin2_el) )/cos_el )-az;
 }
 
-static float calc_shallow_angle_skew_corrections(float angle, float range, float att){
+__attribute__((unused)) static float calc_shallow_angle_skew_corrections(float angle, float range, float att){
     angle = LIMIT(angle,-80.f*M_PI/180.f, 80.f*M_PI/180.f);
     //Opening angle model
     const float psi0 = 0.5*M_PI/180;        //Nadir opening angle for WH
@@ -315,7 +315,7 @@ static bath_data_packet_vX_t bvX;
 
 bath_data_packet_vX_t* bath_convert_to_universal(bath_data_packet_t* bath_in, uint32_t force_bath_version){
     uint32_t bath_version =  bath_in->header.version;
-    static first_run=1;
+    static int first_run=1;
     if (first_run){
         fprintf(stderr, "bath_version = %d\n",bath_version);
         first_run = 0;
@@ -579,6 +579,12 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
         tx_voltage = bath_vX->sub_header.tx_voltage;
         Fs = bath_vX->sub_header.sample_rate;
         c = bath_vX->sub_header.snd_velocity+sensor_params->sv_offset;
+        if (sensor_params->force_sv > 0){
+            c = sensor_params->force_sv;
+        }
+        if (c != c){
+            fprintf(stderr, "NaN sound velocity encountered in data");
+        }
         Nin = bath_vX->sub_header.N;
         multifreq_index =bath_vX->sub_header.multifreq_band_index;
         ping_number =  bath_vX->sub_header.ping_number;

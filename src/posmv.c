@@ -40,7 +40,7 @@ uint8_t posmv_test_file(int fd){
     if (data==NULL){
         return 0;
     }
-    for(int test=0;test<20;test++){     //Test the first 20 packets, if none of them contains requested data it is pobably not a valid data file
+    for(int test=0;test<200;test++){     //Test the first 20 packets, if none of them contains requested data it is pobably not a valid data file
         int len; 
         len = posmv_fetch_next_packet(data, fd);
         //printf("len=%d\n",len);
@@ -180,6 +180,7 @@ int posmv_identify_packet(char* databuffer, uint32_t len, double* ts_out){
     /*double dist = *(((double*)(dp)));*/ dp+=8;
     uint8_t timetype = *(((uint8_t*)(dp)));dp+=1;
     /*uint8_t disttype = *(((uint8_t*)(dp)));*/ dp+=1;
+    if(verbose) fprintf(stderr,"GID=%d, Count=%d, Time1=%f, Time2=%f, timetype=%d\n",gid,count,time1,time2,timetype);
 
 	uint16_t cs=0;
     for (int ii = 0; ii<((8+count)/2);ii++) cs += ((uint16_t*)databuffer)[ii]; 

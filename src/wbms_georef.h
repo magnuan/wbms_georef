@@ -90,6 +90,7 @@ typedef struct{
     float max_abs_dyaw_dt;
 
     float sv_offset;
+    float force_sv;
     float mounting_depth;
     char intensity_range_comp; 
     float intensity_range_attenuation; 

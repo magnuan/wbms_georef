@@ -350,9 +350,17 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     //fprintf(stderr,"S7K record  id:%d dev:%d  Y=%d doy=%d  %02d:%02d:%09.6f   ts = %f\n",drf->record_id,drf->dev_id,drf->time.year,drf->time.day,drf->time.hour,drf->time.min,drf->time.sec,ts);
     if (drf->record_id == 7610){
        sv = rth.r7610->sv ;
+       sv = sv + sensor_params->sv_offset;
        //fprintf(stderr, "Read in sound velocity from S7K 7610  sv=%f\n", sv);
        return 0;
     }
+    if (sensor_params->force_sv > 0){
+        sv = sensor_params->force_sv;
+    }
+    if (sv != sv){
+        fprintf(stderr, "NaN sound velocity encountered in data");
+    }
+
     *sv_out = sv;
     
     if (drf->record_id == 7000){

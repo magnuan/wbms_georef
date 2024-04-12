@@ -320,6 +320,8 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"#sensor_time_offset 0.0\n");
 	fprintf(fp,"# Add a correction value to sonar SV measurement\n");
 	fprintf(fp,"#sensor_sv_offset 0.0\n\n");
+	fprintf(fp,"# Force specific SV value\n");
+	fprintf(fp,"#sensor_force_sv 0.0\n\n");
 	
     fprintf(fp,"#### SENSOR DATA FILTERS ####\n");
 	fprintf(fp, "# Sounding quality limits\n");
@@ -536,6 +538,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->swath_min_y = -1000;
     s->swath_max_y = 1000;
     s->sv_offset = 0.0;
+    s->force_sv = 0.0;
     s->mounting_depth = 1.0;		//Mounting depth, only for raytracing, SV-profile compensation
     s->intensity_range_comp = 0;
     s->intensity_range_attenuation = 100;
@@ -632,6 +635,7 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"input_timezone",14)==0)  input_timezone = (float)atof(c+14);
 			if (strncmp(c,"time_diff_limit",15)==0)  set_time_diff_limit((float)atof(c+15));
 			if (strncmp(c,"sensor_sv_offset",16)==0)  sensor_params.sv_offset = (float)atof(c+16);
+			if (strncmp(c,"sensor_force_sv",15)==0)  sensor_params.force_sv = (float)atof(c+15);
 			if (strncmp(c,"alt_mode",8)==0) alt_mode = atoi(c+8);	
 			if (strncmp(c,"vert_offset",11)==0) z_off = (float)atof(c+11);
 			
@@ -1213,6 +1217,7 @@ int main(int argc,char *argv[])
 	fprintf(stderr,"Sonar offset x=%f y=%f z=%f yaw=%f pitch=%f roll=%f\n",sensor_offset.x,sensor_offset.y,sensor_offset.z,sensor_offset.yaw*180/M_PI,sensor_offset.pitch*180/M_PI,sensor_offset.roll*180/M_PI);
 	fprintf(stderr,"Sensor time offset:  %f\n",sensor_offset.time_offset);
 	fprintf(stderr,"Sonar sv offset:  %fm/s\n",sensor_params.sv_offset);
+	fprintf(stderr,"Sonar force sv:  %fm/s\n",sensor_params.force_sv);
 	fprintf(stderr,"Altitude mode:  %d %s\n",alt_mode, alt_mode_names[alt_mode]);
 	fprintf(stderr,"Sonar min quality flag = %d\n",sensor_params.min_quality_flag);
 	fprintf(stderr,"Sonar max quality flag = %d\n",sensor_params.max_quality_flag);
