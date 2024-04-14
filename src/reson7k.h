@@ -247,6 +247,30 @@ typedef struct{
     //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
 }r7k_Record_7027_t;
 
+// ****10018 SBES Echogram Water Column Data ****
+typedef struct{
+	uint32_t ping_nr; //sequential number
+	uint32_t multi_ping; // = 0
+    float sound_velocity; // in m/s
+    float not_applied_corrected_transducer_draft; // [meter]. Draft is not applied to data in this record. Clients may apply this value to display water depth echograms.
+    float fs; //Sample rate in Hz
+    float effective_pulse_length; // For CW this is the time duration of the transmitted pulse. [seconds].
+    float start_sample_delay;  // [seconds]. The TWT corresponding to the first sample in this record. Shift the echogram down by this amount.
+    uint32_t bits_per_sample;  // 8,16,32
+    uint32_t full_scale; //  Highest Value /echo strength possible.
+    uint32_t number_of_samples; //
+}r7k_RecordTypeHeader_10018_t;
+typedef struct{
+	uint32_t sample_data;
+}r7k_RecordData_10018_t; 
+typedef struct{
+	r7k_NetworkFrame_t NF;
+	r7k_DataRecordFrame_t DRF;
+	r7k_RecordTypeHeader_10018_t RTH;
+	r7k_RecordData_10018_t RD[];
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+}r7k_Record_10018_t;
+
 
 // ****7030 Sonar installation parameters ****
 typedef struct{
@@ -399,6 +423,7 @@ union r7k_RecordTypeHeader{
 	r7k_RecordTypeHeader_7006_t* r7006;
 	r7k_RecordTypeHeader_7027_t* r7027;
 	r7k_RecordTypeHeader_7610_t* r7610;
+	r7k_RecordTypeHeader_10018_t* r10018;
 
 	r7k_RecordTypeHeader_1003_t* r1003;
 	r7k_RecordTypeHeader_1012_t* r1012;

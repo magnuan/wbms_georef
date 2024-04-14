@@ -436,6 +436,8 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#### SPECIAL OPTIONS ####\n");
 	fprintf(fp,"# Motion stabilized SBP. Set to 1 to assume sub bottom profiler has perfectlymotion stabilized tx \n");
 	fprintf(fp,"# sbp_motion_stab 1\n");
+	fprintf(fp,"# Output raw SBP data. Set to 1 to output sbp raw data without any processing (filtering / rectification)  \n");
+	fprintf(fp,"# sbp_raw_data 1\n");
 	fprintf(fp,"# Ignore elevation (tx angle) from sonar data \n");
 	fprintf(fp,"# ignore_tx_angle 1\n");
 	
@@ -556,6 +558,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->max_abs_dpitch_dt=0;
     s->max_abs_dyaw_dt=0;
     s->sbp_motion_stab = 0;
+    s->sbp_raw_data = 0;
     s->ignore_tx_angle = 0;
 }
 
@@ -640,6 +643,7 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"vert_offset",11)==0) z_off = (float)atof(c+11);
 			
             if (strncmp(c,"sbp_motion_stab",15)==0) sensor_params.sbp_motion_stab = atoi(c+15);	
+            if (strncmp(c,"sbp_raw_data",12)==0) sensor_params.sbp_raw_data = atoi(c+12);	
             if (strncmp(c,"ignore_tx_angle",15)==0) sensor_params.ignore_tx_angle = atoi(c+15);	
 			
             if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
@@ -969,8 +973,8 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
 			return velodyne_identify_packet(databuffer, len, ts_out, ts_in);
 		case sensor_mode_s7k:	
             id = r7k_identify_sensor_packet(databuffer, len, ts_out);
-	        //So far we only process s7k record 7027 for sensor  bathy data and 7610 for SV data
-            return ((id==7027) || (id==7610) || (id==7000))?id:0;
+	        //So far we only process s7k record 7027 and 10018 for sensor  bathy data and 7610 for SV data
+            return ((id==7027) || (id==7610) || (id==7000) ||(id==10018))?id:0;
 		case  sensor_mode_sim:
 			return sim_identify_packet(databuffer, len, ts_out, ts_in);
 		case sensor_mode_autodetect: //TODO fix this

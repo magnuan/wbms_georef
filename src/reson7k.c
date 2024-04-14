@@ -68,8 +68,8 @@ uint8_t r7k_test_nav_file(int fd){
     return r7k_test_file(fd,req_types,2);
 }
 uint8_t r7k_test_bathy_file(int fd){
-    int req_types[] = {7027};
-    return r7k_test_file(fd,req_types,1);
+    int req_types[] = {7027,10018};
+    return r7k_test_file(fd,req_types,2);
 }
 
 void r7k_calc_checksum(r7k_DataRecordFrame_t* drf){
@@ -160,12 +160,12 @@ int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
     
 	r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
     
-	//So far we only process s7k record 7000, 7027  and 7610  
+	//So far we only process s7k record 7000, 7027,10018  and 7610  
     // we dont care about time stamps in any other records as they could come out ot order (like 7030)
-    if ((drf->record_id == 7000) || (drf->record_id == 7027) || (drf->record_id == 7610)){
+    if ((drf->record_id == 7000) || (drf->record_id == 7027) || (drf->record_id == 7610)|| (drf->record_id == 10018)){
         double ts = r7k_r7ktime_to_ts(&(drf->time));
         // If record data is from sensor (sonar) add sensor time offset
-        if ( drf->record_id >= 7000  && drf->record_id < 8000){
+        if ( drf->record_id >= 7000  && drf->record_id < 11000){
             ts += sensor_offset->time_offset;
         }
         *ts_out = ts;
@@ -271,7 +271,10 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			navdata_collector.pitch = rth.r1016->entry[0].pitch;
 			navdata_collector.yaw = rth.r1016->entry[0].heading;
 			navdata_collector.heave = rth.r1016->entry[0].heave;
-            
+          
+            //TODO remove this hack done to fix a upside down fliped dataset
+            navdata_collector.roll+=M_PI;
+            navdata_collector.roll = fmod(navdata_collector.roll+M_PI,2*M_PI)-M_PI;
 
             last_heave = navdata_collector.heave;
 			
@@ -323,6 +326,9 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     //int* multiping_index_out = &(outbuf->multiping_index);
     int* multifreq_index_out = &(outbuf->multifreq_index);
     int* classification_val = &(outbuf->classification[0]);
+    
+    uint16_t ix_in_stride = MAX(1,sensor_params->beam_decimate); 
+    const uint32_t ping_number_stride = sensor_params->ping_decimate; 
 
     static float sv;
     static float tx_freq;
@@ -335,12 +341,8 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
 	union r7k_RecordTypeHeader rth;
 	rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (databuffer+4+(drf->offset));
     
-    #define HEAP
-    #ifndef HEAP
-    float xs[MAX_DP], ys[MAX_DP], zs[MAX_DP];	/*Coordinate with respect to sensor (forward,starboard, down)*/
-	#endif
 
-	//So far we only process s7k record 7000, 7027  and 7610
+	//So far we only process s7k record 7000, 7027,10018  and 7610
     //fprintf(stderr,"S7K record  id:%d dev:%d  Y=%d doy=%d  %02d:%02d:%09.6f   ts = %f\n",drf->record_id,drf->dev_id,drf->time.year,drf->time.day,drf->time.hour,drf->time.min,drf->time.sec,ts);
     if (drf->record_id == 7610){
        sv = rth.r7610->sv ;
@@ -357,6 +359,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
 
     *sv_out = sv;
     
+    // --- Process S7K 7000 record ----
     if (drf->record_id == 7000){
        tx_freq = rth.r7000->tx_freq ;
        tx_bw = rth.r7000->bw ;
@@ -364,12 +367,152 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
        //fprintf(stderr, "Read in tx freq from S7K 7000  tx_freq=%f\n", tx_freq);
        return 0;
     }
+
     *tx_freq_out = tx_freq;
     *tx_bw_out = tx_bw;
-    *ping_rate_out = ping_rate;
-       
+    *ping_rate_out = ping_rate;   
 
-	if (drf->record_id == 7027){
+    // --- Process S7K 10018 record ----
+	if (drf->record_id == 10018){
+        float sensor_el = 0;
+        uint16_t multifreq_index = rth.r10018->multi_ping;
+        float Fs = rth.r10018->fs;
+        float c = rth.r10018->sound_velocity;
+        uint32_t Nin = rth.r10018->number_of_samples/4;  //Number of samples TODO: the div by 4 here is a workaround for BRFR-3684, remove when fixed
+        uint32_t ping_number = rth.r10018->ping_nr;
+        float c_div_2Fs = c/(2*Fs);
+        uint8_t* rd_ptr = (((uint8_t*) rth.r10018) + sizeof(r7k_RecordTypeHeader_10018_t));
+
+
+        //fprintf(stderr, "Fs = %f c=%f Nin = %d\n",Fs,c,Nin);
+        
+        //Skip whole dataset condition
+        if (    ((sensor_params->multifreq_index>=0) && (sensor_params->multifreq_index!=multifreq_index)) ||
+                ((sensor_el < sensor_params->min_elevation) || (sensor_el > sensor_params->max_elevation)) ||
+                ((ping_number < sensor_params->min_ping_number) || (sensor_params->max_ping_number && (ping_number > sensor_params->max_ping_number))) ||
+                ((ping_number%ping_number_stride) != 0)
+
+        ){
+            return 0;
+        }
+        //Calculate navigation data at tx instant
+        double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/
+	    float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
+        float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
+        if (calc_interpolated_nav_data( posdata, pos_ix, ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){
+            if(verbose) fprintf(stderr, "Could not find navigation data for s7k 7027 record at time %f\n",ts);
+            return 0;
+        }
+        if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
+            return 0;
+        }
+        if (sensor_params->sbp_motion_stab){
+            nav_pitch=0;
+            nav_roll=0;
+        }
+        
+        float *sig = malloc(Nin*sizeof(float));
+        float *temp_sig = malloc(Nin*sizeof(float));
+        if ( (sig==NULL)||(temp_sig==NULL) ) return 0;
+       
+        
+        switch ( rth.r10018->bits_per_sample){
+            case 32:
+                for (uint32_t ix=0;ix<Nin;ix++){
+                    temp_sig[ix] = (float) (((uint32_t*)(rd_ptr))[ix]) - (float)((rth.r10018->full_scale/2)); 
+                }
+                break;
+            case 16:
+                for (uint32_t ix=0;ix<Nin;ix++){
+                    temp_sig[ix] = (float) (((uint16_t*)(rd_ptr))[ix]) - (float)((rth.r10018->full_scale/2)); 
+                }
+                break;
+            default:
+            case 8:
+                for (uint32_t ix=0;ix<Nin;ix++){
+                    temp_sig[ix] = (float) (((uint8_t*)(rd_ptr))[ix]) - (float)((rth.r10018->full_scale/2)); 
+                }
+                break;
+        }
+        if (sensor_params->sbp_raw_data){
+            memcpy(sig, temp_sig,Nin*sizeof(float));
+        }
+        else{
+            hilbert_envelope_data(/*Input*/ temp_sig,  Nin, /*Output*/ sig);
+        }
+
+        //Calculate sounding positions in sonar reference frame at tx instant
+        uint32_t ix_out = 0;
+        float tx_delay_range = rth.r10018->effective_pulse_length*c/2;
+
+        int32_t ix_start = (int32_t) (roundf((sensor_params->min_range+tx_delay_range)/c_div_2Fs));
+        int32_t ix_stop  = (int32_t) (roundf((sensor_params->max_range+tx_delay_range)/c_div_2Fs));
+        ix_start = LIMIT(ix_start,0,Nin); 
+        ix_stop = LIMIT(ix_stop,ix_start,Nin); 
+       
+        //Calculate number of output datapoints, and allocate memory for them
+        ix_in_stride = MAX(ix_in_stride,((ix_stop-ix_start)/(4*1024)+1)); //Force decimation to limit to maximum 4k points per ping
+        //fprintf(stderr,"ix_start=%d   ix_stop=%d   ix_in_stride=%d\n",ix_start,ix_stop,ix_in_stride);
+        uint32_t Nout = ((ix_stop-ix_start)/ix_in_stride)+1;
+        float *xs  = malloc(Nout*sizeof(float));
+        float *ys  = malloc(Nout*sizeof(float));
+        float *zs  = malloc(Nout*sizeof(float));
+        if ( (xs==NULL)||(ys==NULL)||(zs==NULL) ) return 0;
+        
+        for (uint32_t ix_in=ix_start;ix_in<ix_stop;ix_in+=ix_in_stride){
+            float inten;
+            uint32_t sample_number;
+            sample_number = ix_in;
+            
+            float sensor_r   = sample_number*c_div_2Fs - tx_delay_range;	//Calculate range to each point en meters
+            inten = sig[ix_in];
+            sensor_r  += sensor_offset->r_err;
+            
+            if (sensor_params->intensity_range_comp){
+                inten *= sensor_r;                  //Only comp one-way spreading loss     
+                float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
+                inten *= powf(10.f,damping_dB/20); 
+            }
+
+            intensity[ix_out] = inten;
+            beam_range[ix_out] = sensor_r;
+            beam_angle[ix_out] = 0;
+            beam_steer[ix_out] = 0;
+            beam_number[ix_out] = sample_number;
+            // Sub bottom profiler is always pointing straight down
+            xs[ix_out] = 0.; 
+            ys[ix_out] = 0.; 
+            zs[ix_out] = sensor_r;
+            ix_out++;
+        }
+        Nout = ix_out;
+
+        georef_to_global_frame(sensor_offset,xs, ys, zs,  Nout,c, nav_x, nav_y, nav_z,  nav_yaw, nav_pitch,  nav_roll, sensor_params->ray_tracing_mode,  sensor_params->mounting_depth, /*OUTPUT*/ x,y,z);
+        //Post GEO-REF filtering
+        Nin = Nout;
+        ix_out = 0;
+        for (uint32_t ix_in=0;ix_in<Nin;ix_in++){
+            x[ix_out] = x[ix_in];
+            y[ix_out] = y[ix_in];
+            z[ix_out] = z[ix_in];
+            intensity[ix_out] = intensity[ix_in];
+            beam_angle[ix_out] = beam_angle[ix_in];
+            beam_range[ix_out] = beam_range[ix_in];
+            beam_number[ix_out] = beam_number[ix_in];
+            beam_steer[ix_out] = beam_steer[ix_in];
+            beam_range[ix_out] = beam_range[ix_in];
+            if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
+
+            ix_out++;
+        }
+        Nout = ix_out;
+        free(xs);free(ys);free(zs);free(sig);free(temp_sig);
+        
+        return Nout;
+
+    }
+    // --- Process S7K 7027 record ----
+	else if (drf->record_id == 7027){
         float sensor_el = rth.r7027->tx_angle;
         if (sensor_params->ignore_tx_angle){
             sensor_el=0;
@@ -385,7 +528,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         float div_Fs = 1./Fs;
         float c_div_2Fs = c/(2*Fs);
         uint32_t dfs = rth.r7027->data_field_size;
-        uint8_t* rd_ptr = (((uint8_t*) rth.r7610) + sizeof(r7k_RecordTypeHeader_7027_t));
+        uint8_t* rd_ptr = (((uint8_t*) rth.r7027) + sizeof(r7k_RecordTypeHeader_7027_t));
         //fprintf(stderr, "GEOREF: Serial=%ld ping_nr=%d Nin=%d dfs=%d\n",rth.r7027->serial, rth.r7027->ping_nr,Nin,dfs);
 
         //Calculate navigation data at tx instant
@@ -426,24 +569,24 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         //Skip whole dataset condition
         if (    ((sensor_params->multifreq_index>=0) && (sensor_params->multifreq_index!=multifreq_index)) ||
                 ((sensor_el < sensor_params->min_elevation) || (sensor_el > sensor_params->max_elevation)) ||
-                ((ping_number < sensor_params->min_ping_number) || (sensor_params->max_ping_number && (ping_number > sensor_params->max_ping_number)))
+                ((ping_number < sensor_params->min_ping_number) || (sensor_params->max_ping_number && (ping_number > sensor_params->max_ping_number))) ||
+                ((ping_number%ping_number_stride) != 0)
+
         ){
             return 0;
         }
 
-        #ifdef HEAP
         float* xs =  calloc(Nin,sizeof(float));
         float* ys =  calloc(Nin,sizeof(float));
         float* zs =  calloc(Nin,sizeof(float));
         if ( (xs==NULL)||(ys==NULL)||(zs==NULL)) return 0;
-        #endif
        
         // Populate r,az,el and t with data from bath data
         //float prev_sensor_r = 0.;
         //float prev_sensor_az = 0.;
 	    uint32_t ix_out = 0;
         
-        for (uint32_t ix_in = 0; ix_in<Nin; ix_in++){
+	    for (uint32_t ix_in = 0; ix_in<Nin; ix_in+=ix_in_stride){
             r7k_RecordData_7027_t* rd = (r7k_RecordData_7027_t*)(rd_ptr+(ix_in*dfs));
             //fprintf(stderr, "%0.1f,", rd->rx_angle*180/M_PI);
             float sensor_az  = rd->rx_angle;
@@ -604,9 +747,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         }
         Nout = ix_out;
        
-        #ifdef HEAP
         free(xs); free(ys); free(zs);
-        #endif
         return Nout;
     }
     return 0;

@@ -64,4 +64,8 @@ double wrapMax(double x, double max);
 /* wrap x -> [min,max) */
 double wrapMinMax(double x, double min, double max);
 
+void hilbert_envelope_data(/*Input*/ float* sig_in, int32_t Nin, /*Output*/ float* sig_out);
+void match_filter_data(/*Input*/ float* sig_in, float freq, float bw, float plen, float Fs, int32_t Nin, /*Output*/ float* sig_out);
+void bp_filter_data(/*Input*/ float* sig_in, float freq, float bw, float Fs, int32_t Nin, /*Output*/ float* sig_out);
+
 #endif

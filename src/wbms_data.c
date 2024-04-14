@@ -557,7 +557,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     uint16_t multifreq_index;
 	uint16_t Nout;
 	uint16_t ix_in,ix_out;
-    const uint16_t ix_in_stride = sensor_params->beam_decimate; 
+    const uint16_t ix_in_stride = MAX(1,sensor_params->beam_decimate); 
     const uint32_t ping_number_stride = sensor_params->ping_decimate; 
     #define ROLL_VECTOR_LEN 512
     #define ROLL_VECTOR_RATE 500.
@@ -851,126 +851,10 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 	return Nout;
 }
 
-static uint32_t calc_match_filter(float fc,float bw,float len, float Fs, /*output*/ float* mfir){
-    float t,df,dfdn,dtdn;
-    uint32_t N,n;
-    N = (uint32_t) (len*Fs);
-
-    dtdn = (1./Fs);
-    t=-len/(2.*Fs);
-
-    df = -bw/2;
-    dfdn =  bw/(2.*len*Fs);
-    
-    for (n=0;n<N;n++){
-        float apz_val = 1.f;//(0.54+0.46*Q_cos((2.*M_PI*(n+0.5))/N-M_PI));
-        mfir[n] = sinf(2.*M_PI*(fc+df)*t) * apz_val;
-        df += dfdn;
-        t += dtdn; 
-    }
-    //Remove DC in filter
-    float dc = 0;
-    for (n=0;n<N;n++)
-        dc+=mfir[n];
-    dc/=N;
-    for (n=0;n<N;n++)
-        mfir[n] -= dc;
-    //printf("Calc match filter: freq %1.2fkHz bw %1.2fkHz  len %1.0f us Fs = %1.2fkHz %d taps\n",fc/1000,bw/1000,len*1e6,Fs/1000,N);
-    return N;
-}
-
-static void match_filter_data(/*Input*/ float* sig_in, float freq, float bw, float plen, float Fs, int32_t Nin, /*Output*/ float* sig_out){
-    uint32_t mfir_len = (uint32_t) (plen*Fs);
-    float* mfir = malloc(mfir_len * sizeof(float));
-    calc_match_filter(freq,bw,plen, Fs, /*output*/ mfir);
-
-    for (uint32_t ix = 0; ix < (mfir_len/2); ix++)
-        sig_out[ix] = 0;
-    for (uint32_t ix = mfir_len/2; ix < (Nin-mfir_len/2); ix++){
-        sig_out[ix] = 0;
-        for (uint32_t mix = 0; mix < mfir_len; mix++){
-            sig_out[ix] += sig_in[ix - mfir_len/2 + mix]  *  mfir[mix];
-        }
-    }
-    for (uint32_t ix = Nin-(mfir_len/2); ix < Nin; ix++)
-        sig_out[ix] = 0;
-
-    free(mfir);
-}
-
-static void bp_filter_data(/*Input*/ float* sig_in, float freq, float bw, float Fs, int32_t Nin, /*Output*/ float* sig_out){
-    bw = LIMIT(bw,0,Fs);
-    uint32_t bpfir_len = (uint32_t) (2*Fs/bw);
-    float* bpfir = malloc(bpfir_len * sizeof(float));
-    
-    /*Windowed sinc with hamming window*/
-    float fcn = freq/Fs;     //Normalized center freq 
-    float bwn = bw/2/Fs;     //Normalized cutoff freq
-    //Sinc function
-    for (size_t ix = 0; ix<bpfir_len; ix++){
-        float ii = (float) ix-(0.5*(bpfir_len-1));
-        float phi = 2*M_PI*bwn*ii;
-        bpfir[ix] = phi==0?1.0f:sinf(phi)/phi;
-    }
-    //Mixing up to center freq
-    for (size_t ix = 0; ix<bpfir_len; ix++){
-        float ii = (float) ix-(0.5*(bpfir_len-1));
-        float phi = 2*M_PI*fcn*ii;
-        bpfir[ix] *= cosf(phi);
-    }
-    //Adding window function (hamming)
-    for (size_t ix = 0; ix<bpfir_len; ix++){
-        float ii = (float) ix-(0.5*(bpfir_len-1));
-        bpfir[ix] *= 0.54 + 0.46*cos((2.*M_PI*ii)/bpfir_len);
-    }
 
     
-    for (uint32_t ix = 0; ix < (bpfir_len/2); ix++)
-        sig_out[ix] = 0;
-    for (uint32_t ix = bpfir_len/2; ix < (Nin-bpfir_len/2); ix++){
-        sig_out[ix] = 0;
-        for (uint32_t mix = 0; mix < bpfir_len; mix++){
-            sig_out[ix] += sig_in[ix - bpfir_len/2 + mix]  *  bpfir[mix];
-        }
-    }
-    for (uint32_t ix = Nin-(bpfir_len/2); ix < Nin; ix++)
-        sig_out[ix] = 0;
-
-    free(bpfir);
-}
-    
 
 
-static void hilbert_envelope_data(/*Input*/ float* sig_in, int32_t Nin, /*Output*/ float* sig_out){
-    static const uint32_t hlen = 63;
-    static const float hcoef[] = {    -0.0162738 ,  0.01472801, -0.01798631,  0.01331904, -0.01990413,
-                                0.01202334, -0.02207802,  0.01082204, -0.02457624,  0.0096998 ,
-                               -0.02749287,  0.00864398, -0.03096146,  0.00764404, -0.03517822,
-                                0.00669104, -0.04044378,  0.00577731, -0.04724363,  0.00489618,
-                               -0.05641605,  0.00404177, -0.06954423,  0.0032088 , -0.09002035,
-                                0.00239247, -0.12666366,  0.00158833, -0.21181068,  0.00079219,
-                               -0.63648784,  0.        ,  0.63648784, -0.00079219,  0.21181068,
-                               -0.00158833,  0.12666366, -0.00239247,  0.09002035, -0.0032088 ,
-                                0.06954423, -0.00404177,  0.05641605, -0.00489618,  0.04724363,
-                               -0.00577731,  0.04044378, -0.00669104,  0.03517822, -0.00764404,
-                                0.03096146, -0.00864398,  0.02749287, -0.0096998 ,  0.02457624,
-                               -0.01082204,  0.02207802, -0.01202334,  0.01990413, -0.01331904,
-                                0.01798631, -0.01472801,  0.0162738 };
-                                
-    for (uint32_t ix = 0; ix < (hlen/2); ix++)
-        sig_out[ix] = 0;
-    
-    for (uint32_t ix = hlen/2; ix < (Nin-hlen/2); ix++){
-        float I = sig_in[ix];
-        float Q = 0;
-        for (uint32_t hix = 0; hix < hlen; hix++){
-            Q += sig_in[ix - hlen/2 + hix]  *  hcoef[hix];
-        }
-        sig_out[ix] = sqrtf(I*I + Q*Q);
-    }
-    for (uint32_t ix = Nin-(hlen/2); ix < Nin; ix++)
-        sig_out[ix] = 0;
-}
 
 uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf){
      double* x = &(outbuf->x[0]);
@@ -1002,9 +886,8 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
 	float c;
 	uint16_t Nin;
     uint32_t ping_number;
-	uint16_t Nout;
 	int32_t ix_in,ix_out;
-    const uint16_t ix_in_stride = sensor_params->beam_decimate; 
+    uint16_t ix_in_stride = MAX(1,sensor_params->beam_decimate); 
     const uint32_t ping_number_stride = sensor_params->ping_decimate; 
     float tx_freq;
     float tx_bw;
@@ -1060,34 +943,37 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
         nav_roll=0;
     }
 
-    float *xs  = malloc(SBP_MAX_SAMPLES*sizeof(float));
-    float *ys  = malloc(SBP_MAX_SAMPLES*sizeof(float));
-    float *zs  = malloc(SBP_MAX_SAMPLES*sizeof(float));
-    float *sig = malloc(SBP_MAX_SAMPLES*sizeof(float));
-    float *temp_sig = malloc(SBP_MAX_SAMPLES*sizeof(float));
+    float *sig = malloc(Nin*sizeof(float));
+    float *temp_sig = malloc(Nin*sizeof(float));
+    if ( (sig==NULL)||(temp_sig==NULL) ) return 0;
 
     //printf("SBP data tp = %d\n",sbp_data->sub_header.tp);
-    switch(sbp_data->sub_header.tp){
-        case 0:   //Raw ADC data
-            for (uint32_t ix=0;ix<Nin;ix++){
-                temp_sig[ix] = (float) raw_sig[ix];
-            }
-            match_filter_data(/*Input*/ temp_sig, tx_freq, tx_bw, tx_plen,Fs ,Nin, /*Output*/ sig);
-            bp_filter_data(/*Input*/ sig, tx_freq, tx_bw, Fs ,Nin, /*Output*/ temp_sig);
-            hilbert_envelope_data(/*Input*/ temp_sig,  Nin, /*Output*/ sig);
-            break;
-        case 10: //Match filtered data
-            for (uint32_t ix=0;ix<Nin;ix++){
-                temp_sig[ix] = (float) raw_sig[ix];
-            }
-            hilbert_envelope_data(/*Input*/ temp_sig,  Nin, /*Output*/ sig);
-            break;
-        default: //Unknown testpoint
-            //TODO Rudimentary sig processing, fix match-filter bp-filter and envelope extraction
-            for (uint32_t ix=0;ix<Nin;ix++){
-                sig[ix] = (float) ABS(raw_sig[ix]);
-            }
-            break;
+    if (sensor_params->sbp_raw_data){
+        memcpy(sig, temp_sig,Nin*sizeof(float));
+    }
+    else{
+        switch(sbp_data->sub_header.tp){
+            case 0:   //Raw ADC data
+                for (uint32_t ix=0;ix<Nin;ix++){
+                    temp_sig[ix] = (float) raw_sig[ix];
+                }
+                match_filter_data(/*Input*/ temp_sig, tx_freq, tx_bw, tx_plen,Fs ,Nin, /*Output*/ sig);
+                bp_filter_data(/*Input*/ sig, tx_freq, tx_bw, Fs ,Nin, /*Output*/ temp_sig);
+                hilbert_envelope_data(/*Input*/ temp_sig,  Nin, /*Output*/ sig);
+                break;
+            case 10: //Match filtered data
+                for (uint32_t ix=0;ix<Nin;ix++){
+                    temp_sig[ix] = (float) raw_sig[ix];
+                }
+                hilbert_envelope_data(/*Input*/ temp_sig,  Nin, /*Output*/ sig);
+                break;
+            default: //Unknown testpoint
+                //TODO Rudimentary sig processing, fix match-filter bp-filter and envelope extraction
+                for (uint32_t ix=0;ix<Nin;ix++){
+                    sig[ix] = (float) ABS(raw_sig[ix]);
+                }
+                break;
+        }
     }
 
     //Calculate sounding positions in sonar reference frame at tx instant
@@ -1099,6 +985,15 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
     int32_t ix_stop  = (int32_t) (roundf((sensor_params->max_range+tx_delay_range)/c_div_2Fs));
     ix_start = LIMIT(ix_start,0,Nin); 
     ix_stop = LIMIT(ix_stop,ix_start,Nin); 
+
+    //Calculate number of output datapoints, and allocate memory for them
+    ix_in_stride = MAX(ix_in_stride,((ix_stop-ix_start)/(4*1024)+1)); //Force decimation to limit to maximum 4k points per ping
+    //fprintf(stderr,"ix_start=%d   ix_stop=%d   ix_in_stride=%d\n",ix_start,ix_stop,ix_in_stride);
+    uint32_t Nout = ((ix_stop-ix_start)/ix_in_stride)+1;
+    float *xs  = malloc(Nout*sizeof(float));
+    float *ys  = malloc(Nout*sizeof(float));
+    float *zs  = malloc(Nout*sizeof(float));
+    if ( (xs==NULL)||(ys==NULL)||(zs==NULL) ) return 0;
 
 	for (ix_in=ix_start;ix_in<ix_stop;ix_in+=ix_in_stride){
             
