@@ -87,7 +87,6 @@ typedef struct SbdEntryHeader
 
 
 
-static uint8_t verbose = 0;
 
 
 
