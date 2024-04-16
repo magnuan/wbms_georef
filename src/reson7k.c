@@ -272,9 +272,6 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			navdata_collector.yaw = rth.r1016->entry[0].heading;
 			navdata_collector.heave = rth.r1016->entry[0].heave;
           
-            //TODO remove this hack done to fix a upside down fliped dataset
-            navdata_collector.roll+=M_PI;
-            navdata_collector.roll = fmod(navdata_collector.roll+M_PI,2*M_PI)-M_PI;
 
             last_heave = navdata_collector.heave;
 			
@@ -378,7 +375,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         uint16_t multifreq_index = rth.r10018->multi_ping;
         float Fs = rth.r10018->fs;
         float c = rth.r10018->sound_velocity;
-        uint32_t Nin = rth.r10018->number_of_samples/4;  //Number of samples TODO: the div by 4 here is a workaround for BRFR-3684, remove when fixed
+        uint32_t Nin = rth.r10018->number_of_samples;  
         uint32_t ping_number = rth.r10018->ping_nr;
         float c_div_2Fs = c/(2*Fs);
         uint8_t* rd_ptr = (((uint8_t*) rth.r10018) + sizeof(r7k_RecordTypeHeader_10018_t));
