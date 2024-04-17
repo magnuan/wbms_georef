@@ -875,6 +875,7 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
      float* ping_rate_out = &(outbuf->ping_rate);
      int* ping_number_out = &(outbuf->ping_number);
      float* sv_out = &(outbuf->sv);
+     float* tx_angle_out = &(outbuf->tx_angle);
 
 	float sensor_r;
 
@@ -912,6 +913,7 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
     *tx_bw_out = tx_bw;
     *tx_plen_out = tx_plen;
     *tx_voltage_out = tx_voltage;
+    *tx_angle_out = 0;
     *ping_number_out = ping_number;
     *fs_out = Fs;
     *ping_rate_out = sbp_data->sub_header.ping_rate;
@@ -946,6 +948,15 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
     float *sig = malloc(Nin*sizeof(float));
     float *temp_sig = malloc(Nin*sizeof(float));
     if ( (sig==NULL)||(temp_sig==NULL) ) return 0;
+
+    //Apply additional post-processing band pass filter
+    if((sensor_params->sbp_bp_filter_start_freq>0) ||  (sensor_params->sbp_bp_filter_stop_freq>0)){
+        float f0 = sensor_params->sbp_bp_filter_start_freq*1e3;
+        float f1 = sensor_params->sbp_bp_filter_stop_freq*1e3;
+        f1 = f1==0?30e3:f1;
+        bp_filter_data(/*Input*/ temp_sig, (f0+f1)/2, f1-f0, Fs ,Nin, /*Output*/ sig);
+        memcpy(temp_sig, sig,Nin*sizeof(float));
+    } 
 
     //printf("SBP data tp = %d\n",sbp_data->sub_header.tp);
     if (sensor_params->sbp_raw_data){
@@ -1040,6 +1051,8 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
         beam_number[ix_out] = beam_number[ix_in];
         beam_steer[ix_out] = beam_steer[ix_in];
         beam_range[ix_out] = beam_range[ix_in];
+        *fs_out = Fs;
+        *ping_number_out = ping_number;
 		if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
 
 		ix_out++;

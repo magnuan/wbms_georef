@@ -103,6 +103,8 @@ typedef struct{
     uint32_t ping_decimate;
     uint8_t sbp_motion_stab;
     uint8_t sbp_raw_data;
+    float sbp_bp_filter_start_freq;
+    float sbp_bp_filter_stop_freq;
     uint8_t ignore_tx_angle;
 }sensor_params_t;
 

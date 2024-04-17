@@ -506,16 +506,25 @@ void bp_filter_data(/*Input*/ float* sig_in, float freq, float bw, float Fs, int
         float phi = 2*M_PI*bwn*ii;
         bpfir[ix] = phi==0?1.0f:sinf(phi)/phi;
     }
+    //Adding window function (hamming)
+    for (size_t ix = 0; ix<bpfir_len; ix++){
+        float ii = (float) ix-(0.5*(bpfir_len-1));
+        bpfir[ix] *= (0.54 + 0.46*cos((2.*M_PI*ii)/bpfir_len));
+    }
+    //Scale to unity DC gain
+    float bpfir_scale = 0;
+    for (size_t ix = 0; ix<bpfir_len; ix++)
+        bpfir_scale += bpfir[ix];
+    bpfir_scale = 1./bpfir_scale;
+    for (size_t ix = 0; ix<bpfir_len; ix++)
+        bpfir[ix] *= bpfir_scale;
+
+
     //Mixing up to center freq
     for (size_t ix = 0; ix<bpfir_len; ix++){
         float ii = (float) ix-(0.5*(bpfir_len-1));
         float phi = 2*M_PI*fcn*ii;
         bpfir[ix] *= cosf(phi);
-    }
-    //Adding window function (hamming)
-    for (size_t ix = 0; ix<bpfir_len; ix++){
-        float ii = (float) ix-(0.5*(bpfir_len-1));
-        bpfir[ix] *= 0.54 + 0.46*cos((2.*M_PI*ii)/bpfir_len);
     }
 
     

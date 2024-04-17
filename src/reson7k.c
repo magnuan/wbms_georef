@@ -431,6 +431,16 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 }
                 break;
         }
+    
+        //Apply additional post-processing band pass filter
+        if((sensor_params->sbp_bp_filter_start_freq>0) ||  (sensor_params->sbp_bp_filter_stop_freq>0)){
+            float f0 = sensor_params->sbp_bp_filter_start_freq*1e3;
+            float f1 = sensor_params->sbp_bp_filter_stop_freq*1e3;
+            f1 = f1==0?30e3:f1;
+            bp_filter_data(/*Input*/ temp_sig, (f0+f1)/2, f1-f0, Fs ,Nin, /*Output*/ sig);
+            memcpy(temp_sig, sig,Nin*sizeof(float));
+        } 
+
         if (sensor_params->sbp_raw_data){
             memcpy(sig, temp_sig,Nin*sizeof(float));
         }
@@ -485,6 +495,10 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         Nout = ix_out;
 
         georef_to_global_frame(sensor_offset,xs, ys, zs,  Nout,c, nav_x, nav_y, nav_z,  nav_yaw, nav_pitch,  nav_roll, sensor_params->ray_tracing_mode,  sensor_params->mounting_depth, /*OUTPUT*/ x,y,z);
+        
+        *fs_out = Fs;
+        *tx_angle_out = sensor_el;
+        *ping_number_out = ping_number;
         //Post GEO-REF filtering
         Nin = Nout;
         ix_out = 0;

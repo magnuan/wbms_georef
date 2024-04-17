@@ -438,6 +438,8 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# sbp_motion_stab 1\n");
 	fprintf(fp,"# Output raw SBP data. Set to 1 to output sbp raw data without any processing (filtering / rectification)  \n");
 	fprintf(fp,"# sbp_raw_data 1\n");
+    fprintf(fp,"# Sub bottom profiler bandpass filter, set start and stop frequency in kHz to enable\n");        
+    fprintf(fp,"# sbp_bandpass_filter 0 0\n");
 	fprintf(fp,"# Ignore elevation (tx angle) from sonar data \n");
 	fprintf(fp,"# ignore_tx_angle 1\n");
 	
@@ -559,6 +561,8 @@ static void sensor_params_default(sensor_params_t* s){
     s->max_abs_dyaw_dt=0;
     s->sbp_motion_stab = 0;
     s->sbp_raw_data = 0;
+    s->sbp_bp_filter_start_freq = 0;
+    s->sbp_bp_filter_stop_freq = 0;
     s->ignore_tx_angle = 0;
 }
 
@@ -644,6 +648,7 @@ int read_config_from_file(char* fname){
 			
             if (strncmp(c,"sbp_motion_stab",15)==0) sensor_params.sbp_motion_stab = atoi(c+15);	
             if (strncmp(c,"sbp_raw_data",12)==0) sensor_params.sbp_raw_data = atoi(c+12);	
+            if (strncmp(c,"sbp_bandpass_filter",19)==0) sscanf( c+19, "%f %f", &(sensor_params.sbp_bp_filter_start_freq),&(sensor_params.sbp_bp_filter_stop_freq)  ); 
             if (strncmp(c,"ignore_tx_angle",15)==0) sensor_params.ignore_tx_angle = atoi(c+15);	
 			
             if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
@@ -1239,6 +1244,8 @@ int main(int argc,char *argv[])
 	fprintf(stderr,"Sonar max elevation = %f\n",sensor_params.max_elevation*180/M_PI);
 	fprintf(stderr,"Sonar min ping_number = %d\n",sensor_params.min_ping_number);
 	fprintf(stderr,"Sonar max ping_number = %d\n",sensor_params.max_ping_number);
+    if((sensor_params.sbp_bp_filter_start_freq>0) ||  (sensor_params.sbp_bp_filter_stop_freq>0))
+	    fprintf(stderr,"SBP bandpass filter = %0.2f  to %0.2f kHz\n",sensor_params.sbp_bp_filter_start_freq,sensor_params.sbp_bp_filter_stop_freq); 
 	fprintf(stderr,"Swath min y = %f\n",sensor_params.swath_min_y);
 	fprintf(stderr,"Swath max y = %f\n",sensor_params.swath_max_y);
 	fprintf(stderr,"Sonar mounting depth = %f\n",sensor_params.mounting_depth);
@@ -1926,7 +1933,6 @@ int main(int argc,char *argv[])
                 		//fprintf(stderr,"sensor_data_buffer_len = %d\n",sensor_data_buffer_len);fflush(stderr);
 				if (sensor_data_buffer_len){
 					sensor_total_data += sensor_data_buffer_len;
-					sensor_total_packets++;
                     double new_ts_sensor;
 					new_sensor_data = sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &new_ts_sensor, sensor_mode);
 					//ts_sensor += sensor_offset.time_offset;
@@ -1963,6 +1969,8 @@ int main(int argc,char *argv[])
                                     datapoints = 0;
                             }
                             //fprintf(stderr, "Datapoints = %d\n",datapoints);
+					        sensor_total_packets++;
+                            //fprintf(stderr,"(sensor_total_packets=%d, sensor_params.data_skip=%d  sensor_params.data_length=%d\n",sensor_total_packets,sensor_params.data_skip,sensor_params.data_length);
                             if (sensor_total_packets<sensor_params.data_skip){}
                             else if (sensor_total_packets == sensor_params.data_skip){
                                 time_t int_ts = (time_t) ts_sensor; 
