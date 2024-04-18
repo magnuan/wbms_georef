@@ -979,7 +979,7 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
 		case sensor_mode_s7k:	
             id = r7k_identify_sensor_packet(databuffer, len, ts_out);
 	        //So far we only process s7k record 7027 and 10018 for sensor  bathy data and 7610 for SV data
-            return ((id==7027) || (id==7610) || (id==7000) ||(id==10018))?id:0;
+            return ((id==7027) || (id==7610) || (id==7000) ||(id==10000)||(id==10018))?id:0;
 		case  sensor_mode_sim:
 			return sim_identify_packet(databuffer, len, ts_out, ts_in);
 		case sensor_mode_autodetect: //TODO fix this
@@ -1099,13 +1099,13 @@ int main(int argc,char *argv[])
 	uint32_t navigation_data_buffer_len = 0;
 	
 	uint32_t navigation_total_packets = 0;
-	uint32_t sensor_total_packets = 0;
+	uint32_t sensor_data_packet_counter = 0;
 	uint32_t navigation_total_data = 0;
 	uint32_t sensor_total_data = 0;
 	uint32_t output_total_data = 0;
     uint32_t sensor_total_datapoints = 0;
 	uint32_t prev_navigation_total_packets = 0;
-	uint32_t prev_sensor_total_packets = 0;
+	uint32_t prev_sensor_data_packet_counter = 0;
 	uint32_t prev_navigation_total_data = 0;
 	uint32_t prev_sensor_total_data = 0;
 	uint32_t prev_output_total_data = 0;
@@ -1766,12 +1766,12 @@ int main(int argc,char *argv[])
 			sprintf_unix_time(str_buf, ts_min);
 			fprintf(stderr,"%s",str_buf);
 			if (input_navigation_fd>0) fprintf(stderr,"| NAV   %6d (%5d/s) %4dMB (%5dkB/s)  ",navigation_total_packets,(navigation_total_packets-prev_navigation_total_packets),	navigation_total_data>>20, (navigation_total_data-prev_navigation_total_data)/1024);
-			if (input_sensor_fd>0) fprintf(stderr,"| SENSOR  %6d (%5d/s) %4dMB (%5dkB/s)  ",sensor_total_packets,(sensor_total_packets-prev_sensor_total_packets),	sensor_total_data>>20, (sensor_total_data-prev_sensor_total_data)/1024);
+			if (input_sensor_fd>0) fprintf(stderr,"| SENSOR  %6d (%5d/s) %4dMB (%5dkB/s)  ",sensor_data_packet_counter,(sensor_data_packet_counter-prev_sensor_data_packet_counter),	sensor_total_data>>20, (sensor_total_data-prev_sensor_total_data)/1024);
 			fprintf(stderr,"| OUT   %4dMB (%4dkB/s)  ",	output_total_data>>20, (output_total_data-prev_output_total_data)/1024);
 			fprintf(stderr,"|\n");
 			prev_navigation_total_packets = navigation_total_packets;
 			prev_navigation_total_data = navigation_total_data;
-			prev_sensor_total_packets = sensor_total_packets;
+			prev_sensor_data_packet_counter = sensor_data_packet_counter;
 			prev_sensor_total_data = sensor_total_data;
 			prev_output_total_data = output_total_data;
 			ts_last = ts_now;
@@ -1969,18 +1969,18 @@ int main(int argc,char *argv[])
                                     datapoints = 0;
                             }
                             //fprintf(stderr, "Datapoints = %d\n",datapoints);
-					        sensor_total_packets++;
-                            //fprintf(stderr,"(sensor_total_packets=%d, sensor_params.data_skip=%d  sensor_params.data_length=%d\n",sensor_total_packets,sensor_params.data_skip,sensor_params.data_length);
-                            if (sensor_total_packets<sensor_params.data_skip){}
-                            else if (sensor_total_packets == sensor_params.data_skip){
+					        if(datapoints) sensor_data_packet_counter++;
+                            //fprintf(stderr,"(sensor_data_packet_counter=%d, sensor_params.data_skip=%d  sensor_params.data_length=%d\n",sensor_data_packet_counter,sensor_params.data_skip,sensor_params.data_length);
+                            if (sensor_data_packet_counter<sensor_params.data_skip){}
+                            else if (sensor_data_packet_counter == sensor_params.data_skip){
                                 time_t int_ts = (time_t) ts_sensor; 
-                                fprintf(stderr, "Skipping sensor packets up to packet %d  at time %s",sensor_total_packets,ctime(&int_ts));
+                                fprintf(stderr, "Skipping sensor packets up to packet %d  at time %s",sensor_data_packet_counter,ctime(&int_ts));
                             }
-                            else if (sensor_params.data_length && (sensor_total_packets==(sensor_params.data_skip+sensor_params.data_length))){
+                            else if (sensor_params.data_length && (sensor_data_packet_counter==(sensor_params.data_skip+sensor_params.data_length))){
                                 time_t int_ts = (time_t) ts_sensor; 
-                                fprintf(stderr, "Skipping sensor packets from packet %d  at time %s",sensor_total_packets,ctime(&int_ts));
+                                fprintf(stderr, "Skipping sensor packets from packet %d  at time %s",sensor_data_packet_counter,ctime(&int_ts));
                             }
-                            else if (sensor_params.data_length && (sensor_total_packets>=(sensor_params.data_skip+sensor_params.data_length))){}
+                            else if (sensor_params.data_length && (sensor_data_packet_counter>=(sensor_params.data_skip+sensor_params.data_length))){}
                             else if (datapoints)
                             { 
                                 if (output_mode == output_binary)           len = write_bin_to_buffer(outbuf, datapoints, &(output_databuffer[output_databuffer_len]));
@@ -1993,7 +1993,7 @@ int main(int argc,char *argv[])
                                 output_total_data += len;
                                 output_databuffer_len += len;
                                 time_t int_ts = (time_t) ts_sensor; 
-                                if (sensor_total_datapoints==0) fprintf(stderr, "Generating first %d datapoinds from  packet %d  at time %s",datapoints,sensor_total_packets,ctime(&int_ts));
+                                if (sensor_total_datapoints==0) fprintf(stderr, "Generating first %d datapoints from  packet %d  at time %s",datapoints,sensor_data_packet_counter,ctime(&int_ts));
                                 sensor_total_datapoints += datapoints;
                             }
                         }

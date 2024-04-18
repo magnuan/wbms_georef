@@ -105,7 +105,7 @@ typedef struct{
 	uint16_t tx_pulse_mode; // = 1 (single ping)
 	uint16_t tx_pulse_res; // = 0
 	float max_ping_rate;
-	float ping_per; //Seconds since last ping
+	float ping_period; //Seconds since last ping
 	float range; // in Meter
 	float tx_power; // in dB rel 1 uPa
 	float gain; // in dB
@@ -246,6 +246,60 @@ typedef struct{
 	r7k_RecordData_7027_t RD[];
     //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
 }r7k_Record_7027_t;
+
+
+// ****10000 SBES Channel settings ****
+typedef struct{
+	uint32_t ping_nr; //sequential number
+	uint32_t multi_ping; // = 0
+    uint32_t res1;
+    uint32_t transport_latency;
+    float    freq_center;
+    float    sweep_width;
+    float    fs;
+    float    rx_bw;
+    float    absorbtion;
+    float    spreading_loss;
+    float    initial_gain;
+    float    range;
+    float    res2;
+    float    power;
+    float    pulse_length;
+    uint32_t pulse_type;
+    uint32_t pulse_envelope_type;
+    float    pulse_envelope_param;
+    uint32_t multi_ping_count;
+    uint32_t res3;
+    float    max_ping_rate;
+    float    ping_period;
+    float    res4;
+    uint32_t tx_id;
+    float    tx_beam_width_across;
+    float    tx_beam_width_along;
+    uint32_t rx_id;
+    float    rx_beam_width_across;
+    float    rx_beam_width_along;
+    float    corrected_transducer_draft;
+    float    absorbtion_tweak;
+    float    pulse_length_tweak;
+    float    spreading_loss_tweak;
+    float    initial_gain_tweak;
+    float    range_tweak;
+    float    power_tweak;
+    float    min_gate;
+    float    max_gate;
+    uint32_t gate_mode;
+    float    tx_draft;
+    float    tx_index_correction;
+}r7k_RecordTypeHeader_10000_t;
+typedef struct{
+	r7k_NetworkFrame_t NF;
+	r7k_DataRecordFrame_t DRF;
+	r7k_RecordTypeHeader_10000_t RTH;
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+}r7k_Record_10000_t;
+
+
 
 // ****10018 SBES Echogram Water Column Data ****
 typedef struct{
@@ -423,6 +477,7 @@ union r7k_RecordTypeHeader{
 	r7k_RecordTypeHeader_7006_t* r7006;
 	r7k_RecordTypeHeader_7027_t* r7027;
 	r7k_RecordTypeHeader_7610_t* r7610;
+	r7k_RecordTypeHeader_10000_t* r10000;
 	r7k_RecordTypeHeader_10018_t* r10018;
 
 	r7k_RecordTypeHeader_1003_t* r1003;

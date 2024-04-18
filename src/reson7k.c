@@ -148,10 +148,12 @@ int r7k_fetch_next_packet(char * data, int fd){
 
 	}
     
-    /*uint16_t s7k_version = ((uint16_t*) data)[0];
+    #if 0
+    uint16_t s7k_version = ((uint16_t*) data)[0];
 	uint16_t s7k_offset = ((uint16_t*) data)[1];
     uint32_t s7k_record_id = ((uint32_t*) data)[8];
-	fprintf(stderr, "FETCH: S7K ver = %d, S7K off = %d,  size = %d recordID = %d\n",s7k_version,s7k_offset, s7k_size, s7k_record_id);*/
+	fprintf(stderr, "FETCH: S7K ver = %d, S7K off = %d,  size = %d recordID = %d\n",s7k_version,s7k_offset, s7k_size, s7k_record_id);
+    #endif
 	
     return s7k_size;
 }
@@ -160,9 +162,9 @@ int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
     
 	r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
     
-	//So far we only process s7k record 7000, 7027,10018  and 7610  
+	//So far we only process s7k record 7000, 7027,10000,10018  and 7610  
     // we dont care about time stamps in any other records as they could come out ot order (like 7030)
-    if ((drf->record_id == 7000) || (drf->record_id == 7027) || (drf->record_id == 7610)|| (drf->record_id == 10018)){
+    if ((drf->record_id == 7000) || (drf->record_id == 7027) || (drf->record_id == 7610)|| (drf->record_id == 10000)|| (drf->record_id == 10018)){
         double ts = r7k_r7ktime_to_ts(&(drf->time));
         // If record data is from sensor (sonar) add sensor time offset
         if ( drf->record_id >= 7000  && drf->record_id < 11000){
@@ -318,6 +320,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     float* ping_rate_out = &(outbuf->ping_rate);
     float* sv_out = &(outbuf->sv);
     float* tx_freq_out = &(outbuf->tx_freq);
+    float* tx_plen_out = &(outbuf->tx_plen);
     float* tx_bw_out = &(outbuf->tx_bw);
     int* ping_number_out = &(outbuf->ping_number);
     //int* multiping_index_out = &(outbuf->multiping_index);
@@ -328,9 +331,14 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     const uint32_t ping_number_stride = sensor_params->ping_decimate; 
 
     static float sv;
-    static float tx_freq;
-    static float tx_bw;
-    static float ping_rate;
+    static float mbes_tx_freq;
+    static float mbes_tx_bw;
+    static float mbes_ping_rate;
+    
+    static float sbes_tx_freq;
+    static float sbes_tx_bw;
+    static float sbes_tx_plen;
+    static float sbes_ping_rate;
 
 	r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
  	double ts = r7k_r7ktime_to_ts(&(drf->time));
@@ -339,7 +347,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
 	rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (databuffer+4+(drf->offset));
     
 
-	//So far we only process s7k record 7000, 7027,10018  and 7610
+	//So far we only process s7k record 7000, 7027,10000,10018  and 7610
     //fprintf(stderr,"S7K record  id:%d dev:%d  Y=%d doy=%d  %02d:%02d:%09.6f   ts = %f\n",drf->record_id,drf->dev_id,drf->time.year,drf->time.day,drf->time.hour,drf->time.min,drf->time.sec,ts);
     if (drf->record_id == 7610){
        sv = rth.r7610->sv ;
@@ -358,19 +366,23 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     
     // --- Process S7K 7000 record ----
     if (drf->record_id == 7000){
-       tx_freq = rth.r7000->tx_freq ;
-       tx_bw = rth.r7000->bw ;
-       ping_rate = 1./(rth.r7000->ping_per);
+       mbes_tx_freq = rth.r7000->tx_freq ;
+       mbes_tx_bw = rth.r7000->bw ;
+       mbes_ping_rate = 1./(rth.r7000->ping_period);
        //fprintf(stderr, "Read in tx freq from S7K 7000  tx_freq=%f\n", tx_freq);
        return 0;
     }
 
-    *tx_freq_out = tx_freq;
-    *tx_bw_out = tx_bw;
-    *ping_rate_out = ping_rate;   
+	else if (drf->record_id == 10000){
+       sbes_tx_freq = rth.r10000->freq_center;
+       sbes_tx_bw = rth.r10000->sweep_width;
+       sbes_tx_plen = rth.r10000->pulse_length;
+       sbes_ping_rate = 1./(rth.r10000->ping_period);
+    }
+	else if (drf->record_id == 10004){}
 
     // --- Process S7K 10018 record ----
-	if (drf->record_id == 10018){
+	else if (drf->record_id == 10018){
         float sensor_el = 0;
         uint16_t multifreq_index = rth.r10018->multi_ping;
         float Fs = rth.r10018->fs;
@@ -499,6 +511,10 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         *fs_out = Fs;
         *tx_angle_out = sensor_el;
         *ping_number_out = ping_number;
+        *tx_freq_out = sbes_tx_freq;
+        *tx_bw_out = sbes_tx_bw;
+        *tx_plen_out = sbes_tx_plen;
+        *ping_rate_out = sbes_ping_rate;   
         //Post GEO-REF filtering
         Nin = Nout;
         ix_out = 0;
@@ -734,6 +750,9 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
 
         //Post GEO-REF filtering
         Nin = Nout;
+        *tx_freq_out = mbes_tx_freq;
+        *tx_bw_out = mbes_tx_bw;
+        *ping_rate_out = mbes_ping_rate;   
         ix_out = 0;
         for (uint32_t ix_in=0;ix_in<Nin;ix_in++){
 
@@ -756,6 +775,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
 
             ix_out++;
         }
+        
         Nout = ix_out;
        
         free(xs); free(ys); free(zs);

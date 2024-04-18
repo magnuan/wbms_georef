@@ -94,8 +94,8 @@ static void fill_out_7000_record_type_header(output_data_t* data,  /*OUTPUT*/ r7
         rth->bw         = data->tx_bw;      //Bandwidth in Hz
         rth->tx_len     = data->tx_plen;    //Tx pulse length in sec
         rth->tx_type    = (data->tx_bw)?1:0;// 0 = CW, 1 = Chirp
-        rth->ping_per = 1./data->ping_rate;             //Seconds since last ping
-        rth->range = data->sv * rth->ping_per / 2 ;     // Rudamentary aproximate value (does not have the real value from most sources)
+        rth->ping_period = 1./data->ping_rate;             //Seconds since last ping
+        rth->range = data->sv * rth->ping_period / 2 ;     // Rudamentary aproximate value (does not have the real value from most sources)
         rth->tx_power = (data->tx_voltage)?(180+(20*log10f(data->tx_voltage))):215; // in dB rel 1 uPa (very aproximate model)
         rth->project_steer_vert = data->tx_angle; //Projector stering in radians
         rth->sound_velocity     = data->sv; // in m/s
@@ -108,7 +108,7 @@ static void fill_out_7000_record_type_header(output_data_t* data,  /*OUTPUT*/ r7
         rth->bw         = 0;
         rth->tx_len     = 100e-6;
         rth->tx_type    = 0;
-        rth->ping_per = 1.;
+        rth->ping_period = 1.;
         rth->range = 100.;
         rth->tx_power = 0;
         rth->project_steer_vert = 0;
