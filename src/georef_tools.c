@@ -259,7 +259,7 @@ int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos
 /*
 / INPUT:
 / posdata   Pointer to NAVDATA_BUFFER_LEN long array on navigation data (circular buffer)
-/ pos_ix    Index of last dataset in circular buffer posdata
+/ pos_ix_tail    Index of last dataset in circular buffer posdata
 / ts        Time stamp value for first roll value in output vector
 / t_dur     Time duration to calculate 
 / fs        Output vector sample rate
@@ -272,12 +272,13 @@ int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos
 / TODO  This function needs to calculate roll as rotation around sonar x-axis (azmuth angle)
 /       If sonar is significantly rotated with resoect to vessel / nav. We need tor transform yaw-pith-roll to rotation and heave wrt sonar coordinates
 */
-int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], size_t  pos_ix, double ts, float t_dur, float fs, size_t N, /*output*/ float* roll_vector, float* z_vector){
+int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], size_t  pos_ix_tail, double ts, float t_dur, float fs, size_t N, /*output*/ float* roll_vector, float* z_vector){
     navdata_t *pos0, *pos1;      //Navdata last before and firs after tx instant
 	float ts_offset0, ts_offset1;
     float scaling0, scaling1;
     float t = 0;
     float dt = 1.f/fs;
+    size_t pos_ix = pos_ix_tail;
 
     //Start at last posdata index, go through datasets bacwards in time until we have the dataset before last bathy data
     for(size_t ii=0;ii<NAVDATA_BUFFER_LEN;ii++){
@@ -310,10 +311,14 @@ int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], s
         z_vector[ii] -= z0;
     
         t+=dt;                          //Increment one step in time data
-        if ( (t+ts) > pos1->ts ){       // If new time is after pos1 time, go one step forward in input time data
-            pos0 = pos1;
-            pos_ix = (pos_ix+1)%NAVDATA_BUFFER_LEN;
-            pos1 = &(posdata[pos_ix]);
+        if(pos_ix != pos_ix_tail){      // Don't wrap (This could happen if the sensor data gets ahead of the navigation data (with prefetch), 
+                                        //    if this happens we will end up extrapolating, which is not good, but better than wrapping the navigation data
+                                        //    this check is not neccessary if we can guarantee that navigation data is ahead of sensor data.
+            if ( (t+ts) > pos1->ts ){       // If new time is after pos1 time, go one step forward in input time data
+                pos0 = pos1;
+                pos_ix = (pos_ix+1)%NAVDATA_BUFFER_LEN;
+                pos1 = &(posdata[pos_ix]);
+            }
         }
     }
     return 0;

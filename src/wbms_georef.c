@@ -1953,6 +1953,7 @@ int main(int argc,char *argv[])
 				    //if(new_sensor_data) fprintf(stderr,"new_sensor_data = %d Ts_sensor = %f  Ts_pos =%f navdata_count=%d\n", new_sensor_data, ts_sensor, ts_pos,navdata_count);
                     //fprintf(stderr,"Ts_sensor = %f, Ts_pos =%f navdata_count=%d\n",ts_sensor, ts_pos,navdata_count);
 
+                    //TODO Here we should really force the navigation data to get up to speed, in case the newly fetched sensor data is ahead
 		
 
 					if (new_sensor_data){ 
