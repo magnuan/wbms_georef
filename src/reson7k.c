@@ -592,7 +592,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
             qsort(bath->dp, Nin, sizeof(detectionpoint_t), cmp_wbms_dp_on_angle_func);
         }*/
         
-        
+
         //Skip whole dataset condition
         if (    ((sensor_params->multifreq_index>=0) && (sensor_params->multifreq_index!=multifreq_index)) ||
                 ((sensor_el < sensor_params->min_elevation) || (sensor_el > sensor_params->max_elevation)) ||

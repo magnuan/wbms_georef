@@ -159,7 +159,6 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
 	packet_header_t* wbms_packet_header;
 	bath_data_packet_t* wbms_bath_packet;
     sbp_data_packet_t* wbms_sbp_packet;
-	char str_buf[256];
     #ifdef FAKE_SBP_TIMESTAMP
     static double fake_time = 0;
     #endif
@@ -197,17 +196,6 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
             if (version){
                 *version = wbms_bath_packet->header.version;
             }
-			if (0){//rcnt%100==0){
-				sprintf_unix_time(str_buf, wbms_bath_packet->sub_header.time);
-				fprintf(stderr,"WBMS bathy %d : ver=%d ping=%7d  multi ping=%2d/%2d tx=%5.1fdeg %s\n",
-                        rcnt,
-                        wbms_bath_packet->header.version,
-                        wbms_bath_packet->sub_header.ping_number,
-                        wbms_bath_packet->sub_header.multiping_seq_nr,
-                        wbms_bath_packet->sub_header.multiping,
-                        wbms_bath_packet->sub_header.tx_angle*180/M_PI, 
-                        str_buf);
-			}
 			//#define GUESS_NEXT_WBMS_TS
 			#ifdef GUESS_NEXT_WBMS_TS
 			*ts_out = wbms_bath_packet->sub_header.time+sensor_offset->time_offset + (1./(wbms_bath_packet->sub_header.ping_rate));
@@ -241,15 +229,6 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
             fake_time += 1./(wbms_sbp_packet->sub_header.ping_rate);
             #endif
 				
-			if (0){//rcnt%100==0){
-                sprintf_unix_time(str_buf, wbms_sbp_packet->sub_header.time);
-                fprintf(stderr,"WBMS SBP %d : ver=%d ping=%7d  %s\n",
-                        rcnt,
-                        wbms_sbp_packet->header.version,
-                        wbms_sbp_packet->sub_header.ping_number,
-                        str_buf);
-            }
-
 			#ifdef GUESS_NEXT_WBMS_TS
 			*ts_out = wbms_sbp_packet->sub_header.time+sensor_offset->time_offset + (1./(wbms_sbp_packet->sub_header.ping_rate));
 			#else
@@ -316,12 +295,12 @@ static bath_data_packet_vX_t bvX;
 bath_data_packet_vX_t* bath_convert_to_universal(bath_data_packet_t* bath_in, uint32_t force_bath_version){
     uint32_t bath_version =  bath_in->header.version;
     static int first_run=1;
+    if (force_bath_version>0){
+        bath_version =  force_bath_version;
+    }
     if (first_run){
         fprintf(stderr, "bath_version = %d\n",bath_version);
         first_run = 0;
-    }
-    if (force_bath_version>0){
-        bath_version =  force_bath_version;
     }
     
     if (bath_version < 5){
@@ -590,6 +569,18 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
         ping_number =  bath_vX->sub_header.ping_number;
         multiping_index =  bath_vX->sub_header.multiping_scan_index;
         ping_rate =  bath_vX->sub_header.ping_rate;
+			
+        if (0){//rcnt%100==0){
+	        char str_buf[256];
+            sprintf_unix_time(str_buf, bath_in->sub_header.time);
+            fprintf(stderr,"WBMS bathy ver=%d ping=%7d  multi freq=%2d  multi ping %2d tx=%5.1fdeg %s\n",
+                    bath_in->header.version,
+                    ping_number,
+                    multifreq_index,
+                    multiping_index,
+                    tx_angle*180/M_PI, 
+                    str_buf);
+        }
 
     *sv_out = c; 
     *multiping_index_out = multiping_index;

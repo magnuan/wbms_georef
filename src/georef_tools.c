@@ -217,6 +217,7 @@ int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos
         pos_ix = (pos_ix+NAVDATA_BUFFER_LEN-1)%NAVDATA_BUFFER_LEN;
     }
 	ts_offset1 = ts - pos1->ts;
+    //fprintf(stderr,"ts_offset0=%f ts_offset1=%f\n",ts_offset0,ts_offset1);
     if (ts_offset0<0 || ts_offset1>0) return -1;
     
     max_ts_offset = MAX(ts_offset0,-ts_offset1);

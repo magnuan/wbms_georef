@@ -1115,7 +1115,7 @@ int main(int argc,char *argv[])
 	uint32_t datapoints;
 
 	double ts_pos = 0.;
-    double ts_pos_lookahead = 1.0;      //The lookahead defines how many sec of data pos should be ahead of other sources when reading in data. We want to be a bit in the future to be able to interpolate. With 1 sec lookahead, and 128 point buffer, we have data for about +/- 1 sec at 50Hz
+    double ts_pos_lookahead = POS_PREFETCH_SEC;      //The lookahead defines how many sec of data pos should be ahead of other sources when reading in data. We want to be a bit in the future to be able to interpolate. With 1 sec lookahead, and 128 point buffer, we have data for about +/- 1 sec at 50Hz
 	double ts_sensor = 0.;
 	double ts_min = 0;
 	/*Default CSV format*/ 
