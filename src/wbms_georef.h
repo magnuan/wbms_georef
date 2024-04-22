@@ -105,7 +105,7 @@ typedef struct{
     uint8_t sbp_raw_data;
     float sbp_bp_filter_start_freq;
     float sbp_bp_filter_stop_freq;
-    uint8_t ignore_tx_angle;
+    float scale_tx_angle;
 }sensor_params_t;
 
 

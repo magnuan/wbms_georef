@@ -35,12 +35,16 @@ int sim_fetch_next_packet(char * data, int fd){
 }
 
 int sim_identify_packet(char* databuffer, uint32_t len, double* ts_out, double ts_in){
-    //If last navigation data has not changed, return no new data
-    if ((*ts_out < (ts_in-min_sim_data_period)) || (*ts_out > ts_in)){
-	    *ts_out = ts_in ; 
-        return 1;
+    static double ts;
+   
+    if((ts<(ts_in-2)) || (ts>(ts_in+2))){ //If we get toom much out of sync with input time source (navigation time) jump
+        ts = ts_in;
     }
-    return 0;
+    else{
+        ts += min_sim_data_period;        //Otherwise just generate data at a fixed interval
+    }
+    *ts_out = ts ; 
+    return 1;
 }
 
 

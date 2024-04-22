@@ -541,9 +541,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     // --- Process S7K 7027 record ----
 	else if (drf->record_id == 7027){
         float sensor_el = rth.r7027->tx_angle;
-        if (sensor_params->ignore_tx_angle){
-            sensor_el=0;
-        }
+        sensor_el *= sensor_params->scale_tx_angle;
         uint16_t multifreq_index = rth.r7027->multi_ping;
         float Fs = rth.r7027->fs;
         float c = sv;
@@ -557,6 +555,8 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         uint32_t dfs = rth.r7027->data_field_size;
         uint8_t* rd_ptr = (((uint8_t*) rth.r7027) + sizeof(r7k_RecordTypeHeader_7027_t));
         //fprintf(stderr, "GEOREF: Serial=%ld ping_nr=%d Nin=%d dfs=%d\n",rth.r7027->serial, rth.r7027->ping_nr,Nin,dfs);
+
+        //fprintf(stderr,"S7k time = %f\t\tping=%d\n",ts,ping_number);
 
         //Calculate navigation data at tx instant
         double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/

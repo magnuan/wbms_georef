@@ -208,7 +208,7 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
                         wbms_bath_packet->sub_header.tx_angle*180/M_PI, 
                         str_buf);
 			}
-			#define GUESS_NEXT_WBMS_TS
+			//#define GUESS_NEXT_WBMS_TS
 			#ifdef GUESS_NEXT_WBMS_TS
 			*ts_out = wbms_bath_packet->sub_header.time+sensor_offset->time_offset + (1./(wbms_bath_packet->sub_header.ping_rate));
 			#else
@@ -606,9 +606,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     /*printf("ping_number=%9d, multiping= %d tx_angle=%5.1f multifreq_index=%d\n", 
     ping_number, multiping_index,tx_angle*180/M_PI, multifreq_index);*/
     //printf("tx_angle=%f, Fs=%f, c=%f, Nin=%d, multifreq_index=%d\n", tx_angle,  Fs,  c,  Nin,  multifreq_index);
-    if (sensor_params->ignore_tx_angle){
-        tx_angle=0;
-    }
+    tx_angle *= sensor_params->scale_tx_angle;
 
     //Skip whole dataset condition
     sensor_el  = tx_angle;								 

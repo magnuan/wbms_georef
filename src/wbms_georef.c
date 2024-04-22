@@ -440,8 +440,8 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# sbp_raw_data 1\n");
     fprintf(fp,"# Sub bottom profiler bandpass filter, set start and stop frequency in kHz to enable\n");        
     fprintf(fp,"# sbp_bandpass_filter 0 0\n");
-	fprintf(fp,"# Ignore elevation (tx angle) from sonar data \n");
-	fprintf(fp,"# ignore_tx_angle 1\n");
+	fprintf(fp,"# Scale tx steering angle (tx angle) from sonar data (default 1.0)\n");
+	fprintf(fp,"# scale_tx_angle 1.0\n");
 	
 	fprintf(fp,"#### DATA SOURCE ####\n");
 	fprintf(fp,"# Normally given as input argument with -i or -p and -s, but can also be specified here\n");
@@ -563,7 +563,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->sbp_raw_data = 0;
     s->sbp_bp_filter_start_freq = 0;
     s->sbp_bp_filter_stop_freq = 0;
-    s->ignore_tx_angle = 0;
+    s->scale_tx_angle = 1.0;
 }
 
 
@@ -649,7 +649,7 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"sbp_motion_stab",15)==0) sensor_params.sbp_motion_stab = atoi(c+15);	
             if (strncmp(c,"sbp_raw_data",12)==0) sensor_params.sbp_raw_data = atoi(c+12);	
             if (strncmp(c,"sbp_bandpass_filter",19)==0) sscanf( c+19, "%f %f", &(sensor_params.sbp_bp_filter_start_freq),&(sensor_params.sbp_bp_filter_stop_freq)  ); 
-            if (strncmp(c,"ignore_tx_angle",15)==0) sensor_params.ignore_tx_angle = atoi(c+15);	
+            if (strncmp(c,"scale_tx_angle",14)==0) sensor_params.scale_tx_angle = (float)atof(c+14);	
 			
             if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
             if (strncmp(c,"raytrace_use_table_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(0);
@@ -994,6 +994,7 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
 #define MAX_FD 256
 enum input_source_e {i_none=0,i_tcp=1,i_udp=2, i_stdin=3, i_file=4, i_zero=5,i_sim=6};
 enum output_drain_e {o_file,o_tcp,o_udp, o_stdout};
+enum time_ref_e {tref_line=1, tref_day=2, tref_week=3, tref_unix=0};
 
 static const char *input_source_names[] = {
 	"None",
@@ -1035,6 +1036,7 @@ int main(int argc,char *argv[])
 	enum input_source_e input_navigation_source;
 	enum output_drain_e output_drain;
 	
+    enum time_ref_e output_time_ref = tref_day;
 
 	//File input and output stuff
 	FILE * input_sensor_fileptr = NULL;
@@ -1695,6 +1697,15 @@ int main(int argc,char *argv[])
     //Use first position as offset for coordinates (In SBF coordinates is given as 32-bit float, and need a 64-bit float for offset to avoid discretization issues
     double x_offset,y_offset,z_offset; 
     double ts_offset = ts_pos;
+    
+    
+    switch (output_time_ref){
+        case tref_unix: ts_offset = 0;break;
+        case tref_line: ts_offset = ts_pos;break;
+        case tref_day: ts_offset = floor(ts_pos/(3600*24))*(3600*24);break;
+        case tref_week: ts_offset = floor(ts_pos/(3600*24*7))*(3600*24*7);break;
+    }
+    
 
     if(latlon_to_proj_from_string(output_projection_string,&proj_latlon_to_output_utm)<0){
 		fprintf(stderr, "Error configuring georef parameters, exiting\n");
@@ -1876,9 +1887,10 @@ int main(int argc,char *argv[])
 
 
 		ts_min = 10000000000.;
-		if((input_sensor_source != i_none) && (input_sensor_source!=i_sim) ) ts_min = MIN(ts_min, ts_sensor);
+		if((input_sensor_source != i_none) ) ts_min = MIN(ts_min, ts_sensor);
         if(input_navigation_source != i_none) ts_min = MIN(ts_min, ts_pos-ts_pos_lookahead);
 
+        //fprintf(stderr,"Ts_sensor = %f, Ts_pos =%f \n",ts_sensor, ts_pos);
 		//** Process new data from navigation source
         if((ts_pos-ts_pos_lookahead == ts_min)){
             while(1){
@@ -1918,10 +1930,12 @@ int main(int argc,char *argv[])
         ts_min = 10000000000.;
 		if(input_sensor_source != i_none) ts_min = MIN(ts_min, ts_sensor);
         if(input_navigation_source != i_none) ts_min = MIN(ts_min, ts_pos-ts_pos_lookahead);
+        //fprintf(stderr,"Ts_sensor = %f, Ts_pos =%f  Ts_min=%f\n",ts_sensor, ts_pos,ts_min);
 		
 
 		//** Process new data from sensor source
 		if (input_sensor_source != i_none && (ts_sensor==ts_min || input_sensor_source != i_file)){
+            //fprintf(stderr,"proc sensor\n");
 			sensor_data_buffer_len = 0;
             uint8_t runsensor=0;
             if (input_sensor_source==i_sim) runsensor=1;
