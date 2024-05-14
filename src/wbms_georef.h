@@ -1,7 +1,7 @@
 #ifndef __WBMS_GEOREF_H__
 #define __WBMS_GEOREF_H__
 
-#define NAVDATA_BUFFER_LEN (4*128)
+#define NAVDATA_BUFFER_LEN (4*256)
 #define POS_PREFETCH_SEC (4.0)
 //Use input sound velocity profile to correct for ray bending 
 

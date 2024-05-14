@@ -1958,7 +1958,7 @@ int main(int argc,char *argv[])
 
 					if (new_sensor_data){ 
                         ts_sensor = new_ts_sensor;
-                        if((navdata_count > NAVDATA_BUFFER_LEN) || (pos_mode == pos_mode_sim)){ //Need a full buffer before we can start doing georeferencing
+                        if((navdata_count > NAVDATA_BUFFER_LEN/4) || (pos_mode == pos_mode_sim)){ //Need a quarter buffer before we can start doing georeferencing
                             switch (sensor_mode){
                                 case sensor_mode_wbms: case sensor_mode_wbms_v5:
                                     if (new_sensor_data == PACKET_TYPE_BATH_DATA){
