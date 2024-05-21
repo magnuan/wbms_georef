@@ -636,6 +636,11 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
             sensor_lg  += sensor_offset->r_err;
 		
             uint8_t priority_flags = ((flags)>>9) & (0x0F);
+        
+            // Apply correctiom from beam corection polynom if defined
+            if (sensor_params->beam_corr_poly_order){
+                sensor_az = apply_beam_correction_poly(sensor_az, sensor_params->beam_corr_poly, sensor_params->beam_corr_poly_order);
+            }
 
             #ifdef FORCE_MULTIDETECT_TO_QUALITY3
             if (priority_flags==1 || priority_flags ==2){

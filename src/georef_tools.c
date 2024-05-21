@@ -48,6 +48,21 @@ int attitude_test(sensor_params_t* sensor_params, float yaw,  float pitch,  floa
 }
 
 
+/* Function to apply the beam correction polynom to a beam angle
+*  TODO consider to optimize using a LUT
+*/
+float apply_beam_correction_poly(float angle, float* poly, uint32_t order){
+    if (order){
+        float adj = poly[0];
+        for (uint32_t n = 1;n<order;n++){
+            adj += poly[n] * powf(angle,(float) n);
+        }
+        return angle+adj;
+    }
+    return angle;
+}
+
+
 /*
  offset  	Offset for sensor (sonar/lidar) rel navigation origo
  x,y,z		array of coordinates (x=fwd y=stb, z=down)

@@ -442,6 +442,10 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"# sbp_bandpass_filter 0 0\n");
 	fprintf(fp,"# Scale tx steering angle (tx angle) from sonar data (default 1.0)\n");
 	fprintf(fp,"# scale_tx_angle 1.0\n");
+
+    fprintf(fp,"# Beam angle correction polynom. Model for beam angle correction as a Taylor series, comma separated in radians [rad, rad/rad, rad/rad^2, etc...] maximum %d parameters\n" , MAX_BEAM_ANGLE_MODEL_ORDER);        
+    fprintf(fp,"# Ex. beam_correction_poly 7.58391e-04, 2.25886e-03, -9.76763e-04, -1.99206e-03     for a 4th ordel model with the given parameters\n");
+    fprintf(fp,"# beam_correction_poly \n");
 	
 	fprintf(fp,"#### DATA SOURCE ####\n");
 	fprintf(fp,"# Normally given as input argument with -i or -p and -s, but can also be specified here\n");
@@ -564,6 +568,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->sbp_bp_filter_start_freq = 0;
     s->sbp_bp_filter_stop_freq = 0;
     s->scale_tx_angle = 1.0;
+    s->beam_corr_poly_order=0;
 }
 
 
@@ -650,7 +655,23 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"sbp_raw_data",12)==0) sensor_params.sbp_raw_data = atoi(c+12);	
             if (strncmp(c,"sbp_bandpass_filter",19)==0) sscanf( c+19, "%f %f", &(sensor_params.sbp_bp_filter_start_freq),&(sensor_params.sbp_bp_filter_stop_freq)  ); 
             if (strncmp(c,"scale_tx_angle",14)==0) sensor_params.scale_tx_angle = (float)atof(c+14);	
-			
+    
+            if (strncmp(c,"beam_correction_poly",20)==0){ 
+                char * token = strtok(c+20,",");
+                uint32_t pord = 0;
+                while ((token != NULL) && (pord<MAX_BEAM_ANGLE_MODEL_ORDER)) {
+                    fprintf(stderr, "token= %s\n",token);
+                    sensor_params.beam_corr_poly[pord] = atof(token);
+                    token = strtok(NULL, ",");
+                    pord++;
+                }
+                sensor_params.beam_corr_poly_order = pord;
+
+                for (uint32_t p=0 ; p<pord;p++){
+                    fprintf(stderr,"%f\n",  sensor_params.beam_corr_poly[p]);
+                }
+            }
+
             if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
             if (strncmp(c,"raytrace_use_table_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(0);
 			

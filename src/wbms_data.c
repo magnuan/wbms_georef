@@ -685,8 +685,11 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
         #ifdef STX_GEOM_COR
         sensor_az += calc_sonar_to_cp_corrections(sensor_az,sensor_el,sensor_elec_steer);
         #endif
-
-
+       
+        // Apply correctiom from beam corection polynom if defined
+        if (sensor_params->beam_corr_poly_order){
+            sensor_az = apply_beam_correction_poly(sensor_az, sensor_params->beam_corr_poly, sensor_params->beam_corr_poly_order);
+        }
     
         //#define SHALLOW_ANGLE_SKEW_COR
         #ifdef SHALLOW_ANGLE_SKEW_COR
