@@ -479,6 +479,7 @@ bath_data_packet_vX_t* bath_convert_to_universal(bath_data_packet_t* bath_in, ui
     return &bvX;
 }
 
+
 uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
      double* x = &(outbuf->x[0]);
      double* y = &(outbuf->y[0]);
@@ -829,6 +830,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
         beam_range[ix_out] = beam_range[ix_in];
         upper_gate_range[ix_out] = upper_gate_range[ix_in];
         lower_gate_range[ix_out] = lower_gate_range[ix_in];
+        strength[ix_out] = strength[ix_in];
 
 		if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
         if (swath_y[ix_in]>sensor_params->swath_max_y || swath_y[ix_in]<sensor_params->swath_min_y) continue;
@@ -838,7 +840,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 	Nout = ix_out;
 	#endif 
     //printf("Nout2 = %d\n",Nout);
-	
+
     free(xs);free(ys);free(zs);
 	return Nout;
 }
