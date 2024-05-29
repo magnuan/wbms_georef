@@ -143,6 +143,8 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     float* low_gate = &(data->low_gate[0]);
     float* tx_angle = &(data->tx_angle);
     float* sv = &(data->sv);
+    float* intensity_noise_ref = &(data->intensity_noise_ref);
+    float* strength_noise_ref = &(data->strength_noise_ref);
     float* tx_freq = &(data->tx_freq);
     float* tx_bw = &(data->tx_bw);
     float* tx_plen = &(data->tx_plen);
@@ -213,6 +215,9 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 
                 case t: write_f32_unaligned_bswap((uint8_t*)dp,(float)(ts-ts_offset)); dp+=4;break;
                 case c: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*sv)); dp+=4;break;
+                
+                case iref: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*intensity_noise_ref)); dp+=4;break;
+                case sref: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*strength_noise_ref)); dp+=4;break;
                 
                 case freq: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*tx_freq)); dp+=4;break;
                 case bw: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*tx_bw)); dp+=4;break;

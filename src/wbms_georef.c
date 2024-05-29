@@ -513,6 +513,8 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  vessel satellites:         SATELLITES\n");
     fprintf(fp,"#  vessel accuracy(=HOR_ACC): GPS_ACCURACY\n");
     fprintf(fp,"#  speed of sound:            c\n");
+    fprintf(fp,"#  intensity noise ref:       iref\n");
+    fprintf(fp,"#  strength noise ref:        sref\n");
     fprintf(fp,"#  classification:            classification\n");
     fprintf(fp,"#  line_of_sight_vector (3 values):  line_of_sight\n");
     fprintf(fp,"output_format x,y,z,val\n");

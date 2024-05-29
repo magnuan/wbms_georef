@@ -502,6 +502,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
      float* fs_out = &(outbuf->sample_rate);
      float* ping_rate_out = &(outbuf->ping_rate);
      float* sv_out = &(outbuf->sv);
+     float* intensity_noise_ref_out = &(outbuf->intensity_noise_ref);   
+     float* strength_noise_ref_out = &(outbuf->strength_noise_ref);   
      float* tx_freq_out = &(outbuf->tx_freq);
      float* tx_bw_out = &(outbuf->tx_bw);
      float* tx_plen_out = &(outbuf->tx_plen);
@@ -584,6 +586,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
         }
 
     *sv_out = c; 
+    *intensity_noise_ref_out =  bath_vX->sub_header.intensity_noise_ref;
+    *strength_noise_ref_out =  bath_vX->sub_header.strength_noise_ref;
+
     *multiping_index_out = multiping_index;
     *multifreq_index_out = multifreq_index;
     *tx_freq_out = tx_freq;

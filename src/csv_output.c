@@ -64,6 +64,8 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     float* low_gate = &(data->low_gate[0]);
     float* tx_angle = &(data->tx_angle);
     float* sv = &(data->sv);
+    float* intensity_noise_ref = &(data->intensity_noise_ref);
+    float* strength_noise_ref = &(data->strength_noise_ref);
     float* tx_freq = &(data->tx_freq);
     float* tx_bw = &(data->tx_bw);
     float* tx_plen = &(data->tx_plen);
@@ -125,6 +127,9 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case gatew: len += sprintf(&(outbuf[len]),"%11.3f",(low_gate[ii]-up_gate[ii])*200/(low_gate[ii]+up_gate[ii]));break;
                 case t: len += sprintf(&(outbuf[len]),"%12.5f",ts);break;
                 case c: len += sprintf(&(outbuf[len]),"%8.3f",*sv);break;
+                
+                case iref: len += sprintf(&(outbuf[len]),"%8.3f",*intensity_noise_ref);break;
+                case sref: len += sprintf(&(outbuf[len]),"%8.3f",*strength_noise_ref);break;
                 
                 case freq: len += sprintf(&(outbuf[len]),"%11.3f",*tx_freq*1e-3);break;
                 case bw: len += sprintf(&(outbuf[len]),"%11.3f",*tx_bw*1e-3);break;
