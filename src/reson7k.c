@@ -39,7 +39,7 @@ uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types){
     if (data==NULL){
         return 0;
     }
-    for(int test=0;test<1000;test++){     //Test the first 1000 packets, if none of them contains requested data it is pobably not a valid data file
+    for(int test=0;test<1000000;test++){     //Test the first 1000 packets, if none of them contains requested data it is pobably not a valid data file
         int len; 
         len = r7k_fetch_next_packet(data, fd);
         //printf("r7k_test_file, %d len=%d test_cnt=%d\n",req_types[0],len,test);
