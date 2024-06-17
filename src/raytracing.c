@@ -80,6 +80,16 @@ static int read_sv_from_file(char* fname, sv_meas_t* sv_meas_out, const size_t m
                 sv_meas_in[count_in].depth = depth;
                 count_in++;
             }
+            if (sscanf(c,"%f\t%f",&sv, &depth)==2){
+                sv_meas_in[count_in].sv = sv;
+                sv_meas_in[count_in].depth = depth;
+                count_in++;
+            }
+            if (sscanf(c,"%f %f",&sv, &depth)==2){
+                sv_meas_in[count_in].sv = sv;
+                sv_meas_in[count_in].depth = depth;
+                count_in++;
+            }
 		}
         if( count_in >= max_count ) break;
 	}
@@ -143,7 +153,7 @@ static int read_sv_from_file(char* fname, sv_meas_t* sv_meas_out, const size_t m
     float d = max_depth*1.1;
     for (; (d<max_depth*EXTRAPOLATE_SV) && (ix<max_count); d*=1.1){
          sv_meas_in[ix].depth = d;
-         sv_meas_in[ix].sv = max_depth_sv; // Just use last value. 0th order extrapolation
+         sv_meas_in[ix].sv = max_depth_sv + (0.017*(d-max_depth)); // Assume that SV only increases with pressure (0.17m/s per Bar)
          ix++;
     }
     count_in = ix;
