@@ -63,6 +63,24 @@ void rot_matrix_d_dr(float y,float p,float r, /*output*/ float result[][3]){
 	dot3x3(Rz,Ry,tmp);
 	dot3x3(tmp,dRx_dr,result);
 }
+//Rotation matrix derivated with respect to pitch
+void rot_matrix_d_dp(float y,float p,float r, /*output*/ float result[][3]){
+	float Rx[3][3] ={{1.f,0.f,0.f},{0.f,cosf(r),-sinf(r)},{0.f,sinf(r),cosf(r)}};   
+	float dRy_dp[3][3] ={{-sinf(p),0.f,cosf(p)},{0.f,1,0.f},{-cosf(p),0.f,-sinf(p)}};
+	float Rz[3][3] ={{cosf(y),-sinf(y),0.f},{sinf(y),cosf(y),0.f},{0.f,0.f,1.f}};
+	float tmp[3][3];
+	dot3x3(Rz,dRy_dp,tmp);
+	dot3x3(tmp,Rx,result);
+}
+//Rotation matrix derivated with respect to yaw
+void rot_matrix_d_dy(float y,float p,float r, /*output*/ float result[][3]){
+	float Rx[3][3] ={{1.f,0.f,0.f},{0.f,cosf(r),-sinf(r)},{0.f,sinf(r),cosf(r)}};   
+	float Ry[3][3] ={{cosf(p),0.f,sinf(p)},{0.f,1,0.f},{-sinf(p),0.f,cosf(p)}};
+	float dRz_dy[3][3] ={{-sinf(y),-cosf(y),0.f},{cosf(y),-sinf(y),0.f},{0.f,0.f,1.f}};
+	float tmp[3][3];
+	dot3x3(dRz_dy,Ry,tmp);
+	dot3x3(tmp,Rx,result);
+}
 #else
 // ROLL AROUND Y, PITCH AROUND X, YAW AROUND NEG Z
 //Generate rotation matrix for given yaw-pith-roll rotation
