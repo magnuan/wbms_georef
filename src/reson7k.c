@@ -443,6 +443,17 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 }
                 break;
         }
+                
+        //Remove DC
+        float sig_mean=0;
+        for (uint32_t ix=0;ix<Nin;ix++){
+            sig_mean += temp_sig[ix]; 
+        }
+        sig_mean /= Nin;
+        for (uint32_t ix=0;ix<Nin;ix++){
+            temp_sig[ix]-=sig_mean; 
+        }
+
     
         //Apply additional post-processing band pass filter
         if((sensor_params->sbp_bp_filter_start_freq>0) ||  (sensor_params->sbp_bp_filter_stop_freq>0)){
@@ -452,7 +463,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
             bp_filter_data(/*Input*/ temp_sig, (f0+f1)/2, f1-f0, Fs ,Nin, /*Output*/ sig);
             memcpy(temp_sig, sig,Nin*sizeof(float));
         } 
-
+        
         if (sensor_params->sbp_raw_data){
             memcpy(sig, temp_sig,Nin*sizeof(float));
         }
@@ -556,6 +567,9 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         uint8_t* rd_ptr = (((uint8_t*) rth.r7027) + sizeof(r7k_RecordTypeHeader_7027_t));
         //fprintf(stderr, "GEOREF: Serial=%ld ping_nr=%d Nin=%d dfs=%d\n",rth.r7027->serial, rth.r7027->ping_nr,Nin,dfs);
 
+        if (sv==0){
+            fprintf(stderr,"WARNING: Received 7027 record before SV has been set/received. Unable to process bathy data\n");
+        }
         //fprintf(stderr,"S7k time = %f\t\tping=%d\n",ts,ping_number);
 
         //Calculate navigation data at tx instant
@@ -563,7 +577,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
 	    float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
         float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
         if (calc_interpolated_nav_data( posdata, pos_ix, ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){
-            if(verbose) fprintf(stderr, "Could not find navigation data for s7k 7027 record at time %f\n",ts);
+            fprintf(stderr, "Could not find navigation data for s7k 7027 record at time %f\n",ts);
             return 0;
         }
         if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
