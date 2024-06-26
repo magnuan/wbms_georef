@@ -37,7 +37,7 @@ int sim_fetch_next_packet(char * data, int fd){
 int sim_identify_packet(char* databuffer, uint32_t len, double* ts_out, double ts_in){
     static double ts;
    
-    if((ts<(ts_in-2)) || (ts>(ts_in+2))){ //If we get toom much out of sync with input time source (navigation time) jump
+    if((ts<(ts_in-2-POS_PREFETCH_SEC)) || (ts>(ts_in+2))){ //If we get toom much out of sync with input time source (navigation time) jump
         ts = ts_in;
     }
     else{
