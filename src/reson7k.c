@@ -712,21 +712,12 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                 //Compensate intensity for range and AOI
                 //TODO fix AOI calculation for S7K 7027 record, need to set up a sorting function
                 /*if (calc_aoi){
-                    aoi[ix_out] = atan2((sensor_r-prev_sensor_r), (sensor_az-prev_sensor_az)*sensor_r);         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
+                    aoi[ix_out] = -M_PI/2 - atan2f((sensor_az-prev_sensor_az)*sensor_r, (sensor_r-prev_sensor_r) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
+                    aoi[ix_out] = LIMIT(aoi[ix_out],-80*M_PI/180, 80*M_PI/180);
                 }
                 else{
                     aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
                 }
-                aoi[ix_out] = (aoi[ix_out]);
-                if (intensity_aoi_comp){
-                    if(use_intensity_angle_corr_table){
-                        int ix = ABS(aoi[ix_out])/INTENSITY_ANGLE_STEP;
-                        ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
-                        inten *= intenity_angle_corr_table[ix].intensity_scale;
-                    }
-                    else{
-                        inten = inten/((MAX(cos(aoi[ix_out]),0.1)));
-                    }
                 }*/
 
                 if (sensor_params->intensity_range_comp){
@@ -734,6 +725,20 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
                     float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
                     inten *= powf(10.f,damping_dB/20); 
                 }
+                /*
+                if (sensor_params->intensity_aoi_comp){
+                    if(sensor_params->use_intensity_angle_corr_table){
+                        int ix = ABS(aoi[ix_out])/INTENSITY_ANGLE_STEP;
+                        ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
+                        inten *= intenity_angle_corr_table[ix].intensity_scale;
+                    }
+                    else{
+                        //model = 6*np.exp(-(teta**2)/(0.15**2)) - 6/(cos_teta+0.1)
+                        float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
+                        inten *= powf(10.f, -reflectivity_model_dB/20);
+
+                    }
+                }*/
                 intensity[ix_out] = inten;
       
                 //TODO insert uncertainty model here

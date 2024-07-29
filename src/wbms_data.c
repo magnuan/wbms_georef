@@ -741,12 +741,13 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 			
 			//Compensate intensity for range and AOI
             if (sensor_params->calc_aoi){
-                aoi[ix_out] = atan2f((sensor_r-prev_sensor_r), ABS(sensor_az-prev_sensor_az)*sensor_r);         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
+                aoi[ix_out] = -M_PI/2 - atan2f((sensor_az-prev_sensor_az)*sensor_r, (sensor_r-prev_sensor_r) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
+                aoi[ix_out] = LIMIT(aoi[ix_out],-80*M_PI/180, 80*M_PI/180);
             }
             else{
                 aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
             }
-            aoi[ix_out] = (aoi[ix_out]);
+
             if (sensor_params->intensity_range_comp){
                 inten *= sensor_r;                  //Only comp one-way spreading loss     
                 float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
@@ -759,7 +760,10 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
                     inten *= intenity_angle_corr_table[ix].intensity_scale;
                 }
                 else{
-                    inten = inten/((MAX(cosf(aoi[ix_out]),0.1f)));
+                    //model = 6*np.exp(-(teta**2)/(0.15**2)) - 6/(cos_teta+0.1)
+                    float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
+                    inten *= powf(10.f, -reflectivity_model_dB/20);
+
                 }
             }
             intensity[ix_out] = inten;
