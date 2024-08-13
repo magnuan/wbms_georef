@@ -83,5 +83,50 @@ wbms_georef -s surveyline_X.wbms -p surveyline_X.posmv -w sv_cast.csv -o surveyl
 .RE
 .P
 
+
+Generate and use intensity compensation table
+
+STEP 1  Process with range compensation to CSV (NO AOI COMP),
+- generate file:  datafile_intensity_comp.csv
+
+  wbms_georef.conf content:
+    # Uncomment to compensate intensity for range
+    intensity_range_comp
+    # Damping / attenuation in dB/km one-way when applying intensity range comp
+    intensity_range_attenuation  100
+    # Uncomment to compensate intensity for AOI
+    # AOI compensation is either by model or from angle/intensity CSV file if given with -y option
+    #intensity_aoi_comp
+    # Uncomment to calculate aoi from data, otherwise assume flat seafloor
+    #calc_aoi
+    # Uncomment to output in CSV format
+    csv_output
+    output_format teta,range,aoi,val
+
+
+STEP 2   Use process_x_y_csv.py, to generate a table of mean grouped intensities (here 40 groups)
+- generate file:  stats_datafile_intensity_comp.csv
+
+    ~/git/wbms-command-line-processing-tools/python/process_x_y_csv.py -G -x 0 -y 3 datafile_intensity_comp.csv -o -n 40
+
+
+
+STEP 3 Reprocess data with the generated statistics file
+- generate_file: datafile_full_comp.sbf
+
+  wbms_georef.conf content:
+    # Uncomment to compensate intensity for range
+    intensity_range_comp
+    # Damping / attenuation in dB/km one-way when applying intensity range comp
+    intensity_range_attenuation  100
+    # Uncomment to compensate intensity for AOI
+    # AOI compensation is either by model or from angle/intensity CSV file if given with -y option
+    intensity_aoi_comp
+    # Uncomment to calculate aoi from data, otherwise assume flat seafloor
+    #calc_aoi
+
+    Run with argument -y stats_datafile_intensity_comp.csv
+
+
 .SH SEE ALSO
 
