@@ -47,8 +47,12 @@
 /* The following limitations is not inherent packet format limitations, but just for specifying assignment of memory */
 /** Max number of bathy detections in a single WBMS type 1 packet*/
 #define BATH_DATA_MAX_DETECTION_POINTS    4096
-/** Max size in bytes of a watercolumn packet payload section  (512x1024 16-bit 2D data + 512 32-bit float angles) */
+/** Max size in bytes of a watercolumn packet payload section  (1024x1024 16-bit 2D data + 1024 32-bit float angles) */
 #define WATERCOL_MAX_PAYLOAD_SIZE    ((2*1024*1024)+(4*1024))
+
+/** Max size in bytes of a snippet packet payload section  (1024 32-bit start index, + 1024 32-bit stop index, 1024 32-bit detection index, 1024 32-bit angle, 1024 32-bit reserved, 512*1024 16-bit values) */
+#define MAX_SNIPPET_LENGTH (512)
+#define SNIPPET_MAX_PAYLOAD_SIZE    (5*4*1024 + 2*1024*MAX_SNIPPET_LENGTH  )
 
 
 
@@ -444,13 +448,14 @@ typedef struct{
                                         /*  g0 + ( (g1-g0)/(t1-t0) ) * (k-t0)       for t0 < k < t1 */
                                         /*  g1                                      for k > t1      */
                                         /*  Where k is sample number relative to origo, so k = m + t0, where m is line number in this data set.*/
-    uint16_t    multiping;              /**< Number of pings in multiping sequence*/
-    uint16_t    multiping_seq_nr;       /**< Number of this ping in multiping sequence*/
+    uint8_t    multiping_scan_number;               /**< Number of pings in a stx multiping sequence*/
+    uint8_t    multifreq_band_number;               /**< Number of bands in multifreq processing*/
+    uint8_t    multiping_scan_index;                /**< Number of this ping in a stx multiping sequence*/
+    uint8_t    multifreq_band_index;                /**< Number of this band in multifreq processsing*/
     float       tx_angle;               /**< Tx beam steering in radians*/
     float       tx_voltage;             /**< Tx voltage - peak-voltage signal over ceramics NaN for sonars without measurement */
     uint8_t     flags;                  /**< Beam distribution mode:  As defined in sonar_config.h.  
                                                 Bit #0-3: 0=Undef, 1=512EA, 2=256EA, 3=256ED, 4=512EDx 5=256EDx 
-                                                Bit #4-6: Multifreq index
                                                 Bit #7: 0=NonAdaptiveRange 1=AdaptiveRange 
                                                 */
     uint8_t     sonar_mode;             /**< Sonar mode: As defined in sonar_config.h */
@@ -458,19 +463,91 @@ typedef struct{
     float       gate_tilt;              /**< Gate tilt, in radians */
     float       time_uncertainty;       /**< For PPS/IRIG-B modes PPS jitter RMS, For pure NTP: NTP-offset*/
     uint32_t    RESERVEDX[7];           /**< reserved for future use*/
-}watercol_data_header_t; //168 Bytes
+}backscatter_data_header_v7_t; //168 Bytes
 
 /** WATERCOLUMN PACKET, including common header, sub-header and payload */
 typedef struct{
     packet_header_t                 header;                             /**< Common packet header */
-    watercol_data_header_t          sub_header;                         /**< Packet type sub-header*/
+    backscatter_data_header_v7_t          sub_header;                         /**< Packet type sub-header*/
     uint8_t                         payload[WATERCOL_MAX_PAYLOAD_SIZE]; /**< Watercoloumn data payload section. 2D intensity data + 1D angle array */
      // Dtype  watercol_data[M][N], 
      // float  watercol_angles[N] 
-}watercol_data_packet_t;
-#define SIZEOF_WATERCOL_PACKET_HEADER (sizeof(packet_header_t) + sizeof(watercol_data_header_t))
+}watercol_data_packet_v7t;
+#define SIZEOF_WATERCOL_PACKET_V7_HEADER (sizeof(packet_header_v7_t) + sizeof(backscatter_data_header_v7_t))
+
+typedef struct{
+    float       snd_velocity;           /**< Filtered sanitized sound velocity in m/s*/
+    float       sample_rate;            /**< Sample rate in reported range sample index, in Hz*/
+    uint32_t    N;                      /**< Payload dimension (low stride)*/
+    uint32_t    M;                      /**< Payload dimension (high stride)*/
+    double      time;                   /**< Timestamp Unix time as fract*/
+    uint32_t    Dtype;                  /**< Datatype*/
+    int32_t     t0;                     /**< Sample number for first line (tx2rx-delay), relative to a theoritical rx point in accoustic origo*/
+    float       gain;                   /**< Signal gain through processing chain*/
+    uint32_t    res1;                   /**< Reserved (testpoint)*/
+    float       swath_dir;              /**< Center beam direction in radians */
+    float       swath_open;             /**< Swath opening angle, edge to edge of swath in radians.*/
+    float       tx_freq;                /**< Tx frequency [Hz]*/
+    float       tx_bw;                  /**< Tx bandwidth [Hz]*/
+    float       tx_len;                 /**< Tx length [s]*/
+    uint32_t    tx_amp;                 /**< Tx amplitude*/
+
+    uint32_t    res2;            /**< Reserved*/
+    uint32_t    res3;            /**< Reserved*/
+    uint32_t    res4;            /**< Reserved*/
+
+    float       ping_rate;              /**< Set ping rate in Hz*/
+    uint32_t    res5;                   /**< Reserved*/
+    uint32_t    ping_number;            /**< Ping number, increasing ping counter since sonar startup*/
+    double      time_net;               /**< Timestamp Unix time as fract (send on network time)*/
+    uint32_t    res6;                   /**< Reserved*/
+    int32_t     vga_t1;                 /**< Sample number for first vga value*/
+    float       vga_g1;                 /**< vga gain in dB for first vga value,  */
+    int32_t     vga_t2;                 /**< Sample number for second vga value*/
+    float       vga_g2;                 /**< vga gain in dB for second vga value,*/
+                                        /*  For sample k  gain vga_gain(k) in dB is:                */
+                                        /*  g0                                      for k < t0      */
+                                        /*  g0 + ( (g1-g0)/(t1-t0) ) * (k-t0)       for t0 < k < t1 */
+                                        /*  g1                                      for k > t1      */
+                                        /*  Where k is sample number relative to origo, so k = m + t0, where m is line number in this data set.*/
+    //TODO check the four values here 
+    uint8_t    multiping_scan_number;               /**< Number of pings in a stx multiping sequence*/
+    uint8_t    multifreq_band_number;               /**< Number of bands in multifreq processing*/
+    uint8_t    multiping_scan_index;                /**< Number of this ping in a stx multiping sequence*/
+    uint8_t    multifreq_band_index;                /**< Number of this band in multifreq processsing*/
 
 
-#define MAX_WBMS_PACKET_SIZE (SIZEOF_WATERCOL_PACKET_HEADER+WATERCOL_MAX_PAYLOAD_SIZE)
+    float       tx_angle;                   /**< Tx beam steering in radians*/
+    float       tx_voltage;                 /**< Tx voltage - peak-voltage signal over ceramics NaN for sonars without measurement */
+    uint8_t     beam_distribution_mode;                  /**< Beam distribution mode:  As defined in sonar_config.h.*/ 
+    uint8_t     sonar_mode;             /**< Sonar mode: As defined in sonar_config.h */
+    uint16_t    res7;
+    float       gate_tilt;              /**< Gate tilt, in radians */
+    uint32_t    RESERVEDX[8];           /**< reserved for future use*/
+}backscatter_data_header_v8_t; //168 Bytes
+
+/** WATERCOLUMN PACKET, including common header, sub-header and payload */
+typedef struct{
+    packet_header_t                 header;                             /**< Common packet header */
+    backscatter_data_header_v8_t          sub_header;                         /**< Packet type sub-header*/
+    uint8_t                         payload[WATERCOL_MAX_PAYLOAD_SIZE]; /**< Watercoloumn data payload section. 2D intensity data + 1D angle array */
+     // Dtype  watercol_data[M][N], 
+     // float  watercol_angles[N] 
+}watercol_data_packet_v8_t;
+
+
+/* TODO so far we have only implemented for version 8*/
+typedef struct{
+    packet_header_t                 header;                             /**< Common packet header */
+    backscatter_data_header_v8_t          sub_header;                         /**< Packet type sub-header*/
+    uint8_t                         payload[SNIPPET_MAX_PAYLOAD_SIZE]; /**< Watercoloumn data payload section. 2D intensity data + 1D angle array */
+     // Dtype  watercol_data[M][N], 
+     // float  watercol_angles[N] 
+}snippet_data_packet_t;
+
+#define SIZEOF_WATERCOL_PACKET_V8_HEADER (sizeof(packet_header_t) + sizeof(backscatter_data_header_v8_t))
+
+
+#define MAX_WBMS_PACKET_SIZE (SIZEOF_WATERCOL_PACKET_V8_HEADER+WATERCOL_MAX_PAYLOAD_SIZE)
 #pragma pack()
 #endif

@@ -27,6 +27,8 @@
 
 //#define FAKE_SBP_TIMESTAMP
 #define IGNORE_WBMS_CRC_FOR_SBP_DATA
+#define ROLL_VECTOR_LEN 512
+#define ROLL_VECTOR_RATE 500.
 
 static uint8_t verbose = 1;
 
@@ -55,6 +57,10 @@ uint8_t wbms_test_file(int fd, int* version){
             double ts;
             int type = wbms_identify_packet(data, len, &ts, version);
             if (type==PACKET_TYPE_BATH_DATA){
+                pass=1;
+                break;
+            }
+            else if (type==PACKET_TYPE_SNIPPET_DATA){
                 pass=1;
                 break;
             }
@@ -157,6 +163,7 @@ int wbms_fetch_next_packet(char * data, int fd){
 int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* version){
     static int rcnt=0;
 	packet_header_t* wbms_packet_header;
+	snippet_data_packet_t* wbms_snippet_packet;
 	bath_data_packet_t* wbms_bath_packet;
     sbp_data_packet_t* wbms_sbp_packet;
     #ifdef FAKE_SBP_TIMESTAMP
@@ -207,8 +214,16 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
 			if(verbose>2) fprintf(stderr,"Received WBMS watercol data, Discarding!\n");
 			return 0;
 		case PACKET_TYPE_SNIPPET_DATA: 
-			if(verbose>2) fprintf(stderr,"Received WBMS snippet data, Discarding!\n");
-			return 0;
+			wbms_snippet_packet = (snippet_data_packet_t*) databuffer;
+            if (version){
+                *version = wbms_snippet_packet->header.version;
+            }
+			#ifdef GUESS_NEXT_WBMS_TS
+			*ts_out = wbms_snippet_packet->sub_header.time+sensor_offset->time_offset + (1./(wbms_snippet_packet->sub_header.ping_rate));
+			#else
+			*ts_out = wbms_snippet_packet->sub_header.time+sensor_offset->time_offset;
+			#endif
+			return PACKET_TYPE_SNIPPET_DATA;
 		case PACKET_TYPE_SIDESCAN_DATA: 
 			if(verbose>2) fprintf(stderr,"Received WBMS sidescan data, Discarding!\n");
 			return 0;
@@ -541,8 +556,6 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 	uint16_t ix_in,ix_out;
     const uint16_t ix_in_stride = MAX(1,sensor_params->beam_decimate); 
     const uint32_t ping_number_stride = sensor_params->ping_decimate; 
-    #define ROLL_VECTOR_LEN 512
-    #define ROLL_VECTOR_RATE 500.
     float roll_vector[ROLL_VECTOR_LEN];
     float z_vector[ROLL_VECTOR_LEN];
 	float sensor_az_tx2rx_corr;
@@ -856,6 +869,255 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 
 
     
+uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
+    double* x = &(outbuf->x[0]);
+    double* y = &(outbuf->y[0]);
+    double* z = &(outbuf->z[0]);
+    float* intensity = &(outbuf->i[0]);
+    float* beam_range = &(outbuf->range[0]);
+    float* beam_angle = &(outbuf->teta[0]);
+    int * beam_number = &(outbuf->beam[0]);
+    float* aoi = &(outbuf->aoi[0]);
+    float* fs_out = &(outbuf->sample_rate);
+    float* ping_rate_out = &(outbuf->ping_rate);
+    float* sv_out = &(outbuf->sv);
+    float* tx_freq_out = &(outbuf->tx_freq);
+    float* tx_bw_out = &(outbuf->tx_bw);
+    float* tx_plen_out = &(outbuf->tx_plen);
+    float* tx_voltage_out = &(outbuf->tx_voltage);
+    int* ping_number_out = &(outbuf->ping_number);
+    int* multiping_index_out = &(outbuf->multiping_index);
+    int* multifreq_index_out = &(outbuf->multifreq_index);
+
+    float sensor_r;
+    float sensor_az;
+    float sensor_el;
+    float sensor_t;
+
+    double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/
+    float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
+    float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
+    float tx_angle; 
+    float Fs;
+    float ping_rate;
+    float c;
+    uint16_t Nin;
+    uint32_t ping_number;
+    uint16_t multiping_index;
+    uint16_t multifreq_index;
+    uint16_t Nout;
+    uint16_t ix_in,ix_out;
+    const uint16_t ix_in_stride = MAX(1,sensor_params->beam_decimate); 
+    const uint32_t ping_number_stride = sensor_params->ping_decimate; 
+    float roll_vector[ROLL_VECTOR_LEN];
+    float z_vector[ROLL_VECTOR_LEN];
+    float sensor_az_tx2rx_corr;
+    float sensor_z_tx2rx_corr;
+    float tx_freq;
+    float tx_bw;
+    float tx_plen;
+    float tx_voltage;
+
+
+    tx_freq = snippet_in->sub_header.tx_freq;
+    tx_bw = snippet_in->sub_header.tx_bw;
+    tx_plen = snippet_in->sub_header.tx_len;
+    tx_angle = snippet_in->sub_header.tx_angle;
+    tx_voltage = snippet_in->sub_header.tx_voltage;
+    Fs = snippet_in->sub_header.sample_rate;
+    c = snippet_in->sub_header.snd_velocity+sensor_params->sv_offset;
+    if (sensor_params->force_sv > 0){
+        c = sensor_params->force_sv;
+    }
+    if (c != c){
+        fprintf(stderr, "NaN sound velocity encountered in data");
+    }
+
+    Nin = snippet_in->sub_header.N;  //TODO first we try to just generate one sounding per snippet
+    multifreq_index =snippet_in->sub_header.multifreq_band_index;
+    ping_number =  snippet_in->sub_header.ping_number;
+    multiping_index =  snippet_in->sub_header.multiping_scan_index;
+    ping_rate =  snippet_in->sub_header.ping_rate;
+
+    *sv_out = c; 
+
+    *multiping_index_out = multiping_index;
+    *multifreq_index_out = multifreq_index;
+    *tx_freq_out = tx_freq;
+    *tx_bw_out = tx_bw;
+    *tx_plen_out = tx_plen;
+    *tx_voltage_out = tx_voltage;
+    *ping_number_out = ping_number;
+    *fs_out = Fs;
+    *ping_rate_out = ping_rate;
+    float div_Fs = 1.f/Fs;
+    float c_div_2Fs = c/(2*Fs);
+    /*printf("ping_number=%9d, multiping= %d tx_angle=%5.1f multifreq_index=%d\n", 
+      ping_number, multiping_index,tx_angle*180/M_PI, multifreq_index);*/
+    //printf("tx_angle=%f, Fs=%f, c=%f, Nin=%d, multifreq_index=%d\n", tx_angle,  Fs,  c,  Nin,  multifreq_index);
+    tx_angle *= sensor_params->scale_tx_angle;
+
+    //Skip whole dataset condition
+    sensor_el  = tx_angle;								 
+    if (    ((sensor_params->multifreq_index>=0) && (sensor_params->multifreq_index!=multifreq_index)) ||
+            ((sensor_el < sensor_params->min_elevation) || (sensor_el > sensor_params->max_elevation)) ||
+            ((ping_number < sensor_params->min_ping_number) || (sensor_params->max_ping_number && (ping_number > sensor_params->max_ping_number))) ||
+            ((ping_number%ping_number_stride) != 0)
+       ){
+        return(0);
+    }
+
+    //Find nav data for tx instant
+    //Generate a vector with interpolated roll starting at tx time, with 1ms samplerate, for 1/ping_rate duration
+    // This is tobe used to correct azimuth and heave data, as this is defined at rx (not tx) time
+    //To calculate angle-of insidence, we must sort beams on angle (Strictly only neccessary for ISS data)
+    //Sort bath->dp[n] based on bath->dp[n].angle for n in 0-Nin
+
+    if (calc_interpolated_nav_data( posdata, pos_ix, snippet_in->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
+        if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",snippet_in->sub_header.time+sensor_offset->time_offset);
+        return 0;
+    }
+    calc_interpolated_roll_and_z_vector(posdata, pos_ix, snippet_in->sub_header.time+sensor_offset->time_offset, (1.f/snippet_in->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
+
+    if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
+        return 0;
+    }
+
+    size_t Nn = (Nin/ix_in_stride)+1;
+    float *xs = malloc(Nn*sizeof(float));
+    float *ys = malloc(Nn*sizeof(float));
+    float *zs = malloc(Nn*sizeof(float));
+
+    // Populate r,az,el and t with data from bath data
+    float prev_sensor_r = 0.;
+    float prev_sensor_az = 0.;
+
+    float inten;
+
+    //Calculate sounding positions in sonar reference frame at tx instant
+    ix_out = 0;
+    //printf("Nin=%d\n",Nin);
+
+    float *snippet_start_ix     =  ((float*) snippet_in->payload)+(0*Nin);
+    float *snippet_stop_ix      =   ((float*) snippet_in->payload)+(1*Nin);
+    float *snippet_detection_ix =   ((float*) snippet_in->payload)+(2*Nin);
+    float *snippet_angle        =   ((float*) snippet_in->payload)+(3*Nin);
+    uint16_t *snippet_intensity =   ((uint16_t*) snippet_in->payload)+((2*4)*Nin);
+
+
+    int32_t snippet_intensity_offset = 0;                              //Snippet intensity  start index, increments as we progress through all snippets
+    for (ix_in=0;ix_in<Nin;ix_in++){
+        int32_t snippet_length = (int32_t) (roundf(snippet_stop_ix[ix_in] - snippet_start_ix[ix_in])) + 1;
+
+        if (ix_in%ix_in_stride==0){
+
+            float sample_number;
+            sample_number = snippet_detection_ix[ix_in];
+            sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
+            sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
+            sensor_az  = snippet_angle[ix_in];
+            inten = snippet_intensity[snippet_intensity_offset+snippet_length/2];       //Pick middle sample from snippet data
+
+            sensor_r  += sensor_offset->r_err;
+
+            // Apply correctiom from beam corection polynom if defined
+            if (sensor_params->beam_corr_poly_order){
+                sensor_az = apply_beam_correction_poly(sensor_az, sensor_params->beam_corr_poly, sensor_params->beam_corr_poly_order);
+            }
+
+#ifdef SHALLOW_ANGLE_SKEW_COR
+            sensor_az += calc_shallow_angle_skew_corrections(sensor_az,sensor_r, sensor_params->intensity_range_attenuation);
+#endif
+
+
+            // Add correction for roll during tx2rx period for each beam individually
+            sensor_az_tx2rx_corr = -roll_vector[(size_t) round(sensor_t*ROLL_VECTOR_RATE)]; //Roll is given in opposite angles than sonar azimuth
+            sensor_z_tx2rx_corr = z_vector[(size_t) round((sensor_t/2)*ROLL_VECTOR_RATE)]; // Z correction is for half tx to rx time
+            //printf("sonar_min_quality_flag=%d, sensor_params->max_quality_flag=%d, sensor_params->min_priority_flag=%d, sensor_params->max_priority_flag=%d\n",sensor_params->min_quality_flag,sensor_params->max_quality_flag,sensor_params->min_priority_flag,sensor_params->max_priority_flag);
+            if (	(sensor_az > sensor_params->min_azimuth) && (sensor_az < sensor_params->max_azimuth) &&
+                    (sensor_r > sensor_params->min_range) && (sensor_r < sensor_params->max_range) 
+               ){
+
+                beam_number[ix_out] = ix_in;
+                beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis
+                beam_range[ix_out] = sensor_r;
+
+                //Compensate intensity for range and AOI
+                if (sensor_params->calc_aoi){
+                    aoi[ix_out] = -M_PI/2 - atan2f((sensor_az-prev_sensor_az)*sensor_r, (sensor_r-prev_sensor_r) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
+                    aoi[ix_out] = LIMIT(aoi[ix_out],-80*M_PI/180, 80*M_PI/180);
+                }
+                else{
+                    aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
+                }
+
+                if (sensor_params->intensity_range_comp){
+                    inten *= sensor_r;                  //Only comp one-way spreading loss     
+                    float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
+                    inten *= powf(10.f,damping_dB/20); 
+                }
+                if (sensor_params->intensity_aoi_comp){
+                    if(sensor_params->use_intensity_angle_corr_table){
+                        int ix = ABS(aoi[ix_out])/INTENSITY_ANGLE_STEP;
+                        ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
+                        inten *= intenity_angle_corr_table[ix].intensity_scale;
+                    }
+                    else{
+                        //model = 6*np.exp(-(teta**2)/(0.15**2)) - 6/(cos_teta+0.1)
+                        float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
+                        inten *= powf(10.f, -reflectivity_model_dB/20);
+
+                    }
+                }
+                intensity[ix_out] = inten;
+
+                /***** Converting sensor data from spherical to kartesian coordinates *********/
+                // Projection assumes cone-plane coordinates (See assembla ticket #1725)								 
+                // Standard sonar mounting az=0 el=0 => Nadir(0,0,1), az=90 el=0 => Starbord(0,1,0), az=0 el=90 => Forward(1,0,0) 
+                // Sign of y axis is flipped (compared to #1725) because az rotation is left to right, and not right to left which it should be if it was a positive rotation around x-axis
+                xs[ix_out] = sensor_r * sinf(sensor_el);
+                ys[ix_out] = sensor_r * sinf((sensor_az+sensor_az_tx2rx_corr))*cosf(sensor_el); //Sign flipped compared to standard right hand system
+                zs[ix_out] = sensor_r * cosf((sensor_az+sensor_az_tx2rx_corr))*cosf(sensor_el);
+                zs[ix_out] += sensor_z_tx2rx_corr;
+
+                ix_out++;
+
+                prev_sensor_r = sensor_r;
+                prev_sensor_az = sensor_az;
+            }
+        }
+        snippet_intensity_offset += snippet_length;
+    }
+    Nout = ix_out;
+
+    georef_to_global_frame(sensor_offset,xs, ys, zs,  Nout,c, nav_x, nav_y, nav_z,  nav_yaw, nav_pitch,  nav_roll, sensor_params->ray_tracing_mode,  sensor_params->mounting_depth, /*OUTPUT*/ x,y,z);
+
+
+#if 1
+    //Post GEO-REF filtering
+    Nin = Nout;
+    ix_out = 0;
+    for (ix_in=0;ix_in<Nin;ix_in++){
+        x[ix_out] = x[ix_in];
+        y[ix_out] = y[ix_in];
+        z[ix_out] = z[ix_in];
+        intensity[ix_out] = intensity[ix_in];
+        beam_angle[ix_out] = beam_angle[ix_in];
+        aoi[ix_out] = aoi[ix_in];
+        beam_number[ix_out] = beam_number[ix_in];
+        beam_range[ix_out] = beam_range[ix_in];
+
+        if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
+
+        ix_out++;
+    }
+    Nout = ix_out;
+#endif 
+    //printf("Nout2 = %d\n",Nout);
+
+    free(xs);free(ys);free(zs);
+    return Nout;
+}
 
 
 
