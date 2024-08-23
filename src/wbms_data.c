@@ -651,9 +651,10 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     }
 
     
-    float *xs = malloc(MAX_DP*sizeof(float));
-    float *ys = malloc(MAX_DP*sizeof(float));
-    float *zs = malloc(MAX_DP*sizeof(float));
+    size_t Nn = (Nin/ix_in_stride)+1;
+    float *xs = malloc(Nn*sizeof(float));
+    float *ys = malloc(Nn*sizeof(float));
+    float *zs = malloc(Nn*sizeof(float));
 
 	// Populate r,az,el and t with data from bath data
 	float prev_sensor_r = 0.;
@@ -889,16 +890,12 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     int* multiping_index_out = &(outbuf->multiping_index);
     int* multifreq_index_out = &(outbuf->multifreq_index);
 
-    float sensor_r;
-    float sensor_az;
-    float sensor_el;
-    float sensor_t;
-
     double nav_x, nav_y, nav_z; 			    /*Position in global coordinates (north,east,down)*/
     float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
     float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
     float tx_angle; 
     float Fs;
+    float gain_scaling;
     float ping_rate;
     float c;
     uint16_t Nin;
@@ -906,7 +903,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     uint16_t multiping_index;
     uint16_t multifreq_index;
     uint16_t Nout;
-    uint16_t ix_in,ix_out;
+    uint16_t ix_out;
     const uint16_t ix_in_stride = MAX(1,sensor_params->beam_decimate); 
     const uint32_t ping_number_stride = sensor_params->ping_decimate; 
     float roll_vector[ROLL_VECTOR_LEN];
@@ -925,6 +922,15 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     tx_angle = snippet_in->sub_header.tx_angle;
     tx_voltage = snippet_in->sub_header.tx_voltage;
     Fs = snippet_in->sub_header.sample_rate;
+    gain_scaling = 1./snippet_in->sub_header.gain;
+
+    float vga_t0 = (float) snippet_in->sub_header.vga_t0;
+    float vga_g0 = snippet_in->sub_header.vga_g0;
+    float vga_t1 = (float) snippet_in->sub_header.vga_t1;
+    float vga_g1 = snippet_in->sub_header.vga_g1;
+    float vga_dgdt = (vga_g1-vga_g0)/(vga_t1-vga_t0);
+
+
     c = snippet_in->sub_header.snd_velocity+sensor_params->sv_offset;
     if (sensor_params->force_sv > 0){
         c = sensor_params->force_sv;
@@ -958,7 +964,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     tx_angle *= sensor_params->scale_tx_angle;
 
     //Skip whole dataset condition
-    sensor_el  = tx_angle;								 
+    float sensor_el  = tx_angle;								 
     if (    ((sensor_params->multifreq_index>=0) && (sensor_params->multifreq_index!=multifreq_index)) ||
             ((sensor_el < sensor_params->min_elevation) || (sensor_el > sensor_params->max_elevation)) ||
             ((ping_number < sensor_params->min_ping_number) || (sensor_params->max_ping_number && (ping_number > sensor_params->max_ping_number))) ||
@@ -992,31 +998,56 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     float prev_sensor_r = 0.;
     float prev_sensor_az = 0.;
 
-    float inten;
 
     //Calculate sounding positions in sonar reference frame at tx instant
     ix_out = 0;
     //printf("Nin=%d\n",Nin);
 
-    float *snippet_start_ix     =  ((float*) snippet_in->payload)+(0*Nin);
-    float *snippet_stop_ix      =   ((float*) snippet_in->payload)+(1*Nin);
-    float *snippet_detection_ix =   ((float*) snippet_in->payload)+(2*Nin);
-    float *snippet_angle        =   ((float*) snippet_in->payload)+(3*Nin);
-    uint16_t *snippet_intensity =   ((uint16_t*) snippet_in->payload)+((2*4)*Nin);
+    float *snippet_start_ix     =  (float*)     (snippet_in->payload+(0*4*Nin));
+    float *snippet_stop_ix      =  (float*)     (snippet_in->payload+(1*4*Nin));
+    float *snippet_detection_ix =  (float*)     (snippet_in->payload+(2*4*Nin));
+    float *snippet_angle        =  (float*)     (snippet_in->payload+(3*4*Nin));
+    //uint32_t *sippet_tbd      =  (float*)     (snippet_in->payload+(4*4*Nin));
+    uint16_t *snippet_intensity =  (uint16_t*)  (snippet_in->payload+(5*4*Nin));
 
 
     int32_t snippet_intensity_offset = 0;                              //Snippet intensity  start index, increments as we progress through all snippets
-    for (ix_in=0;ix_in<Nin;ix_in++){
-        int32_t snippet_length = (int32_t) (roundf(snippet_stop_ix[ix_in] - snippet_start_ix[ix_in])) + 1;
+    for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
+        int32_t snippet_length = (int32_t) (roundf(snippet_stop_ix[ix_in] - snippet_start_ix[ix_in]))+1;
 
-        if (ix_in%ix_in_stride==0){
+        if (ix_in%ix_in_stride==0 && snippet_length){
+            float sample_number = snippet_detection_ix[ix_in];
+            float sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
+            float sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
+            float sensor_az  = snippet_angle[ix_in];
 
-            float sample_number;
-            sample_number = snippet_detection_ix[ix_in];
-            sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
-            sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
-            sensor_az  = snippet_angle[ix_in];
-            inten = snippet_intensity[snippet_intensity_offset+snippet_length/2];       //Pick middle sample from snippet data
+
+            float vga_gain_dB;
+            if (sample_number <= vga_t0){
+                vga_gain_dB = vga_g0;
+            }
+            else if (sample_number < vga_t1){
+                vga_gain_dB = vga_g0 + vga_dgdt*(sample_number-vga_t0);
+            }
+            else{
+                vga_gain_dB = vga_g1;
+            }
+            float vga_gain_scaling = powf(10,-vga_gain_dB/20);
+            
+            #if 0
+            //Take intensity from detection sample
+            int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in]));
+            float inten = snippet_intensity[snippet_intensity_offset+detection_offset];       //Pick detection sample from snippet data
+            #else
+            //Take intensity from snippet average
+            float inten = 0;
+            for (size_t ix = 0; ix<snippet_length;ix++){
+                inten += snippet_intensity[snippet_intensity_offset+ix];
+            }
+            inten /= snippet_length;
+            #endif
+
+            inten *= gain_scaling * vga_gain_scaling;
 
             sensor_r  += sensor_offset->r_err;
 
@@ -1052,7 +1083,8 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                 }
 
                 if (sensor_params->intensity_range_comp){
-                    inten *= sensor_r;                  //Only comp one-way spreading loss     
+                    inten *= sensor_r;                      //Comp one-way spreading loss, 20dB/log10(r)     
+                    //inten *= sensor_r*sensor_r;             //Comp one-way spreading loss, 40dB/log10(r)     
                     float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
                     inten *= powf(10.f,damping_dB/20); 
                 }
@@ -1063,8 +1095,15 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                         inten *= intenity_angle_corr_table[ix].intensity_scale;
                     }
                     else{
-                        //model = 6*np.exp(-(teta**2)/(0.15**2)) - 6/(cos_teta+0.1)
-                        float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
+                        //model_clay = 12*( np.exp(-(teta**2)/(0.15**2)) - 1/(np.cos(teta)+0.1))
+                        // float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
+                        //model_gravel0 = 10*( np.exp(-(teta**2)/(0.40**2)) - 0.05/(np.cos(teta)**2+0.02))
+                        //model_gravel1 = 10*( np.exp(-(teta**2)/(0.30**2)) - 0.1/(np.cos(teta)**2+0.02))
+                        //model_gravel2 = 10*( np.exp(-(teta**2)/(0.33**2)) - 0.2/(np.cos(teta)**2+0.02))
+                        //model_gravel3 = 10*( np.exp(-(teta**2)/(0.33**2)) - 0.2/(np.cos(teta)**2+0.1))
+
+                        float reflectivity_model_dB =  10*  (expf( - powf(aoi[ix_out],2) / powf(0.33,2) ) - (0.2f/ (powf(cosf(aoi[ix_out]),2)+0.1)));
+
                         inten *= powf(10.f, -reflectivity_model_dB/20);
 
                     }
@@ -1088,6 +1127,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         }
         snippet_intensity_offset += snippet_length;
     }
+    //printf(stderr, "snippet_intensity_offset = %d\n",snippet_intensity_offset);
     Nout = ix_out;
 
     georef_to_global_frame(sensor_offset,xs, ys, zs,  Nout,c, nav_x, nav_y, nav_z,  nav_yaw, nav_pitch,  nav_roll, sensor_params->ray_tracing_mode,  sensor_params->mounting_depth, /*OUTPUT*/ x,y,z);
@@ -1097,7 +1137,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     //Post GEO-REF filtering
     Nin = Nout;
     ix_out = 0;
-    for (ix_in=0;ix_in<Nin;ix_in++){
+    for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
         x[ix_out] = x[ix_in];
         y[ix_out] = y[ix_in];
         z[ix_out] = z[ix_in];

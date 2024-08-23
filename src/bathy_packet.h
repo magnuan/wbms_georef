@@ -439,10 +439,10 @@ typedef struct{
     uint32_t    ping_number;            /**< Ping number, increasing ping counter since sonar startup*/
     double      time_net;               /**< Timestamp Unix time as fract (send on network time)*/
     uint32_t    beams;                  /**< Number of beams in beamformer*/
-    int32_t     vga_t1;                 /**< Sample number for first vga value*/
-    float       vga_g1;                 /**< vga gain in dB for first vga value,  */
-    int32_t     vga_t2;                 /**< Sample number for second vga value*/
-    float       vga_g2;                 /**< vga gain in dB for second vga value,*/
+    int32_t     vga_t0;                 /**< Sample number for first vga value*/
+    float       vga_g0;                 /**< vga gain in dB for first vga value,  */
+    int32_t     vga_t1;                 /**< Sample number for second vga value*/
+    float       vga_g1;                 /**< vga gain in dB for second vga value,*/
                                         /*  For sample k  gain vga_gain(k) in dB is:                */
                                         /*  g0                                      for k < t0      */
                                         /*  g0 + ( (g1-g0)/(t1-t0) ) * (k-t0)       for t0 < k < t1 */
@@ -501,10 +501,10 @@ typedef struct{
     uint32_t    ping_number;            /**< Ping number, increasing ping counter since sonar startup*/
     double      time_net;               /**< Timestamp Unix time as fract (send on network time)*/
     uint32_t    res6;                   /**< Reserved*/
-    int32_t     vga_t1;                 /**< Sample number for first vga value*/
-    float       vga_g1;                 /**< vga gain in dB for first vga value,  */
-    int32_t     vga_t2;                 /**< Sample number for second vga value*/
-    float       vga_g2;                 /**< vga gain in dB for second vga value,*/
+    int32_t     vga_t0;                 /**< Sample number for first vga value*/
+    float       vga_g0;                 /**< vga gain in dB for first vga value,  */
+    int32_t     vga_t1;                 /**< Sample number for second vga value*/
+    float       vga_g1;                 /**< vga gain in dB for second vga value,*/
                                         /*  For sample k  gain vga_gain(k) in dB is:                */
                                         /*  g0                                      for k < t0      */
                                         /*  g0 + ( (g1-g0)/(t1-t0) ) * (k-t0)       for t0 < k < t1 */
