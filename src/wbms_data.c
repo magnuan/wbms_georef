@@ -774,8 +774,11 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
                     inten *= intenity_angle_corr_table[ix].intensity_scale;
                 }
                 else{
-                    //model = 6*np.exp(-(teta**2)/(0.15**2)) - 6/(cos_teta+0.1)
-                    float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
+                    //model_clay = 12*( np.exp(-(teta**2)/(0.15**2)) - 1/(np.cos(teta)+0.1))
+                    // float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
+                    //model_gravel = 10*( np.exp(-(teta**2)/(0.33**2)) - 0.2/(np.cos(teta)**2+0.1))
+                    float reflectivity_model_dB =  10*  (expf( - powf(aoi[ix_out],2) / powf(0.33,2) ) - (0.2f/ (powf(cosf(aoi[ix_out]),2)+0.1)));
+                    
                     inten *= powf(10.f, -reflectivity_model_dB/20);
 
                 }
@@ -1097,11 +1100,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                     else{
                         //model_clay = 12*( np.exp(-(teta**2)/(0.15**2)) - 1/(np.cos(teta)+0.1))
                         // float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
-                        //model_gravel0 = 10*( np.exp(-(teta**2)/(0.40**2)) - 0.05/(np.cos(teta)**2+0.02))
-                        //model_gravel1 = 10*( np.exp(-(teta**2)/(0.30**2)) - 0.1/(np.cos(teta)**2+0.02))
-                        //model_gravel2 = 10*( np.exp(-(teta**2)/(0.33**2)) - 0.2/(np.cos(teta)**2+0.02))
-                        //model_gravel3 = 10*( np.exp(-(teta**2)/(0.33**2)) - 0.2/(np.cos(teta)**2+0.1))
-
+                        //model_gravel = 10*( np.exp(-(teta**2)/(0.33**2)) - 0.2/(np.cos(teta)**2+0.1))
                         float reflectivity_model_dB =  10*  (expf( - powf(aoi[ix_out],2) / powf(0.33,2) ) - (0.2f/ (powf(cosf(aoi[ix_out]),2)+0.1)));
 
                         inten *= powf(10.f, -reflectivity_model_dB/20);
