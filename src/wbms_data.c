@@ -657,11 +657,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     float *ys = malloc(Nn*sizeof(float));
     float *zs = malloc(Nn*sizeof(float));
 
-	// Populate r,az,el and t with data from bath data
-	float prev_sensor_r = 0.;
-	float prev_sensor_az = 0.;
 
-	float inten;
     uint8_t sensor_quality_flags;
     uint8_t priority_flags;
     uint16_t flags;
@@ -692,7 +688,6 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
         sensor_elec_steer = bath_vX->dp[ix_in].steer_angle;
         sensor_quality_flags = bath_vX->dp[ix_in].quality_flags;
         flags = bath_vX->dp[ix_in].flags;
-        inten = bath_vX->dp[ix_in].intensity;
 
 
 
@@ -754,19 +749,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
             priority[ix_out] = (float) priority_flags;
             *tx_angle_out = sensor_el;
 			
-			//Compensate intensity for range and AOI
-            if (sensor_params->calc_aoi){
-                aoi[ix_out] = -M_PI/2 - atan2f((sensor_az-prev_sensor_az)*sensor_r, (sensor_r-prev_sensor_r) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
-                aoi[ix_out] = LIMIT(aoi[ix_out],-80*M_PI/180, 80*M_PI/180);
-            }
-            else{
-                aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
-            }
-            
-            float eff_plen = MIN(tx_plen, 2./tx_bw);
-            inten *= calc_intensity_scaling(sensor_r, aoi[ix_out], sensor_az,eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
 
-            intensity[ix_out] = inten;
+            intensity[ix_out] = bath_vX->dp[ix_in].intensity;
 
 			#ifdef CONE_CONE_COORD
 			xs[ix_out] = sensor_r * sin(sensor_el);
@@ -784,25 +768,11 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
             zs[ix_out] += sensor_z_tx2rx_corr;
 
 
-            //TODO insert uncertainty model here
-            float beam_width = (0.1*M_PI/180.) / cosf(0.85*sensor_az);
-            float sigma_teta =  M_SQRT2 * beam_width;
-            const float sigma_range = M_SQRT2 * 1450./80e3;
-            const float sigma_t = M_SQRT2 * 0.005;
-            float sigma_z_teta  = sigma_teta*sensor_r*sinf(sensor_az);
-            float sigma_z_range = sigma_range*cosf(sensor_az);
-            float sigma_z_roll = nav_droll_dt * sigma_t *sensor_r*cosf(sensor_az);
-            float sigma_z_pitch = nav_dpitch_dt * sigma_t *sensor_r*cosf(sensor_az);
-            float sigma_aoi = 5e-4f * sensor_r / powf(cosf(aoi[ix_out]),2); 
-            sigma_aoi = MIN(sigma_aoi, sensor_r/200);  //Limit aoi dependent std dev to max 2% range
-            z_var[ix_out] =  sigma_z_teta*sigma_z_teta + sigma_z_range*sigma_z_range + sigma_z_roll*sigma_z_roll + sigma_z_pitch*sigma_z_pitch + sigma_aoi*sigma_aoi;
             //z_var[ix_out] =   sigma_aoi*sigma_aoi;
             //z_var[ix_out] =  sigma_z_pitch*sigma_z_pitch;
 
 			ix_out++;
 			
-			prev_sensor_r = sensor_r;
-			prev_sensor_az = sensor_az;
 		}
         //else{
             //printf("sensor_quality_flags=%d,  sensor_params->min_priority_flag=%d, sensor_r=%f, sensor_az=%fdeg, sensor_el=%fdeg\n",sensor_quality_flags,((flags)>>9) & (0x0F),sensor_r,sensor_az*180/M_PI, sensor_el*180/M_PI);
@@ -833,14 +803,12 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 		intensity[ix_out] = intensity[ix_in];
 		beam_angle[ix_out] = beam_angle[ix_in];
 		swath_y[ix_out] = swath_y[ix_in];
-        aoi[ix_out] = aoi[ix_in];
         beam_number[ix_out] = beam_number[ix_in];
         beam_steer[ix_out] = beam_steer[ix_in];
         beam_range[ix_out] = beam_range[ix_in];
         upper_gate_range[ix_out] = upper_gate_range[ix_in];
         lower_gate_range[ix_out] = lower_gate_range[ix_in];
         strength[ix_out] = strength[ix_in];
-        footprint_area[ix_out] = footprint_area[ix_in];
 
 		if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
         if (swath_y[ix_in]>sensor_params->swath_max_y || swath_y[ix_in]<sensor_params->swath_min_y) continue;
@@ -849,6 +817,25 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 	}
 	Nout = ix_out;
 	#endif 
+    
+    //Calculate AOI on  Post-filtered data
+    if (sensor_params->calc_aoi){
+        calc_aoi(beam_range, beam_angle, Nout, /*output*/ aoi);
+    }
+    else{
+        for (ix_out=0;ix_out<Nout;ix_out++){
+            aoi[ix_out] = beam_angle[ix_out];
+        }
+    }
+    //Calculate corrected intensity and uncertainty model on  Post-filtered data
+	// Populate r,az,el and t with data from bath data
+    float eff_plen = MIN(tx_plen, 2./tx_bw);
+	for (size_t ix=0;ix<Nout;ix++){
+        //Compensate intensity for range and AOI
+        intensity[ix]  *= calc_intensity_scaling(beam_range[ix], aoi[ix], beam_angle[ix],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix]));
+	}
+    variance_model(beam_range, beam_angle,aoi,Nout,nav_droll_dt,nav_dpitch_dt,/*output*/ z_var);
+
     //printf("Nout2 = %d\n",Nout);
 
     free(xs);free(ys);free(zs);
@@ -984,9 +971,6 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     float *ys = malloc(Nn*sizeof(float));
     float *zs = malloc(Nn*sizeof(float));
 
-    // Populate r,az,el and t with data from bath data
-    float prev_sensor_r = 0.;
-    float prev_sensor_az = 0.;
 
 
     //Calculate sounding positions in sonar reference frame at tx instant
@@ -1010,53 +994,6 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
             float sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
             float sensor_az  = snippet_angle[ix_in];
 
-
-            float vga_gain_dB;
-            if (sample_number <= vga_t0){
-                vga_gain_dB = vga_g0;
-            }
-            else if (sample_number < vga_t1){
-                vga_gain_dB = vga_g0 + vga_dgdt*(sample_number-vga_t0);
-            }
-            else{
-                vga_gain_dB = vga_g1;
-            }
-            float vga_gain_scaling = powf(10,-vga_gain_dB/20);
-            
-            #if 0
-            //Take intensity from detection sample
-            int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in]));
-            float inten = snippet_intensity[snippet_intensity_offset+detection_offset];       //Pick detection sample from snippet data
-            #endif
-            #if 0 
-            //Take intensity from snippet average
-            float inten = 0;
-            for (size_t ix = 0; ix<snippet_length;ix++){
-                inten += snippet_intensity[snippet_intensity_offset+ix];
-            }
-            inten /= snippet_length;
-            #endif
-            #if 1
-            //Mean snippet power  (root-mean-square)
-            float acum_pow = 0;
-            for (size_t ix = 0; ix<snippet_length;ix++){
-                float inten = snippet_intensity[snippet_intensity_offset+ix];
-                acum_pow += powf((float)inten,2);
-            }
-            float inten = sqrtf(acum_pow/snippet_length);
-            #endif
-            #if 0
-            //Max Snippet value
-            float max_val = 0;
-            for (size_t ix = 0; ix<snippet_length;ix++){
-                float inten = snippet_intensity[snippet_intensity_offset+ix];
-                max_val = MAX(max_val,inten);
-            }
-            float inten = max_val;
-            #endif
-
-            inten *= gain_scaling * vga_gain_scaling;
-
             sensor_r  += sensor_offset->r_err;
 
             // Apply correctiom from beam corection polynom if defined
@@ -1067,7 +1004,6 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
 #ifdef SHALLOW_ANGLE_SKEW_COR
             sensor_az += calc_shallow_angle_skew_corrections(sensor_az,sensor_r, sensor_params->intensity_range_attenuation);
 #endif
-
 
             // Add correction for roll during tx2rx period for each beam individually
             sensor_az_tx2rx_corr = -roll_vector[(size_t) round(sensor_t*ROLL_VECTOR_RATE)]; //Roll is given in opposite angles than sonar azimuth
@@ -1081,19 +1017,51 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                 beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis
                 beam_range[ix_out] = sensor_r;
 
-                //Estimate AOI
-                if (sensor_params->calc_aoi){
-                    aoi[ix_out] = -M_PI/2 - atan2f((sensor_az-prev_sensor_az)*sensor_r, (sensor_r-prev_sensor_r) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
-                    aoi[ix_out] = LIMIT(aoi[ix_out],-80*M_PI/180, 80*M_PI/180);
+                /*** Calculate intensity from snippet data ***/
+                #if 0
+                //Take intensity from detection sample
+                int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in]));
+                float inten = snippet_intensity[snippet_intensity_offset+detection_offset];       //Pick detection sample from snippet data
+                #endif
+                #if 0 
+                //Take intensity from snippet average
+                float inten = 0;
+                for (size_t ix = 0; ix<snippet_length;ix++){
+                    inten += snippet_intensity[snippet_intensity_offset+ix];
+                }
+                inten /= snippet_length;
+                #endif
+                #if 1
+                //Mean snippet power  (root-mean-square)
+                float acum_pow = 0;
+                for (size_t ix = 0; ix<snippet_length;ix++){
+                    float inten = snippet_intensity[snippet_intensity_offset+ix];
+                    acum_pow += powf((float)inten,2);
+                }
+                float inten = sqrtf(acum_pow/snippet_length);
+                #endif
+                #if 0
+                //Max Snippet value
+                float max_val = 0;
+                for (size_t ix = 0; ix<snippet_length;ix++){
+                    float inten = snippet_intensity[snippet_intensity_offset+ix];
+                    max_val = MAX(max_val,inten);
+                }
+                float inten = max_val;
+                #endif
+                // Correct intesity for internal VGA
+                float vga_gain_dB;
+                if (sample_number <= vga_t0){
+                    vga_gain_dB = vga_g0;
+                }
+                else if (sample_number < vga_t1){
+                    vga_gain_dB = vga_g0 + vga_dgdt*(sample_number-vga_t0);
                 }
                 else{
-                    aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
+                    vga_gain_dB = vga_g1;
                 }
-
-                //Compensate intensity for range, footprint and AOI
-                float eff_plen = MIN(tx_plen, 2./tx_bw);
-                inten *= calc_intensity_scaling(sensor_r, aoi[ix_out], sensor_az, eff_plen, sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
-                
+                float vga_gain_scaling = powf(10,-vga_gain_dB/20);
+                inten *= gain_scaling * vga_gain_scaling;
                 intensity[ix_out] = inten;
 
                 /***** Converting sensor data from spherical to kartesian coordinates *********/
@@ -1109,8 +1077,6 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
 
                 ix_out++;
 
-                prev_sensor_r = sensor_r;
-                prev_sensor_az = sensor_az;
             }
         }
         snippet_intensity_offset += snippet_length;
@@ -1131,11 +1097,9 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         z[ix_out] = z[ix_in];
         intensity[ix_out] = intensity[ix_in];
         beam_angle[ix_out] = beam_angle[ix_in];
-        aoi[ix_out] = aoi[ix_in];
         beam_number[ix_out] = beam_number[ix_in];
         beam_range[ix_out] = beam_range[ix_in];
         snp_len[ix_out] = snp_len[ix_in];
-        footprint_area[ix_out] = footprint_area[ix_in];
 
         if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
 
@@ -1144,6 +1108,22 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     Nout = ix_out;
 #endif 
     //printf("Nout2 = %d\n",Nout);
+    //Calculate AOIon  Post-filtered data
+    if (sensor_params->calc_aoi){
+        calc_aoi(beam_range, beam_angle, Nout, /*output*/ aoi);
+    }
+    else{
+        for (ix_out=0;ix_out<Nout;ix_out++){
+            aoi[ix_out] = beam_angle[ix_out];
+        }
+    }
+    //Calculate corrected intensity on  Post-filtered data
+	// Populate r,az,el and t with data from bath data
+	for (ix_out=0;ix_out<Nout;ix_out++){
+        //Compensate intensity for range and AOI
+        float eff_plen = MIN(tx_plen, 2./tx_bw);
+        intensity[ix_out]  *= calc_intensity_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
+	}
 
     free(xs);free(ys);free(zs);
     outbuf->N = Nout;

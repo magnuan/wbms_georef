@@ -339,3 +339,41 @@ int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], s
     return 0;
 
 }
+
+void calc_aoi(const float * range, const float * angle, size_t len, /*output*/ float * aoi){
+        float prev_range = range[1];
+        float prev_angle =  angle[1];
+        for (size_t ix=0;ix<len;ix++){
+            float sensor_r = range[ix];
+            float sensor_az = angle[ix];
+            // Angle of incidence calculation 
+            aoi[ix] = atanf((sensor_r-prev_range)/((sensor_az-prev_angle)*sensor_r) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
+            aoi[ix] = LIMIT(aoi[ix],-80*M_PI/180, 80*M_PI/180);
+            prev_range = sensor_r;
+            prev_angle = sensor_az;
+        }
+        #if 1
+        //Run median filter on data
+        float* aoi_unfiltered = (float*) malloc(len*sizeof(float));
+        memcpy(aoi_unfiltered,aoi,len*sizeof(float));
+        med_filter(aoi_unfiltered, aoi, 7, len);  
+        free(aoi_unfiltered);
+        #endif
+}
+
+void variance_model(const float * range, const float * angle, const float * aoi, size_t len, float droll_dt, float dpitch_dt,/*output*/ float * z_var){
+	for (size_t ix=0;ix<len;ix++){
+        //Uncertainty model
+        float beam_width = (0.1*M_PI/180.) / cosf(0.85*angle[ix]);
+        float sigma_teta =  M_SQRT2 * beam_width;
+        const float sigma_range = M_SQRT2 * 1450./80e3;
+        const float sigma_t = M_SQRT2 * 0.005;
+        float sigma_z_teta  = sigma_teta*range[ix]*sinf(angle[ix]);
+        float sigma_z_range = sigma_range*cosf(angle[ix]);
+        float sigma_z_roll = droll_dt * sigma_t *range[ix]*cosf(angle[ix]);
+        float sigma_z_pitch = dpitch_dt * sigma_t *range[ix]*cosf(angle[ix]);
+        float sigma_aoi = 5e-4f * range[ix] / powf(cosf(aoi[ix]),2); 
+        sigma_aoi = MIN(sigma_aoi, range[ix]/200);  //Limit aoi dependent std dev to max 2% range
+        z_var[ix] =  sigma_z_teta*sigma_z_teta + sigma_z_range*sigma_z_range + sigma_z_roll*sigma_z_roll + sigma_z_pitch*sigma_z_pitch + sigma_aoi*sigma_aoi;
+    }
+}

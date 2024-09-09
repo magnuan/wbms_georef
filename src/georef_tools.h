@@ -20,4 +20,6 @@ int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos
 int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], size_t  pos_ix, double ts, float t_dur, float fs, size_t N, /*output*/ float* roll_vector, float* z_vector);
 void set_time_diff_limit(float t);
 void set_use_sonar_sv_for_initial_ray_parameter(uint8_t val);
+void calc_aoi(const float * range, const float * angle, size_t len, /*output*/ float * aoi);
+void variance_model(const float * range, const float * angle, const float * aoi, size_t len, float droll_dt, float dpitch_dt,/*output*/ float * z_var);
 #endif

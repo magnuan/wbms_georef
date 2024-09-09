@@ -685,21 +685,20 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 // Add correction for roll during tx2rx period for each beam individually
                 ssize_t roll_index=(ssize_t) round(sensor_t*ROLL_VECTOR_RATE);
                 
-		#if 0
-		if (roll_index<0){
-                    fprintf(stderr,"Warning, roll_index under value (=%d)\n",(int)roll_index);
-                    roll_index = 0;
-                }
-                if (roll_index>=ROLL_VECTOR_LEN){
-                    fprintf(stderr,"Warning, roll_index over value (=%d)\n",(int)roll_index);
-                    roll_index = ROLL_VECTOR_LEN-1;
-                }
-		#endif
+                #if 0
+                if (roll_index<0){
+                            fprintf(stderr,"Warning, roll_index under value (=%d)\n",(int)roll_index);
+                            roll_index = 0;
+                        }
+                        if (roll_index>=ROLL_VECTOR_LEN){
+                            fprintf(stderr,"Warning, roll_index over value (=%d)\n",(int)roll_index);
+                            roll_index = ROLL_VECTOR_LEN-1;
+                        }
+                #endif
                              
                 float sensor_az_tx2rx_corr = -roll_vector[roll_index]; //Roll is given in opposite angles than sonar azimuth
                 float sensor_z_tx2rx_corr = z_vector[roll_index/2]; // Z correction is for half tx to rx time
                 
-              
                 quality[ix_out] = (float) sensor_quality_flags;
                 quality_flags[ix_out] = sensor_quality_flags;
                 classification_val[ix_out] = (sensor_quality_flags==3);  //Just calssify as Seafloor (=1) if Q=3 and Noise(=0) otherwise
@@ -721,58 +720,8 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 ys[ix_out] = sensor_r * sin_az; //Sign flipped compared to standard right hand system
                 zs[ix_out] = (sensor_r * sqrtf(1.f - (sin_az*sin_az) - (sin_el*sin_el))) + sensor_z_tx2rx_corr;
             
-                //Compensate intensity for range and AOI
-                //TODO fix AOI calculation for S7K 7027 record, need to set up a sorting function
-                #if 0
-                if (sensor_params->calc_aoi){
-                    aoi[ix_out] = -M_PI/2 - atan2f((sensor_az-prev_sensor_az)*sensor_r, (sensor_r-prev_sensor_r) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
-                    aoi[ix_out] = LIMIT(aoi[ix_out],-80*M_PI/180, 80*M_PI/180);
-                }
-                else{
-                    aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
-                }
-                #else
-                    aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
-                #endif
-                
-	            if (sensor_params->s7k_backscatter_source == s7k_backscatter_bathy){
-                    // First we remove s7k added Gain/TVG TODO, why is attenuation and spreading but not gain applied
-                    if (sensor_params->remove_s7k_tvg){
-                        float r = sensor_r;
-                        #if 1
-                        float gain_scaling_dB = -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
-                        float gain_scaling = powf(10.f,gain_scaling_dB/20);
-                        #else
-                        float gain_scaling = powf(10, -mbes_gain/20) *  powf(10, -(2*r/1000)*(mbes_absorbtion/20))  *  powf(r,-mbes_spread_loss/20);
-                        #endif
-                        inten *= gain_scaling;
-                    }
-                    //Then we apply our own TVG
-                    float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
-                    inten *= calc_intensity_scaling(sensor_r, aoi[ix_out], sensor_az, eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_out]));
-            
-                    intensity[ix_out] = inten;
-                }
-                else{// If we are not using backscatter from bathy data, just set it to NaN to mark that it is missing
-                    intensity[ix_out] = 0./0.;
-                    outbuf->footprint[ix_out] = 0./0.;
-                }
-      
-                //TODO insert uncertainty model here
-                float beam_width = (0.1*M_PI/180.) / cosf(0.85*sensor_az);
-                float sigma_teta =  M_SQRT2 * beam_width;
-                const float sigma_range = M_SQRT2 * 1450./80e3;
-                const float sigma_t = M_SQRT2 * 0.005;
-                float sigma_z_teta  = sigma_teta*sensor_r*sinf(sensor_az);
-                float sigma_z_range = sigma_range*cosf(sensor_az);
-                float sigma_z_roll = nav_droll_dt * sigma_t *sensor_r*cosf(sensor_az);
-                float sigma_z_pitch = nav_dpitch_dt * sigma_t *sensor_r*cosf(sensor_az);
-                z_var[ix_out] =  sigma_z_teta*sigma_z_teta + sigma_z_range*sigma_z_range + sigma_z_roll*sigma_z_roll + sigma_z_pitch*sigma_z_pitch;
-
+                intensity[ix_out] = inten;
                 ix_out++;
-
-                //prev_sensor_r = sensor_r;
-                //prev_sensor_az = sensor_az;
             }
             /*else{
                 fprintf(stderr,"Filter out data from s7k qf=%d, pf=%d az=%.2f r=%.3f\n",sensor_quality_flags,priority_flags,sensor_az*180/M_PI, sensor_r);
@@ -801,7 +750,6 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
             x[ix_out] = x[ix_in];
             y[ix_out] = y[ix_in];
             z[ix_out] = z[ix_in];
-            z_var[ix_out] = z_var[ix_in];
             intensity[ix_out] = intensity[ix_in];
             beam_angle[ix_out] = beam_angle[ix_in];
             swath_y[ix_out] = swath_y[ix_in];
@@ -817,8 +765,42 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
 
             ix_out++;
         }
-        
         Nout = ix_out;
+    
+        //Calculate AOI on  Post-filtered data
+        if (sensor_params->calc_aoi){
+            calc_aoi(beam_range, beam_angle, Nout, /*output*/ aoi);
+        }
+        else{
+            for (ix_out=0;ix_out<Nout;ix_out++){
+                aoi[ix_out] = beam_angle[ix_out];
+            }
+        }
+
+        if (sensor_params->s7k_backscatter_source == s7k_backscatter_bathy){
+            // First we remove s7k added Gain/TVG 
+            if (sensor_params->remove_s7k_tvg){
+                for (size_t ix=0;ix<Nout;ix++){
+                    float r = beam_range[ix];
+                    float gain_scaling_dB = -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
+                    float gain_scaling = powf(10.f,gain_scaling_dB/20);
+                    intensity[ix] *= gain_scaling;
+                }
+            }
+            //Then we apply our own TVG
+            float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
+            for (size_t ix=0;ix<Nout;ix++){
+                intensity[ix] *= calc_intensity_scaling(beam_range[ix], aoi[ix_out], beam_angle[ix], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_out]));
+            }
+        }
+        else{// If we are not using backscatter from bathy data, just set it to NaN to mark that it is missing
+            for (size_t ix=0;ix<Nout;ix++){
+                intensity[ix] = 0./0.;
+                outbuf->footprint[ix] = 0./0.;
+            }
+        }
+        variance_model(beam_range, beam_angle,aoi,Nout,nav_droll_dt,nav_dpitch_dt,/*output*/ z_var);
+      
         free(xs); free(ys); free(zs);
         
         outbuf->N = Nout;
@@ -957,18 +939,13 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 // First we remove s7k added Gain/TVG
                 if (sensor_params->remove_s7k_tvg){
                     float r = outbuf->range[ix_bath];
-                    #if 1
                     float gain_scaling_dB = -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
                     float gain_scaling = powf(10.f,gain_scaling_dB/20);
-                    #else
-                    float gain_scaling = powf(10, -mbes_gain/20) * powf(10, -(2*r/1000)*(mbes_absorbtion/20))  *  powf(r,-mbes_spread_loss/20);
-                    #endif
                     inten *= gain_scaling;
                 }
                 //Then we apply our own TVG
                 float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
                 inten *= calc_intensity_scaling(outbuf->range[ix_bath], outbuf->aoi[ix_bath],outbuf->teta[ix_bath], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_bath]));
-               
 
                 outbuf->i[ix_bath] = inten;
                 outbuf->snp_len[ix_bath] = len; 
