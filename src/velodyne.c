@@ -204,5 +204,6 @@ uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
 
 	georef_to_global_frame(sensor_offset, xs, ys, zs, Nout,0, nav_x, nav_y, nav_z, nav_yaw, nav_pitch,  nav_roll, ray_trace_none,  sensor_params->mounting_depth,/*OUTPUT*/ x,y,z);
 	//fprintf(stderr,"Georef lidar data\n");	
+    outbuf->N = Nout;
 	return Nout;
 }

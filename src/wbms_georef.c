@@ -382,18 +382,26 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"#raytrace_use_table_sv\n\n");
 
 
-	fprintf(fp,"#### INTENSITY CORRECTION PARAMETERS ####\n");
+	fprintf(fp,"#### BACKSCATTER PARAMETERS ####\n");
 	fprintf(fp,"#  Set to 0 to disable range and AOI compensation of intensity\n");
 	fprintf(fp,"#  AOI compensation is either by model or from angle/intensity CSV file if given with -y option\n");
 	fprintf(fp,"# Uncomment to compensate intensity for range\n");
 	fprintf(fp,"#intensity_range_comp\n");
 	fprintf(fp,"# Damping / attenuation in dB/km one-way when applying intensity range comp\n");
 	fprintf(fp,"#intensity_range_attenuation  100\n\n");
-	fprintf(fp,"# Uncomment to compensate intensity for AOI\n");
+	fprintf(fp,"# By default applied S7K Gain and TVG (in 7000 record) is removed, set this to 0 to keep s7k applied gain/TVG\n");
+	fprintf(fp,"# remove_s7k_tvg 1\n");
+	fprintf(fp,"# Uncomment to compensate intensity for AOI (ARA curve)\n");
 	fprintf(fp,"# AOI compensation is either by model or from angle/intensity CSV file if given with -y option\n");
 	fprintf(fp,"#intensity_aoi_comp\n");
 	fprintf(fp,"# Uncomment to calculate aoi from data, otherwise assume flat seafloor\n");
 	fprintf(fp,"#calc_aoi \n\n");
+	fprintf(fp,"# Beamwidth parameters used for footprint calculation\n");
+	fprintf(fp,"# rx_nadir_beamwidth 0.5 \n\n");
+	fprintf(fp,"# tx_nadir_beamwidth 1.0 \n\n");
+	fprintf(fp,"# Backscatter source for s7k records. 0: Bathy record,  1: Snippets (7028)  2: Normalized snippets (7058)\n");
+	fprintf(fp,"# s7k_backscatter_source 0\n");
+
 
 	
 	fprintf(fp,"#### ALTERNATIVE OUTPUT ####\n");
@@ -443,6 +451,7 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# Scale tx steering angle (tx angle) from sonar data (default 1.0)\n");
 	fprintf(fp,"# scale_tx_angle 1.0\n");
 
+			
     fprintf(fp,"# Beam angle correction polynom. Model for beam angle correction as a Taylor series, comma separated in radians [rad, rad/rad, rad/rad^2, etc...] maximum %d parameters\n" , MAX_BEAM_ANGLE_MODEL_ORDER);        
     fprintf(fp,"# Ex. beam_correction_poly 7.58391e-04, 2.25886e-03, -9.76763e-04, -1.99206e-03     for a 4th ordel model with the given parameters\n");
     fprintf(fp,"# beam_correction_poly \n");
@@ -502,6 +511,8 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  detection quality:         quality\n");
     fprintf(fp,"#  detection priority:         priority\n");
     fprintf(fp,"#  detection strength:        strength\n");
+    fprintf(fp,"#  snippet length:            snp_len\n");
+    fprintf(fp,"#  footprint size (m2):       footprint\n");
     fprintf(fp,"#  vessel coordinates:        LAT,LON\n");
     fprintf(fp,"#  vessel coordinates:        X,Y,Z\n");
     fprintf(fp,"#  vessel altitude (=Z):      ALTITUDE\n");
@@ -553,6 +564,8 @@ static void sensor_params_default(sensor_params_t* s){
     s->intensity_range_comp = 0;
     s->intensity_range_attenuation = 100;
     s->intensity_aoi_comp = 0;
+    s->rx_nadir_beamwidth= 0.5*(M_PI/180);
+    s->tx_nadir_beamwidth = 1.0*(M_PI/180);
     s->calc_aoi = 0;
     s->sonar_sample_mode = detection;
     s->ray_tracing_mode = ray_trace_fixed_depth_lut;
@@ -571,6 +584,8 @@ static void sensor_params_default(sensor_params_t* s){
     s->sbp_bp_filter_stop_freq = 0;
     s->scale_tx_angle = 1.0;
     s->beam_corr_poly_order=0;
+    s->s7k_backscatter_source = s7k_backscatter_bathy;
+    s->remove_s7k_tvg = 1;
 }
 
 
@@ -673,6 +688,8 @@ int read_config_from_file(char* fname){
                     fprintf(stderr,"%f\n",  sensor_params.beam_corr_poly[p]);
                 }
             }
+			if (strncmp(c,"s7k_backscatter_source",22)==0) sensor_params.s7k_backscatter_source = (atoi(c+22));	
+			if (strncmp(c,"remove_s7k_tvg",14)==0) sensor_params.remove_s7k_tvg = (atoi(c+14));	
 
             if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
             if (strncmp(c,"raytrace_use_table_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(0);
@@ -719,6 +736,9 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"intensity_range_comp",20)==0) sensor_params.intensity_range_comp = 1;	
             if (strncmp(c,"intensity_range_attenuation",27)==0) sensor_params.intensity_range_attenuation = ((float)atof(c+27));
             if (strncmp(c,"intensity_aoi_comp",18)==0) sensor_params.intensity_aoi_comp = 1;	
+			if (strncmp(c,"rx_nadir_beamwidth",18)==0) sensor_params.rx_nadir_beamwidth = ((float)atof(c+18))* (float)M_PI/180;
+			if (strncmp(c,"tx_nadir_beamwidth",18)==0) sensor_params.tx_nadir_beamwidth = ((float)atof(c+18))* (float)M_PI/180;
+
             if (strncmp(c,"calc_aoi",8)==0) sensor_params.calc_aoi = 1;	
             if (strncmp(c,"force_bath_version",18)==0) force_bath_version = (atoi(c+18));	
             if (strncmp(c,"sensor_beam_decimate",20)==0) sensor_params.beam_decimate = (atoi(c+20));	
@@ -1002,7 +1022,7 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
 		case sensor_mode_s7k:	
             id = r7k_identify_sensor_packet(databuffer, len, ts_out);
 	        //So far we only process s7k record 7027 and 10018 for sensor  bathy data and 7610 for SV data
-            return ((id==7027) || (id==7610) || (id==7000) ||(id==10000)||(id==10018))?id:0;
+            return ((id==7027) ||(id==7028) ||(id==7058)|| (id==7610) || (id==7000) ||(id==10000)||(id==10018))?id:0;
 		case  sensor_mode_sim:
 			return sim_identify_packet(databuffer, len, ts_out, ts_in);
 		case sensor_mode_autodetect: //TODO fix this
@@ -2004,7 +2024,7 @@ int main(int argc,char *argv[])
                                     datapoints = velodyne_georef_data( (uint16_t *) sensor_data_buffer, navdata, navdata_ix, &sensor_params,         outbuf);
                                     break;
                                 case sensor_mode_s7k:
-                                    datapoints = s7k_georef_data( sensor_data_buffer, navdata, navdata_ix, &sensor_params,                          outbuf);
+                                    datapoints = s7k_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
                                     break;
                                 default:
                                     datapoints = 0;
@@ -2013,7 +2033,7 @@ int main(int argc,char *argv[])
 					        if(datapoints) sensor_data_packet_counter++;
                             //fprintf(stderr,"(sensor_data_packet_counter=%d, sensor_params.data_skip=%d  sensor_params.data_length=%d\n",sensor_data_packet_counter,sensor_params.data_skip,sensor_params.data_length);
                             if (sensor_data_packet_counter<sensor_params.data_skip){}
-                            else if (sensor_data_packet_counter == sensor_params.data_skip){
+                            else if (sensor_data_packet_counter && (sensor_data_packet_counter == sensor_params.data_skip)){
                                 time_t int_ts = (time_t) ts_sensor; 
                                 fprintf(stderr, "Skipping sensor packets up to packet %d  at time %s",sensor_data_packet_counter,ctime(&int_ts));
                             }

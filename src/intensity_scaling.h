@@ -13,5 +13,6 @@ typedef struct{
 extern intensity_angle_corr_t intenity_angle_corr_table[INTENSITY_ANGLE_MAX_VALUES];
 
 int read_intensity_angle_corr_from_file(char* fname, const float d_angle, const size_t count_out, /*output*/ intensity_angle_corr_t* corr_out);
+float calc_intensity_scaling(float range, float aoi, float beam_angle, float eff_plen, sensor_params_t* sensor_params, /*OUTPUT*/ float* footprint);
 
 #endif

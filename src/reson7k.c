@@ -16,6 +16,7 @@
 #include <math.h>
 #include "wbms_georef.h"
 #include "georef_tools.h"
+#include "intensity_scaling.h"
 #include "cmath.h"
 #if defined(_MSC_VER)
 #include "non_posix.h"
@@ -162,9 +163,9 @@ int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
     
 	r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
     
-	//So far we only process s7k record 7000, 7027,10000,10018  and 7610  
+	//So far we only process s7k record 7000, 7027,7028,10000,10018  and 7610  
     // we dont care about time stamps in any other records as they could come out ot order (like 7030)
-    if ((drf->record_id == 7000) || (drf->record_id == 7027) || (drf->record_id == 7610)|| (drf->record_id == 10000)|| (drf->record_id == 10018)){
+    if ((drf->record_id == 7000) || (drf->record_id == 7027) || (drf->record_id == 7028)|| (drf->record_id == 7058)|| (drf->record_id == 7610)|| (drf->record_id == 10000)|| (drf->record_id == 10018)){
         double ts = r7k_r7ktime_to_ts(&(drf->time));
         // If record data is from sensor (sonar) add sensor time offset
         if ( drf->record_id >= 7000  && drf->record_id < 11000){
@@ -298,7 +299,10 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 }
 
 
-uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,  /*OUTPUT*/ output_data_t* outbuf){
+uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,  /*OUTPUT*/ output_data_t* outbuf){
+
+    static char* backlog_databuffer = NULL;
+    static uint32_t backlog_databuffer_len = 0;
     double* x = &(outbuf->x[0]);
     double* y = &(outbuf->y[0]);
     double* z = &(outbuf->z[0]);
@@ -309,7 +313,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     float* beam_steer = &(outbuf->steer[0]);
     int * beam_number = &(outbuf->beam[0]);
     float* swath_y = &(outbuf->swath_y[0]);
-    //float* aoi = &(outbuf->aoi[0]);
+    float* aoi = &(outbuf->aoi[0]);
     float* upper_gate_range = &(outbuf->up_gate[0]);
     float* lower_gate_range = &(outbuf->low_gate[0]);
     float* quality = &(outbuf->quality[0]);
@@ -333,7 +337,11 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     static float sv;
     static float mbes_tx_freq;
     static float mbes_tx_bw;
+    static float mbes_tx_plen;
     static float mbes_ping_rate;
+    static float mbes_gain;
+    static float mbes_absorbtion;
+    static float mbes_spread_loss;
     
     static float sbes_tx_freq;
     static float sbes_tx_bw;
@@ -347,7 +355,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
 	rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (databuffer+4+(drf->offset));
     
 
-	//So far we only process s7k record 7000, 7027,10000,10018  and 7610
+	//So far we only process s7k record 7000, 7027,7028,7058,10000,10018  and 7610
     //fprintf(stderr,"S7K record  id:%d dev:%d  Y=%d doy=%d  %02d:%02d:%09.6f   ts = %f\n",drf->record_id,drf->dev_id,drf->time.year,drf->time.day,drf->time.hour,drf->time.min,drf->time.sec,ts);
     if (drf->record_id == 7610){
        sv = rth.r7610->sv ;
@@ -368,8 +376,16 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
     if (drf->record_id == 7000){
        mbes_tx_freq = rth.r7000->tx_freq ;
        mbes_tx_bw = rth.r7000->bw ;
+       mbes_tx_plen = rth.r7000->tx_len;
        mbes_ping_rate = 1./(rth.r7000->ping_period);
-       //fprintf(stderr, "Read in tx freq from S7K 7000  tx_freq=%f\n", tx_freq);
+
+       mbes_gain = rth.r7000->gain;
+       mbes_absorbtion = rth.r7000->absorbtion;
+       mbes_spread_loss = rth.r7000->spread_loss;
+       
+       fprintf(stderr, "Read in S7K 7000  tx_freq=%f  gain=%fdB abs=%fdB/km spread=%fdB/log10(r)\n", mbes_tx_freq,mbes_gain,mbes_absorbtion,mbes_spread_loss);
+       
+       // Find out exactly how the r7000-gain is used on bathy intensity data.
        return 0;
     }
 
@@ -409,7 +425,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
 	    float nav_yaw,  nav_pitch,  nav_roll;       /*Rotations of posmv coordinates*/
         float nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt;
         if (calc_interpolated_nav_data( posdata, pos_ix, ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){
-            if(verbose) fprintf(stderr, "Could not find navigation data for s7k 7027 record at time %f\n",ts);
+            if(verbose) fprintf(stderr, "Could not find navigation data for s7k 10018 record at time %f\n",ts);
             return 0;
         }
         if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
@@ -544,6 +560,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
             ix_out++;
         }
         Nout = ix_out;
+        outbuf->N = Nout;
         free(xs);free(ys);free(zs);free(sig);free(temp_sig);
         
         return Nout;
@@ -600,11 +617,6 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         max_time *= div_Fs;
 
         calc_interpolated_roll_and_z_vector(posdata, pos_ix, ts, max_time, ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
-        
-        //TODO fix AOI calculation for S7K 7027 record, need to set up a sorting function
-        /*if(calc_aoi){
-            qsort(bath->dp, Nin, sizeof(detectionpoint_t), cmp_wbms_dp_on_angle_func);
-        }*/
         
 
         //Skip whole dataset condition
@@ -711,35 +723,40 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
             
                 //Compensate intensity for range and AOI
                 //TODO fix AOI calculation for S7K 7027 record, need to set up a sorting function
-                /*if (calc_aoi){
+                #if 0
+                if (sensor_params->calc_aoi){
                     aoi[ix_out] = -M_PI/2 - atan2f((sensor_az-prev_sensor_az)*sensor_r, (sensor_r-prev_sensor_r) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
                     aoi[ix_out] = LIMIT(aoi[ix_out],-80*M_PI/180, 80*M_PI/180);
                 }
                 else{
                     aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
                 }
-                }*/
-
-                if (sensor_params->intensity_range_comp){
-                    inten *= sensor_r;     //Only comp one-way spreading loss     
-                    float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
-                    inten *= powf(10.f,damping_dB/20); 
+                #else
+                    aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
+                #endif
+                
+	            if (sensor_params->s7k_backscatter_source == s7k_backscatter_bathy){
+                    // First we remove s7k added Gain/TVG TODO, why is attenuation and spreading but not gain applied
+                    if (sensor_params->remove_s7k_tvg){
+                        float r = sensor_r;
+                        #if 1
+                        float gain_scaling_dB = -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
+                        float gain_scaling = powf(10.f,gain_scaling_dB/20);
+                        #else
+                        float gain_scaling = powf(10, -mbes_gain/20) *  powf(10, -(2*r/1000)*(mbes_absorbtion/20))  *  powf(r,-mbes_spread_loss/20);
+                        #endif
+                        inten *= gain_scaling;
+                    }
+                    //Then we apply our own TVG
+                    float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
+                    inten *= calc_intensity_scaling(sensor_r, aoi[ix_out], sensor_az, eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_out]));
+            
+                    intensity[ix_out] = inten;
                 }
-                /*
-                if (sensor_params->intensity_aoi_comp){
-                    if(sensor_params->use_intensity_angle_corr_table){
-                        int ix = ABS(aoi[ix_out])/INTENSITY_ANGLE_STEP;
-                        ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
-                        inten *= intenity_angle_corr_table[ix].intensity_scale;
-                    }
-                    else{
-                        //model = 6*np.exp(-(teta**2)/(0.15**2)) - 6/(cos_teta+0.1)
-                        float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
-                        inten *= powf(10.f, -reflectivity_model_dB/20);
-
-                    }
-                }*/
-                intensity[ix_out] = inten;
+                else{// If we are not using backscatter from bathy data, just set it to NaN to mark that it is missing
+                    intensity[ix_out] = 0./0.;
+                    outbuf->footprint[ix_out] = 0./0.;
+                }
       
                 //TODO insert uncertainty model here
                 float beam_width = (0.1*M_PI/180.) / cosf(0.85*sensor_az);
@@ -776,6 +793,7 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         Nin = Nout;
         *tx_freq_out = mbes_tx_freq;
         *tx_bw_out = mbes_tx_bw;
+        *tx_plen_out = mbes_tx_plen;
         *ping_rate_out = mbes_ping_rate;   
         ix_out = 0;
         for (uint32_t ix_in=0;ix_in<Nin;ix_in++){
@@ -801,10 +819,263 @@ uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN
         }
         
         Nout = ix_out;
-       
         free(xs); free(ys); free(zs);
-        return Nout;
+        
+        outbuf->N = Nout;
+        //If we are outputting backscatter from bathy data direclty, just return the data here
+        if(sensor_params->s7k_backscatter_source == s7k_backscatter_bathy){
+            return Nout;
+        }
+        /*Otherwise we need to process a snippet record to obtain backscatter
+        * WARNING, a bit dodgy code. Here we assume
+        *  1) that the bathy record for a given ping comes together (right before or after) the snippet data
+        *  2) that the ouput buffer (outbuf) remains unchanged between the call to this function that processes bathy and coresponding snippet data. 
+        */
+        else{ 
+            //The backscatter data might have arrived before the bathy data, if we have such a set in hte backlog, we try to process it now
+            if (backlog_databuffer){
+                char * tmp_databuffer = backlog_databuffer;
+                uint32_t tmp_len = backlog_databuffer_len;
+                backlog_databuffer = NULL;
+                backlog_databuffer_len = 0;
+                uint32_t ret = s7k_georef_data( tmp_databuffer,tmp_len, posdata,pos_ix, sensor_params,  /*OUTPUT*/ outbuf);
+                free(tmp_databuffer);
+                return ret;
+            }
+            else{
+                return 0;
+            }
+        }
+
     }
+    // --- Process S7K 7028 record for bathy intensity----
+	else if ((drf->record_id == 7028) && (sensor_params->s7k_backscatter_source == s7k_backscatter_snippets)){
+        // 1 Check that pingnumber for 7027-record matches outbuf->ping_number
+        if ( rth.r7028->ping_nr != outbuf->ping_number ){
+            //fprintf(stderr, "7028 record ping number do not match last 7027 ping number  (%d  vs %d)\n",rth.r7028->ping_nr,outbuf->ping_number);
+            //Put 7028 record in backlog, to be rechecked on next 7027 processing
+            if (backlog_databuffer){
+                free(backlog_databuffer); //Make sure we dont have allocate more than one backlog databuffer
+            }
+            backlog_databuffer = malloc(databuffer_len);
+            memcpy(backlog_databuffer,databuffer,databuffer_len);
+            backlog_databuffer_len = databuffer_len;
+            return 0;
+        }
+        //fprintf(stderr,"Snippet data 7028 found for ping %d, procesing intensity data from this\n",outbuf->ping_number); 
+        //Create pointer to record data
+        uint8_t* rd_ptr = (((uint8_t*) rth.r7028) + sizeof(r7k_RecordTypeHeader_7028_t));
+        r7k_SnippetDescriptor_7028_t* rd = (r7k_SnippetDescriptor_7028_t*)(rd_ptr);
+        
+        int Nbath = outbuf->N;      //Number of soundings from bathy data
+        int Nsnp = rth.r7028->N;    //Number of snippets in 7028 record
+        uint8_t sample_size;        //Size in bytes of each snippet sample
+        if ((rth.r7028->flags) & 0x001){
+            sample_size = 4;  //32-bit snipptes
+        }
+        else{
+            sample_size = 2;  //16-bit snippets
+        }
+        
+        //Create pointer to beginning of first snippet sample data set
+        uint8_t * snp_data_ptr = rd_ptr + sizeof(r7k_SnippetDescriptor_7028_t)*Nsnp;
+        
+        
+        // This is the 10**(mbes_absorbtion*2*r/(20*1000))
+        // This is the spreading loss that has been applied  powf(r,mbes_spread_loss/10)
+        // Data in s7k records are assumed to have had gain, absorbtion, and spreadloss applied to them
+        // So the data we receive is (in dB) :   20*np.log10(s) + mbes_gain                 +   2*r*mbes_absorbtion/1000          +   mbes_spread_loss*log10(r)
+        // In linear units this becomes      :         s        * powf(10, mbes_gain/20)    *   powf(10, mbes_absorbtion*r/10000) *   powf(r,mbes_spread_loss/20)   
+        // So to remove Gain and TVG, we must multiply by  : powf(10, -mbes_gain/20)  *  powf(10, -(2*r/1000)*(mbes_absorbtion/20))  *  powf(r,-mbes_spread_loss/20)    
+
+
+        for (uint32_t ix_snp=0;ix_snp<Nsnp;ix_snp++){
+            r7k_SnippetDescriptor_7028_t * sd = rd + ix_snp; 
+            uint16_t beam = sd->beam_descriptor;
+            uint32_t len = 1+ sd->snippet_end - sd->snippet_start;
+            
+            //fprintf(stderr,"snippet beam_descriptor=%4d \t start=%6d, detection=%6d, end=%6d\n",beam, sd->snippet_start,sd->detection_sample,sd->snippet_end);
+            //Try to find sounding belonging to snippet 
+            uint8_t match=0;
+            uint32_t ix_bath;
+            for (ix_bath=0;ix_bath<Nbath;ix_bath++){
+                //fprintf(stderr,"snippet beam_descriptor=%4d \t bathy beam=%d\n",beam, outbuf->beam[ix_bath]);
+                if (beam == outbuf->beam[ix_bath]){ 
+                    match=1;
+                    break;
+                }
+            }
+            if (match){
+                /**** Here we process the snippet into sounding data intensity ****/
+
+                float inten;
+                #if 0
+                //Take intensity from detection sample
+                int32_t detection_offset = sd->detection_sample - sd->snippet_start;
+                if(sample_size==4){
+                    inten = *( ((uint32_t*)snp_data_ptr) + detection_offset);
+                }
+                else{
+                    inten = *( ((uint16_t*)snp_data_ptr) + detection_offset);
+                }
+                #endif 
+                #if 0
+                //Take intensity from snippet average
+                inten = 0;
+
+                if(sample_size==4){
+                    for (size_t ix = 0; ix<len;ix++){
+                        inten += *( ((uint32_t*)snp_data_ptr) + ix);
+                    }
+                }
+                else{
+                    for (size_t ix = 0; ix<len;ix++){
+                        inten += *( ((uint16_t*)snp_data_ptr) + ix);
+                    }
+                }
+                inten /= len;
+                #endif
+                #if 1
+                //Mean snippet power  (root-mean-square)
+                float acum_pow = 0;
+
+                if(sample_size==4){
+                    for (size_t ix = 0; ix<len;ix++){
+                        inten = *( ((uint32_t*)snp_data_ptr) + ix);
+                        acum_pow += powf((float)inten,2);
+                    }
+                }
+                else{
+                    for (size_t ix = 0; ix<len;ix++){
+                        inten = *( ((uint16_t*)snp_data_ptr) + ix);
+                        acum_pow += powf((float)inten,2);
+                    }
+                }
+                inten = sqrtf(acum_pow/len);
+                #endif
+                
+                // First we remove s7k added Gain/TVG
+                if (sensor_params->remove_s7k_tvg){
+                    float r = outbuf->range[ix_bath];
+                    #if 1
+                    float gain_scaling_dB = -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
+                    float gain_scaling = powf(10.f,gain_scaling_dB/20);
+                    #else
+                    float gain_scaling = powf(10, -mbes_gain/20) * powf(10, -(2*r/1000)*(mbes_absorbtion/20))  *  powf(r,-mbes_spread_loss/20);
+                    #endif
+                    inten *= gain_scaling;
+                }
+                //Then we apply our own TVG
+                float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
+                inten *= calc_intensity_scaling(outbuf->range[ix_bath], outbuf->aoi[ix_bath],outbuf->teta[ix_bath], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_bath]));
+               
+
+                outbuf->i[ix_bath] = inten;
+                outbuf->snp_len[ix_bath] = len; 
+            }
+            else{
+                outbuf->snp_len[ix_bath] = 0; 
+            }
+            //Go to next snippet
+            snp_data_ptr = snp_data_ptr + sample_size*len;
+        }
+        return Nbath;
+    }
+    
+
+    // --- Process S7K 7058 record for bathy intensity----
+	else if ((drf->record_id == 7058) && (sensor_params->s7k_backscatter_source == s7k_backscatter_norm_snippets)){
+        // 1 Check that pingnumber for 7027-record matches outbuf->ping_number
+        if ( rth.r7058->ping_nr != outbuf->ping_number ){
+            //fprintf(stderr, "7058 record ping number do not match last 7027 ping number  (%d  vs %d)\n",rth.r7058->ping_nr,outbuf->ping_number);
+            //Put 7058 record in backlog, to be rechecked on next 7027 processing
+            if (backlog_databuffer){
+                free(backlog_databuffer); //Make sure we dont have allocate more than one backlog databuffer
+            }
+            backlog_databuffer = malloc(databuffer_len);
+            memcpy(backlog_databuffer,databuffer,databuffer_len);
+            backlog_databuffer_len = databuffer_len;
+            return 0;
+        }
+        //fprintf(stderr,"Snippet data 7058 found for ping %d, procesing intensity data from this\n",outbuf->ping_number); 
+        //Create pointer to record data
+        uint8_t* rd_ptr = (((uint8_t*) rth.r7058) + sizeof(r7k_RecordTypeHeader_7058_t));
+        r7k_SnippetDescriptor_7058_t* rd = (r7k_SnippetDescriptor_7058_t*)(rd_ptr);
+        
+        int Nbath = outbuf->N;      //Number of soundings from bathy data
+        int Nsnp = rth.r7058->N;    //Number of snippets in 7058 record
+        uint32_t  control_flag = rth.r7058->control_flag;
+        uint8_t footprint_included = (control_flag & (1<<6)) != 0;
+       
+        uint32_t total_snippet_samples = 0;
+        // Calculate the sum of all snippet length
+        for (uint32_t ix_snp=0;ix_snp<Nsnp;ix_snp++){
+            r7k_SnippetDescriptor_7058_t * sd = rd + ix_snp; 
+            uint32_t len = 1+ sd->snippet_end - sd->snippet_start;
+            total_snippet_samples += len;
+        }
+
+        //Create pointer to beginning of first snippet backscatter data set
+        float * snp_bs_data_ptr         = (float*) (rd_ptr + sizeof(r7k_SnippetDescriptor_7058_t)*Nsnp);
+        float * snp_footprint_data_ptr   = snp_bs_data_ptr + total_snippet_samples;
+        
+
+        for (uint32_t ix_snp=0;ix_snp<Nsnp;ix_snp++){
+            r7k_SnippetDescriptor_7058_t * sd = rd + ix_snp; 
+            uint16_t beam = sd->beam_descriptor;
+            uint32_t len = 1+ sd->snippet_end - sd->snippet_start;
+            
+            //fprintf(stderr,"snippet beam_descriptor=%4d \t start=%6d, detection=%6d, end=%6d\n",beam, sd->snippet_start,sd->detection_sample,sd->snippet_end);
+            //Try to find sounding belonging to snippet 
+            uint8_t match=0;
+            uint32_t ix_bath;
+            for (ix_bath=0;ix_bath<Nbath;ix_bath++){
+                //fprintf(stderr,"snippet beam_descriptor=%4d \t bathy beam=%d\n",beam, outbuf->beam[ix_bath]);
+                if (beam == outbuf->beam[ix_bath]){ 
+                    match=1;
+                    break;
+                }
+            }
+            if (match){
+                /**** Here we process the snippet into sounding data intensity ****/
+
+                // Mean snippet power  (root-mean-square)
+                // Snippets are reported in bs = 10log10(bcs), where bcs is the scaled power
+                // To calculate a scaled rms intensity, similar as for 7028 and WBMS data, we calulate intensity as  sqrt mean bcs
+                float acum_bcs = 0;
+
+                for (size_t ix = 0; ix<len;ix++){
+                    float bs  = *( snp_bs_data_ptr + ix);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
+                    float bcs = powf(10,bs/10.f);           //Backscattering cross section
+                    acum_bcs += bcs;
+                }
+                outbuf->i[ix_bath] = sqrtf(acum_bcs/len);;
+                outbuf->snp_len[ix_bath] = len; 
+               
+                if (footprint_included){
+                    float acum_footprint = 0;
+                    for (size_t ix = 0; ix<len;ix++){
+                        float footprint  = *( snp_footprint_data_ptr + ix);   //Reported snippet footprint im m2
+                        acum_footprint += footprint;
+                    }
+                    outbuf->footprint[ix_bath] = acum_footprint/len;
+                }
+                else{
+                    outbuf->footprint[ix_bath] = 0./0.;
+                }
+            }
+            else{
+                outbuf->snp_len[ix_bath] = 0; 
+            }
+            //Go to next snippet
+            snp_bs_data_ptr = snp_bs_data_ptr + len;
+            snp_footprint_data_ptr = snp_footprint_data_ptr + len;
+        }
+        
+
+        return Nbath;
+    }
+
     return 0;
 
 }

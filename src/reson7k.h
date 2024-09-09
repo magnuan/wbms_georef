@@ -248,6 +248,65 @@ typedef struct{
 }r7k_Record_7027_t;
 
 
+// ****7028 Snippet data ****
+typedef struct{
+	uint64_t serial; //Sonar serial number
+	uint32_t ping_nr; //sequential number
+	uint16_t multi_ping; // = 0
+	uint16_t N; // = 256 Number of receiver beams
+    uint8_t  error_flag;
+    uint8_t  control_flag;
+    uint32_t flags; //0:16-bit snippets  1:32-bit snippets 
+	uint32_t res1[6]; 
+}r7k_RecordTypeHeader_7028_t;
+typedef struct{
+    uint16_t beam_descriptor; 
+    uint32_t snippet_start;
+    uint32_t detection_sample;
+    uint32_t snippet_end;
+}r7k_SnippetDescriptor_7028_t;
+
+
+typedef struct{
+	r7k_NetworkFrame_t NF;
+	r7k_DataRecordFrame_t DRF;
+	r7k_RecordTypeHeader_7028_t RTH;
+    r7k_SnippetDescriptor_7028_t snippet_descriptor[]; //Variable length record data, contains N snippet descriptors N*14 bytes
+    //uintXX_t data[x];                     //Variable data of either uint32 or uint16
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+}r7k_Record_7028_t;
+
+// ****7058 Snippet Backscattering strength ****
+typedef struct{
+	uint64_t serial; //Sonar serial number
+	uint32_t ping_nr; //sequential number
+	uint16_t multi_ping; // = 0
+	uint16_t N; // = 256 Number of receiver beams
+    uint8_t  error_flag;
+    uint32_t  control_flag;
+    float absorbtion; //Absorption value in dB/km. Only valid when control flag bit 8 is set.
+	uint32_t res1[6]; 
+}r7k_RecordTypeHeader_7058_t;
+typedef struct{
+    uint16_t beam_descriptor; 
+    uint32_t snippet_start;
+    uint32_t detection_sample;
+    uint32_t snippet_end;
+}r7k_SnippetDescriptor_7058_t;
+
+
+typedef struct{
+	r7k_NetworkFrame_t NF;
+	r7k_DataRecordFrame_t DRF;
+	r7k_RecordTypeHeader_7058_t RTH;
+    r7k_SnippetDescriptor_7058_t snippet_descriptor[]; //Variable length record data, contains N snippet descriptors N*14 bytes
+    //float bs_data[x];                                //Variable data with backscatter data 10log10(BCS), for each sample in the N snippets, length is End-Start+1 samples of 32-bit float 
+    //float footprint_data[x];                         //Variable data with footprint area in m^2, for each sample in the N snippets, length is End-Start+1 samples of 32-bit float 
+    //r7k_Checksum_t CS; // Checksum must be added separately to allow for variable length payload in struct/gc
+}r7k_Record_7058_t;
+
+
+
 // ****10000 SBES Channel settings ****
 typedef struct{
 	uint32_t ping_nr; //sequential number
@@ -476,6 +535,8 @@ union r7k_RecordTypeHeader{
 	r7k_RecordTypeHeader_7004_t* r7004;
 	r7k_RecordTypeHeader_7006_t* r7006;
 	r7k_RecordTypeHeader_7027_t* r7027;
+	r7k_RecordTypeHeader_7028_t* r7028;
+	r7k_RecordTypeHeader_7058_t* r7058;
 	r7k_RecordTypeHeader_7610_t* r7610;
 	r7k_RecordTypeHeader_10000_t* r10000;
 	r7k_RecordTypeHeader_10018_t* r10018;
@@ -500,6 +561,6 @@ int r7k_seek_next_header(int fd, /*out*/ uint8_t* pre_sync);
 int r7k_fetch_next_packet(char * data, int fd);
 int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out);
 int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata);
-uint32_t s7k_georef_data( char* databuffer, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, /*OUTPUT*/ output_data_t* outbuf);
+uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, /*OUTPUT*/ output_data_t* outbuf);
 
 #endif

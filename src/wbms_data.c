@@ -496,39 +496,40 @@ bath_data_packet_vX_t* bath_convert_to_universal(bath_data_packet_t* bath_in, ui
 
 
 uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
-     double* x = &(outbuf->x[0]);
-     double* y = &(outbuf->y[0]);
-     double* z = &(outbuf->z[0]);
-     float* z_var = &(outbuf->z_var[0]);
-     float* intensity = &(outbuf->i[0]);
-     float* beam_range = &(outbuf->range[0]);
-     float* beam_angle = &(outbuf->teta[0]);
-     float* beam_steer = &(outbuf->steer[0]);
-     int * beam_number = &(outbuf->beam[0]);
-     float* swath_y = &(outbuf->swath_y[0]);
-     float* aoi = &(outbuf->aoi[0]);
-     float* upper_gate_range = &(outbuf->up_gate[0]);
-     float* lower_gate_range = &(outbuf->low_gate[0]);
-     float* quality = &(outbuf->quality[0]);
-     int*   quality_flags = &(outbuf->quality_flags[0]);
-     float* priority = &(outbuf->priority[0]);
-     float* strength = &(outbuf->strength[0]);
-     float* tx_angle_out = &(outbuf->tx_angle);
-     float* fs_out = &(outbuf->sample_rate);
-     float* ping_rate_out = &(outbuf->ping_rate);
-     float* sv_out = &(outbuf->sv);
-     float* intensity_noise_ref_out = &(outbuf->intensity_noise_ref);   
-     float* strength_noise_ref_out = &(outbuf->strength_noise_ref);   
-     float* tx_freq_out = &(outbuf->tx_freq);
-     float* tx_bw_out = &(outbuf->tx_bw);
-     float* tx_plen_out = &(outbuf->tx_plen);
-     float* tx_voltage_out = &(outbuf->tx_voltage);
-     int* ping_number_out = &(outbuf->ping_number);
-     int* multiping_index_out = &(outbuf->multiping_index);
-     int* multifreq_index_out = &(outbuf->multifreq_index);
-     int* classification_val = &(outbuf->classification[0]);
+    double* x = &(outbuf->x[0]);
+    double* y = &(outbuf->y[0]);
+    double* z = &(outbuf->z[0]);
+    float* z_var = &(outbuf->z_var[0]);
+    float* intensity = &(outbuf->i[0]);
+    float* beam_range = &(outbuf->range[0]);
+    float* beam_angle = &(outbuf->teta[0]);
+    float* beam_steer = &(outbuf->steer[0]);
+    int * beam_number = &(outbuf->beam[0]);
+    float* swath_y = &(outbuf->swath_y[0]);
+    float* aoi = &(outbuf->aoi[0]);
+    float* upper_gate_range = &(outbuf->up_gate[0]);
+    float* lower_gate_range = &(outbuf->low_gate[0]);
+    float* quality = &(outbuf->quality[0]);
+    int*   quality_flags = &(outbuf->quality_flags[0]);
+    float* priority = &(outbuf->priority[0]);
+    float* strength = &(outbuf->strength[0]);
+    float* tx_angle_out = &(outbuf->tx_angle);
+    float* fs_out = &(outbuf->sample_rate);
+    float* ping_rate_out = &(outbuf->ping_rate);
+    float* sv_out = &(outbuf->sv);
+    float* intensity_noise_ref_out = &(outbuf->intensity_noise_ref);   
+    float* strength_noise_ref_out = &(outbuf->strength_noise_ref);   
+    float* tx_freq_out = &(outbuf->tx_freq);
+    float* tx_bw_out = &(outbuf->tx_bw);
+    float* tx_plen_out = &(outbuf->tx_plen);
+    float* tx_voltage_out = &(outbuf->tx_voltage);
+    int* ping_number_out = &(outbuf->ping_number);
+    int* multiping_index_out = &(outbuf->multiping_index);
+    int* multifreq_index_out = &(outbuf->multifreq_index);
+    int* classification_val = &(outbuf->classification[0]);
+    float* footprint_area = &(outbuf->footprint[0]);  
 
-	float sensor_strength;
+    float sensor_strength;
     #ifdef OUTPUT_QUALITY_VAL
 	float sensor_quality;
 	#endif
@@ -761,28 +762,10 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
             else{
                 aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
             }
+            
+            float eff_plen = MIN(tx_plen, 2./tx_bw);
+            inten *= calc_intensity_scaling(sensor_r, aoi[ix_out], sensor_az,eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
 
-            if (sensor_params->intensity_range_comp){
-                inten *= sensor_r;                  //Only comp one-way spreading loss     
-                float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
-                inten *= powf(10.f,damping_dB/20); 
-            }
-            if (sensor_params->intensity_aoi_comp){
-                if(sensor_params->use_intensity_angle_corr_table){
-                    int ix = ABS(aoi[ix_out])/INTENSITY_ANGLE_STEP;
-                    ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
-                    inten *= intenity_angle_corr_table[ix].intensity_scale;
-                }
-                else{
-                    //model_clay = 12*( np.exp(-(teta**2)/(0.15**2)) - 1/(np.cos(teta)+0.1))
-                    // float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
-                    //model_gravel = 10*( np.exp(-(teta**2)/(0.33**2)) - 0.2/(np.cos(teta)**2+0.1))
-                    float reflectivity_model_dB =  10*  (expf( - powf(aoi[ix_out],2) / powf(0.33,2) ) - (0.2f/ (powf(cosf(aoi[ix_out]),2)+0.1)));
-                    
-                    inten *= powf(10.f, -reflectivity_model_dB/20);
-
-                }
-            }
             intensity[ix_out] = inten;
 
 			#ifdef CONE_CONE_COORD
@@ -857,6 +840,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
         upper_gate_range[ix_out] = upper_gate_range[ix_in];
         lower_gate_range[ix_out] = lower_gate_range[ix_in];
         strength[ix_out] = strength[ix_in];
+        footprint_area[ix_out] = footprint_area[ix_in];
 
 		if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
         if (swath_y[ix_in]>sensor_params->swath_max_y || swath_y[ix_in]<sensor_params->swath_min_y) continue;
@@ -868,6 +852,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     //printf("Nout2 = %d\n",Nout);
 
     free(xs);free(ys);free(zs);
+    outbuf->N = Nout;
 	return Nout;
 }
 
@@ -881,6 +866,8 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     float* beam_range = &(outbuf->range[0]);
     float* beam_angle = &(outbuf->teta[0]);
     int * beam_number = &(outbuf->beam[0]);
+    int * snp_len = &(outbuf->snp_len[0]);  
+    float* footprint_area = &(outbuf->footprint[0]);  
     float* aoi = &(outbuf->aoi[0]);
     float* fs_out = &(outbuf->sample_rate);
     float* ping_rate_out = &(outbuf->ping_rate);
@@ -1017,7 +1004,6 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     int32_t snippet_intensity_offset = 0;                              //Snippet intensity  start index, increments as we progress through all snippets
     for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
         int32_t snippet_length = (int32_t) (roundf(snippet_stop_ix[ix_in] - snippet_start_ix[ix_in]))+1;
-
         if (ix_in%ix_in_stride==0 && snippet_length){
             float sample_number = snippet_detection_ix[ix_in];
             float sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
@@ -1041,13 +1027,32 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
             //Take intensity from detection sample
             int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in]));
             float inten = snippet_intensity[snippet_intensity_offset+detection_offset];       //Pick detection sample from snippet data
-            #else
+            #endif
+            #if 0 
             //Take intensity from snippet average
             float inten = 0;
             for (size_t ix = 0; ix<snippet_length;ix++){
                 inten += snippet_intensity[snippet_intensity_offset+ix];
             }
             inten /= snippet_length;
+            #endif
+            #if 1
+            //Mean snippet power  (root-mean-square)
+            float acum_pow = 0;
+            for (size_t ix = 0; ix<snippet_length;ix++){
+                float inten = snippet_intensity[snippet_intensity_offset+ix];
+                acum_pow += powf((float)inten,2);
+            }
+            float inten = sqrtf(acum_pow/snippet_length);
+            #endif
+            #if 0
+            //Max Snippet value
+            float max_val = 0;
+            for (size_t ix = 0; ix<snippet_length;ix++){
+                float inten = snippet_intensity[snippet_intensity_offset+ix];
+                max_val = MAX(max_val,inten);
+            }
+            float inten = max_val;
             #endif
 
             inten *= gain_scaling * vga_gain_scaling;
@@ -1076,7 +1081,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                 beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis
                 beam_range[ix_out] = sensor_r;
 
-                //Compensate intensity for range and AOI
+                //Estimate AOI
                 if (sensor_params->calc_aoi){
                     aoi[ix_out] = -M_PI/2 - atan2f((sensor_az-prev_sensor_az)*sensor_r, (sensor_r-prev_sensor_r) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
                     aoi[ix_out] = LIMIT(aoi[ix_out],-80*M_PI/180, 80*M_PI/180);
@@ -1085,28 +1090,10 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                     aoi[ix_out] = sensor_az;        //Just asume that AOI is equal to beam angle (flat seafloor assumption)
                 }
 
-                if (sensor_params->intensity_range_comp){
-                    inten *= sensor_r;                      //Comp one-way spreading loss, 20dB/log10(r)     
-                    //inten *= sensor_r*sensor_r;             //Comp one-way spreading loss, 40dB/log10(r)     
-                    float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
-                    inten *= powf(10.f,damping_dB/20); 
-                }
-                if (sensor_params->intensity_aoi_comp){
-                    if(sensor_params->use_intensity_angle_corr_table){
-                        int ix = ABS(aoi[ix_out])/INTENSITY_ANGLE_STEP;
-                        ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
-                        inten *= intenity_angle_corr_table[ix].intensity_scale;
-                    }
-                    else{
-                        //model_clay = 12*( np.exp(-(teta**2)/(0.15**2)) - 1/(np.cos(teta)+0.1))
-                        // float reflectivity_model_dB =  12*  (expf( - powf(aoi[ix_out],2) / powf(0.15,2) ) - (1.f/ (cosf(aoi[ix_out])+0.1)));
-                        //model_gravel = 10*( np.exp(-(teta**2)/(0.33**2)) - 0.2/(np.cos(teta)**2+0.1))
-                        float reflectivity_model_dB =  10*  (expf( - powf(aoi[ix_out],2) / powf(0.33,2) ) - (0.2f/ (powf(cosf(aoi[ix_out]),2)+0.1)));
-
-                        inten *= powf(10.f, -reflectivity_model_dB/20);
-
-                    }
-                }
+                //Compensate intensity for range, footprint and AOI
+                float eff_plen = MIN(tx_plen, 2./tx_bw);
+                inten *= calc_intensity_scaling(sensor_r, aoi[ix_out], sensor_az, eff_plen, sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
+                
                 intensity[ix_out] = inten;
 
                 /***** Converting sensor data from spherical to kartesian coordinates *********/
@@ -1117,6 +1104,8 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                 ys[ix_out] = sensor_r * sinf((sensor_az+sensor_az_tx2rx_corr))*cosf(sensor_el); //Sign flipped compared to standard right hand system
                 zs[ix_out] = sensor_r * cosf((sensor_az+sensor_az_tx2rx_corr))*cosf(sensor_el);
                 zs[ix_out] += sensor_z_tx2rx_corr;
+                
+                snp_len[ix_out] = snippet_length;
 
                 ix_out++;
 
@@ -1145,6 +1134,8 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         aoi[ix_out] = aoi[ix_in];
         beam_number[ix_out] = beam_number[ix_in];
         beam_range[ix_out] = beam_range[ix_in];
+        snp_len[ix_out] = snp_len[ix_in];
+        footprint_area[ix_out] = footprint_area[ix_in];
 
         if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
 
@@ -1155,6 +1146,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     //printf("Nout2 = %d\n",Nout);
 
     free(xs);free(ys);free(zs);
+    outbuf->N = Nout;
     return Nout;
 }
 
@@ -1364,5 +1356,6 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
 	Nout = ix_out;
 	
     free(xs);free(ys);free(zs);free(sig);free(temp_sig);
+    outbuf->N = Nout;
 	return Nout;
 }

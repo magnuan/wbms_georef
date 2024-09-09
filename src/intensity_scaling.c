@@ -123,3 +123,56 @@ int read_intensity_angle_corr_from_file(char* fname, const float d_angle_rad, co
 	if (line) free(line);
 	return (int)count_out;
 }
+
+
+
+/* Calculate the beam footprint in square meters*/
+float calc_beam_footprint(float range,float aoi, float beam_angle, float plen, sensor_params_t* sensor_params){
+    beam_angle = ABS(beam_angle);
+    beam_angle = MIN(beam_angle, 80*M_PI/180);
+    const float c = 1500; //We jsut assume 1500m/s SV here, it is not a very precise value anyways in this case
+    float Ax1 = c*plen/2 * 1./(sinf(ABS(aoi)+1e-2f));   // Pulse length limited 
+    float Ax2 = range * sensor_params->rx_nadir_beamwidth / (cosf(beam_angle));
+    #if 1
+    //Simple minimum of bandwidth and beamwidth limited footprint
+    float Ax = MIN(Ax1, Ax2);
+    #else
+    //Smoother blending of bandwidth / beamwidth limited footprint  
+    const float k = 3;      //Higher number gives less smooth transition >8 practically the same as MIN()-funtion
+    float Ax = powf(powf(Ax1,-k) + powf(Ax2,-k),-1/k); 
+    #endif
+    
+    float Ay = range * sensor_params->tx_nadir_beamwidth;
+    return Ax*Ay;
+}
+
+float calc_intensity_scaling(float range, float aoi, float beam_angle, float eff_plen, sensor_params_t* sensor_params, /*OUTPUT*/ float* footprint){
+    float gain = 1.0f;
+
+    if (sensor_params->intensity_range_comp){
+        // Compensate for spreading loss: 40dB/log10(r)
+        gain *= range*range;              //Comp two-way spreading loss, 40dB/log10(r)     
+        // Compensate for attenuation
+        float damping_dB = sensor_params->intensity_range_attenuation * (2*range/1000); 
+        gain *= powf(10.f,damping_dB/20);
+        //Compensate for range and angle dependent footprint
+        *footprint = calc_beam_footprint(range,aoi,beam_angle,eff_plen,sensor_params);
+        gain /= sqrtf(*footprint); //Retured power scales with the footprint area, so divide the signal amplitude by the sqrt of the area
+    }
+
+    if (sensor_params->intensity_aoi_comp){
+        if(sensor_params->use_intensity_angle_corr_table){
+            int ix = ABS(aoi)/INTENSITY_ANGLE_STEP;
+            ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
+            gain *= intenity_angle_corr_table[ix].intensity_scale;
+        }
+        else{
+            //model_clay = 12*( np.exp(-(teta**2)/(0.15**2)) - 1/(np.cos(teta)+0.1))
+            // float reflectivity_model_dB =  12*  (expf( - powf(aoi,2) / powf(0.15,2) ) - (1.f/ (cosf(aoi)+0.1)));
+            //model_gravel = 10*( np.exp(-(teta**2)/(0.33**2)) - 0.2/(np.cos(teta)**2+0.1))
+            float reflectivity_model_dB =  10*  (expf( - powf(aoi,2) / powf(0.33,2) ) - (0.2f/ (powf(cosf(aoi),2)+0.1)));
+            gain *= powf(10.f, -reflectivity_model_dB/20);
+        }
+    }
+    return gain;
+}
