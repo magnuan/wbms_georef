@@ -849,6 +849,8 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         uint8_t* rd_ptr = (((uint8_t*) rth.r7028) + sizeof(r7k_RecordTypeHeader_7028_t));
         r7k_SnippetDescriptor_7028_t* rd = (r7k_SnippetDescriptor_7028_t*)(rd_ptr);
         
+        float Fs = outbuf->sample_rate;
+        float div_Fs = 1./Fs;
         int Nbath = outbuf->N;      //Number of soundings from bathy data
         int Nsnp = rth.r7028->N;    //Number of snippets in 7028 record
         uint8_t sample_size;        //Size in bytes of each snippet sample
@@ -933,7 +935,12 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                         acum_pow += powf((float)inten,2);
                     }
                 }
+                #ifdef SUM_SNIPPET_POWER
+                inten = sqrtf(acum_pow);
+                #else
                 inten = sqrtf(acum_pow/len);
+                #endif
+
                 #endif
                 
                 // First we remove s7k added Gain/TVG
@@ -945,6 +952,9 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 }
                 //Then we apply our own TVG
                 float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
+                #ifdef SUM_SNIPPET_POWER
+                eff_plen += len*div_Fs;
+                #endif
                 inten *= calc_intensity_scaling(outbuf->range[ix_bath], outbuf->aoi[ix_bath],outbuf->teta[ix_bath], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_bath]));
 
                 outbuf->i[ix_bath] = inten;

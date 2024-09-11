@@ -988,7 +988,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     int32_t snippet_intensity_offset = 0;                              //Snippet intensity  start index, increments as we progress through all snippets
     for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
         int32_t snippet_length = (int32_t) (roundf(snippet_stop_ix[ix_in] - snippet_start_ix[ix_in]))+1;
-        if (ix_in%ix_in_stride==0 && snippet_length){
+        if (ix_in%ix_in_stride==0 && snippet_length>1){
             float sample_number = snippet_detection_ix[ix_in];
             float sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
             float sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
@@ -1038,7 +1038,13 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                     float inten = snippet_intensity[snippet_intensity_offset+ix];
                     acum_pow += powf((float)inten,2);
                 }
+
+                #ifdef SUM_SNIPPET_POWER
+                float inten = sqrtf(acum_pow);
+                #else
                 float inten = sqrtf(acum_pow/snippet_length);
+                #endif
+
                 #endif
                 #if 0
                 //Max Snippet value
@@ -1122,6 +1128,9 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
 	for (ix_out=0;ix_out<Nout;ix_out++){
         //Compensate intensity for range and AOI
         float eff_plen = MIN(tx_plen, 2./tx_bw);
+        #ifdef SUM_SNIPPET_POWER
+        eff_plen += snp_len[ix_out] * div_Fs;
+        #endif
         intensity[ix_out]  *= calc_intensity_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
 	}
 

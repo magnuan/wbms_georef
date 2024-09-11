@@ -8,6 +8,8 @@
 #define MAX_DP 16*1024					//Maximum number of detection points in one dataset
 #define MAX_LINELEN 128			//Maximum number of characters to represent one datapoint in output data CSV or BIN (11+1+11+1+8+1+3+1+8+1+8+2=56 +fudge = 128)
 
+#define SUM_SNIPPET_POWER
+
 #define STRINGIFY0(v) #v
 #define STRINGIFY(v) STRINGIFY0(v)
 
