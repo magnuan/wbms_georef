@@ -147,6 +147,11 @@ static char verbose = 0;
     #define FD_CLR(a,b)  
 #endif
 
+#ifdef COUNT_S7K_SNIPPET_SATURATION
+uint32_t s7k_snp_satcount=0;
+uint32_t s7k_snp_count=0;
+#endif
+
 static offset_t sensor_offset;
 static sensor_params_t sensor_params;
 
@@ -221,8 +226,8 @@ static const char *alt_mode_names[] = {
 	"Heave",
 };
 
-uint8_t force_sbet_epoch = 0;
-double sbet_epoch_week_ts = 0;
+uint8_t force_nav_epoch = 0;
+double nav_epoch_week_ts = 0;
 
 
 
@@ -394,13 +399,15 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# Uncomment to compensate intensity for AOI (ARA curve)\n");
 	fprintf(fp,"# AOI compensation is either by model or from angle/intensity CSV file if given with -y option\n");
 	fprintf(fp,"#intensity_aoi_comp\n");
-	fprintf(fp,"# Uncomment to calculate aoi from data, otherwise assume flat seafloor\n");
-	fprintf(fp,"#calc_aoi \n\n");
+	fprintf(fp,"# Calculaste angle of incidence:   1: calculate aoi from data (default)  0: assume flat seafloor\n");
+	fprintf(fp,"# calc_aoi 1\n\n");
 	fprintf(fp,"# Beamwidth parameters used for footprint calculation\n");
 	fprintf(fp,"# rx_nadir_beamwidth 0.5 \n\n");
 	fprintf(fp,"# tx_nadir_beamwidth 1.0 \n\n");
 	fprintf(fp,"# Backscatter source for s7k records. 0: Bathy record,  1: Snippets (7028)  2: Normalized snippets (7058)\n");
 	fprintf(fp,"# s7k_backscatter_source 0\n");
+	fprintf(fp,"# Snippet processing mode.  0: Sqrt Mean power.  1: Sqrt Sum power (energy).  2: Detection intensity\n");
+	fprintf(fp,"# snippet_processing_mode 0\n");
 
 
 	
@@ -427,11 +434,11 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# pos_mode 10\n");
 	fprintf(fp,"# Set forward speed in m/s when using simulated navigation data \n");
 	fprintf(fp,"pos_sim_speed 1\n\n");
-	fprintf(fp,"# SBET files only contains GPS time-of-week\n");
+	fprintf(fp,"# SBET files and POSMV files without Grop3 only contains GPS time-of-week\n");
 	fprintf(fp,"# With sensor data, the week will be chosen from sensor data time\n");
 	fprintf(fp,"# Without sensor data  (sim mode), the week will be set to week of unix epoc\n");
 	fprintf(fp,"# To force a specific week, enable and enter a unix timestamp value within that week to the value below\n");
-	fprintf(fp,"# sbet_epoch_week 0\n\n");
+	fprintf(fp,"# nav_epoch_week 0\n\n");
 	fprintf(fp,"# Altitude mode 0=none 1=gps altitude, 2=heave \n");
 	fprintf(fp,"alt_mode 1\n");
 	fprintf(fp,"vert_offset 0\n");
@@ -497,7 +504,7 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  tx frequency :             freq\n");
     fprintf(fp,"#  tx bandwidth :             bw\n");
     fprintf(fp,"#  tx pulselength :           plen\n");
-    fprintf(fp,"#  tx voltage :               voltage\n");
+    fprintf(fp,"#  tx voltage :               voltage\t  #For reson s7k this is tx power in dB rel 1uPa\n");
     fprintf(fp,"#  pingrate :                 pingrate\n");
     fprintf(fp,"#  multiping index :          multiping\n");
     fprintf(fp,"#  multifreq index :          multifreq\n");
@@ -566,7 +573,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->intensity_aoi_comp = 0;
     s->rx_nadir_beamwidth= 0.5*(M_PI/180);
     s->tx_nadir_beamwidth = 1.0*(M_PI/180);
-    s->calc_aoi = 0;
+    s->calc_aoi = 1;
     s->sonar_sample_mode = detection;
     s->ray_tracing_mode = ray_trace_fixed_depth_lut;
     s->beam_decimate = 1;
@@ -586,6 +593,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->beam_corr_poly_order=0;
     s->s7k_backscatter_source = s7k_backscatter_bathy;
     s->remove_s7k_tvg = 1;
+    s->snippet_processing_mode = snippet_mean_pow;
 }
 
 
@@ -659,7 +667,8 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"pos_mode",8)==0) pos_mode = atoi(c+8);	
 			if (strncmp(c,"sensor_mode",11)==0) sensor_mode = atoi(c+11);	
 			if (strncmp(c,"pos_sim_speed",13)==0) pos_sim_speed = (float)atof(c+13);
-			if (strncmp(c,"sbet_epoch_week",15)==0){ sbet_epoch_week_ts  = atof(c+15);   force_sbet_epoch = 1; }
+			if (strncmp(c,"sbet_epoch_week",15)==0){ nav_epoch_week_ts  = atof(c+15);   force_nav_epoch = 1; } //LEGACY
+			if (strncmp(c,"nav_epoch_week",14)==0){ nav_epoch_week_ts  = atof(c+14);   force_nav_epoch = 1; }
 
 			if (strncmp(c,"input_timezone",14)==0)  input_timezone = (float)atof(c+14);
 			if (strncmp(c,"time_diff_limit",15)==0)  set_time_diff_limit((float)atof(c+15));
@@ -689,6 +698,7 @@ int read_config_from_file(char* fname){
                 }
             }
 			if (strncmp(c,"s7k_backscatter_source",22)==0) sensor_params.s7k_backscatter_source = (atoi(c+22));	
+			if (strncmp(c,"snippet_processing_mode",23)==0) sensor_params.snippet_processing_mode = (atoi(c+23));	
 			if (strncmp(c,"remove_s7k_tvg",14)==0) sensor_params.remove_s7k_tvg = (atoi(c+14));	
 
             if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
@@ -739,7 +749,7 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"rx_nadir_beamwidth",18)==0) sensor_params.rx_nadir_beamwidth = ((float)atof(c+18))* (float)M_PI/180;
 			if (strncmp(c,"tx_nadir_beamwidth",18)==0) sensor_params.tx_nadir_beamwidth = ((float)atof(c+18))* (float)M_PI/180;
 
-            if (strncmp(c,"calc_aoi",8)==0) sensor_params.calc_aoi = 1;	
+            if (strncmp(c,"calc_aoi",8)==0) sensor_params.calc_aoi = (atoi(c+8));		
             if (strncmp(c,"force_bath_version",18)==0) force_bath_version = (atoi(c+18));	
             if (strncmp(c,"sensor_beam_decimate",20)==0) sensor_params.beam_decimate = (atoi(c+20));	
             if (strncmp(c,"sensor_ping_decimate",20)==0) sensor_params.ping_decimate = (atoi(c+20));	
@@ -936,7 +946,7 @@ int process_nav_data_packet(char* databuffer, uint32_t len, double ts_in, double
         case pos_mode_autodetect: case pos_mode_unknown: return 0;
     }
     if (ret == NAV_DATA_PROJECTED){  //Only count when projected coordinates are returned
-        navdata_ix = next_navdata_ix;
+        navdata_ix = next_navdata_ix;  //navdata_ix now points to the last updated nav data set
         navdata_count +=1;
     }
 	return ret;
@@ -1163,6 +1173,9 @@ int main(int argc,char *argv[])
 	double ts_min = 0;
 	/*Default CSV format*/ 
 	output_format[0] = x; output_format[1] = y; output_format[2] = z; output_format[3] = val; output_format[4] = none;
+    
+    r7k_init();
+    posmv_init();
 	
     sensor_params_default(&sensor_params);
     
@@ -1649,7 +1662,6 @@ int main(int argc,char *argv[])
             }
             else{
                 fprintf(stderr,"Could not open file %s for writing\r\n",output_string);
-                fclose(output_fileptr);
                 return(-1);
             }
         }
@@ -1659,8 +1671,10 @@ int main(int argc,char *argv[])
 		fprintf(stderr,"Posmv source = %d: %s, Sensor source = %d: %s \n",input_navigation_source, input_source_names[input_navigation_source],input_sensor_source,  input_source_names[input_sensor_source]);
 	}
 
-    if (((pos_mode == pos_mode_sbet)||(pos_mode == pos_mode_sbet_csv))  && force_sbet_epoch){
-        set_sbet_epoch(sbet_epoch_week_ts);
+    //When using navigation data without full timestamp, force epoch based on timestamp in config file 
+    if (force_nav_epoch){
+        set_sbet_epoch(nav_epoch_week_ts);
+        set_posmv_alt_gps_epoch(nav_epoch_week_ts);
     }
     //If bathy data is available fetch and process a bathy data packet to get time  (TODO for velodyne we need navigation time before sensor data is processed, as it does not send full time)
     if (input_sensor_source != i_none  && input_sensor_source != i_sim){ 
@@ -1675,18 +1689,20 @@ int main(int argc,char *argv[])
                 //ts_sensor += sensor_offset.time_offset;
                 time_t raw_time = (time_t) ts_sensor;
                 fprintf(stderr,"First sensor data time: ts=%0.3f %s  ",ts_sensor,ctime(&raw_time));
-                //When using SBET navigation data, we need to set epoch to start of month, base this on first sensor timestamp 
-                if (((pos_mode == pos_mode_sbet)||(pos_mode == pos_mode_sbet_csv)) && (!force_sbet_epoch)){
+                //When using navigation data without full timestamp, we need to set an epoch, base this on first sensor timestamp 
+                if (!force_nav_epoch){
                     set_sbet_epoch(ts_sensor);
+                    set_posmv_alt_gps_epoch(ts_sensor);
                 }
                 break;
             }
         }
         if (input_sensor_source==i_file) fseek(input_sensor_fileptr, 0, SEEK_SET); //Rewind
     }
-    if ((input_sensor_source == i_sim) && ((pos_mode == pos_mode_sbet)||(pos_mode == pos_mode_sbet_csv)) && (!force_sbet_epoch)){
-        fprintf(stderr,"Simulated sensor data, just setting SBET epoch to Unix epoch\n");
+    if ((input_sensor_source == i_sim) && (!force_nav_epoch)){
+        fprintf(stderr,"Simulated sensor data, just setting epoch to Unix epoch for nav data without full timestamp\n");
         set_sbet_epoch(0.);
+        set_posmv_alt_gps_epoch(0);
     }
 
     if (output_mode==output_s7k){
@@ -2110,6 +2126,14 @@ int main(int argc,char *argv[])
     }
 	
 	fprintf(stderr, "Ray bending calculations %d valid, %d invalid\n", get_ray_bend_valid(), get_ray_bend_invalid());
+    
+    #ifdef COUNT_S7K_SNIPPET_SATURATION
+    if (s7k_snp_count){
+        fprintf(stderr, "S7K snippets saturation %d out of %d,  %.2f%%\n",s7k_snp_satcount,s7k_snp_count, (100.0*s7k_snp_satcount)/(1.0*s7k_snp_count));
+    }
+    #endif
+    r7k_print_stats();
+    posmv_print_stats();
 
 	if(output_drain == o_udp){}
 	else if(output_drain == o_tcp){}

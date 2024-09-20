@@ -8,7 +8,6 @@
 #define MAX_DP 16*1024					//Maximum number of detection points in one dataset
 #define MAX_LINELEN 128			//Maximum number of characters to represent one datapoint in output data CSV or BIN (11+1+11+1+8+1+3+1+8+1+8+2=56 +fudge = 128)
 
-#define SUM_SNIPPET_POWER
 
 #define STRINGIFY0(v) #v
 #define STRINGIFY(v) STRINGIFY0(v)
@@ -23,9 +22,16 @@ typedef enum  {none=0, t,c, x,y,z,z_var, z_stddev,range, teta,steer,beam,el,val,
 
 #define FORCE_MULTIDETECT_TO_QUALITY3 
 
+
+#define COUNT_S7K_SNIPPET_SATURATION
+#define COLLECT_S7K_STATS
+#define COLLECT_POSMV_STATS
+
+
 typedef enum {detection=0, upper_gate=1, lower_gate=2, center_gate=3} sonar_sample_mode_e;
 typedef enum {ray_trace_none=0, ray_trace_fixed_depth_lut=1, ray_trace_fixed_depth_direct=2, ray_trace_var_depth=3} ray_tracing_mode_e;
 typedef enum {s7k_backscatter_bathy=0, s7k_backscatter_snippets=1, s7k_backscatter_norm_snippets=2} s7k_backscatter_source_e;
+typedef enum {snippet_mean_pow=0, snippet_sum_pow=1,snippet_detection_value} snippet_processing_mode_e;
 //s7k_backscatter_bathy
 //s7k_backscatter_snippets          From 7028 record
 //s7k_backscatter_norm_snippets     From 7058 record
@@ -123,6 +129,7 @@ typedef struct{
     float beam_corr_poly[MAX_BEAM_ANGLE_MODEL_ORDER];
     s7k_backscatter_source_e s7k_backscatter_source; //0=use from  
     uint8_t remove_s7k_tvg;
+    snippet_processing_mode_e snippet_processing_mode;
 }sensor_params_t;
 
 
