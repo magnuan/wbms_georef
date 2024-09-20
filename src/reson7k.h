@@ -38,6 +38,7 @@ typedef struct{
 */
 
 #define MAX_S7K_PACKET_SIZE (16*1024*1024)
+#define S7K_ID_MAX 65535
 
 #pragma pack(1)
 typedef struct{
@@ -97,9 +98,10 @@ typedef struct{
 	uint16_t multi_ping; // = 0
 	float tx_freq; //Tx frequency in Hz
 	float fs; //Sample rate in Hz
-	float bw; //Bandwidth in Hz
+	float bw; //Receiver Bandwidth in Hz (always 0 ?)
 	float tx_len; //Tx pulse length in sec
 	uint32_t tx_type; // 0 = CW, 1 = Chirp
+
 	uint32_t tx_taper; // 0 = tapered rect, 1 = Tukey
 	float tx_taper_param; // = 0
 	uint16_t tx_pulse_mode; // = 1 (single ping)
@@ -110,14 +112,16 @@ typedef struct{
 	float tx_power; // in dB rel 1 uPa
 	float gain; // in dB
 	uint32_t ctrl_flags;
-	uint32_t project_id; //Projector identifier
+	
+    uint32_t project_id; //Projector identifier
 	float project_steer_vert; //Projector stering in radians
 	float project_steer_hor; //Projector steering in radians
 	float project_open_vert; // -3dB in radians
 	float project_open_hor; // -3dB in radians
 	float project_focus; // in m
 	uint32_t project_taper; // 0 = rect, 1 = Cheb
-	float project_taper_param; // = 0
+	
+    float project_taper_param; // = 0
 	uint32_t tx_flags; // = 0 (0-3 Pitch stab meth 4-7 Yaw stab meth)
 	uint32_t hydrophone_id; //= 0
 	uint32_t rx_taper; //0 = cheb 1 = kais
@@ -543,6 +547,7 @@ union r7k_RecordTypeHeader{
 
 	r7k_RecordTypeHeader_1003_t* r1003;
 	r7k_RecordTypeHeader_1012_t* r1012;
+	r7k_RecordTypeHeader_1013_t* r1013;
 	r7k_RecordTypeHeader_1015_t* r1015;
 	r7k_RecordTypeHeader_1016_t* r1016;
 };
@@ -551,6 +556,8 @@ union r7k_RecordTypeHeader{
 
 #pragma pack()
 
+void r7k_init(void);
+void r7k_print_stats(void);
 void r7k_set_sensor_offset(offset_t* s);
 uint8_t r7k_test_nav_file(int fd);
 uint8_t r7k_test_bathy_file(int fd);
