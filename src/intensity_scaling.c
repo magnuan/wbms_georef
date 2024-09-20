@@ -124,7 +124,10 @@ int read_intensity_angle_corr_from_file(char* fname, const float d_angle_rad, co
 	return (int)count_out;
 }
 
-
+//Simple typical rx sensitivity curve for 400kHz, taken from http://magtank.norbit.no/database/data/24115/2334507
+inline float rx_sensitivity_model_dB(float beam_angle){
+    return 2.98*powf(beam_angle,2) - 2.52*powf(beam_angle,4) + 3.69*powf(beam_angle,6) - 1.32*powf(beam_angle,8);
+}
 
 /* Calculate the beam footprint in square meters*/
 float calc_beam_footprint(float range,float aoi, float beam_angle, float plen, sensor_params_t* sensor_params){
@@ -133,7 +136,7 @@ float calc_beam_footprint(float range,float aoi, float beam_angle, float plen, s
     const float c = 1500; //We jsut assume 1500m/s SV here, it is not a very precise value anyways in this case
     float Ax1 = c*plen/2 * 1./(sinf(ABS(aoi)+1e-2f));   // Pulse length limited 
     float Ax2 = range * sensor_params->rx_nadir_beamwidth / (cosf(beam_angle));
-    #if 1
+    #if 0
     //Simple minimum of bandwidth and beamwidth limited footprint
     float Ax = MIN(Ax1, Ax2);
     #else
@@ -150,9 +153,14 @@ float calc_intensity_scaling(float range, float aoi, float beam_angle, float eff
     float gain = 1.0f;
 
     if (sensor_params->intensity_range_comp){
+        //Compensate for rx sensitivity
+        float rx_sens_dB = rx_sensitivity_model_dB(beam_angle);
+        gain *= powf(10.f,-rx_sens_dB/20);
+        //Compensate for source incidence
+        gain *= 1./cosf(aoi);
         // Compensate for spreading loss: 40dB/log10(r)
         gain *= range*range;              //Comp two-way spreading loss, 40dB/log10(r)     
-        // Compensate for attenuation
+                                          // Compensate for attenuation
         float damping_dB = sensor_params->intensity_range_attenuation * (2*range/1000); 
         gain *= powf(10.f,damping_dB/20);
         //Compensate for range and angle dependent footprint
