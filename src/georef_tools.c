@@ -224,6 +224,7 @@ int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos
 
     //Start at last posdata index, go through datasets bacwards in time until we have the dataset before last bathy data
     pos0 = &(posdata[pos_ix]);
+    //fprintf(stderr,"calc_interpolated_nav_data ts=%f pos0->ts=%f\n",ts,pos0->ts);
     for(size_t ii=0;ii<NAVDATA_BUFFER_LEN;ii++){
         pos1 = pos0;
         pos0 = &(posdata[pos_ix]);
@@ -341,24 +342,30 @@ int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], s
 }
 
 void calc_aoi(const float * range, const float * angle, size_t len, /*output*/ float * aoi){
-        float prev_range = range[1];
-        float prev_angle =  angle[1];
+    const size_t u = 5; //How many beams separation to compare for aoi. If too small the range-diff will often be exactly 0
+                        //Giving a discretized result around normal incidence.
+    if (len<(2*u+1)){
         for (size_t ix=0;ix<len;ix++){
-            float sensor_r = range[ix];
-            float sensor_az = angle[ix];
-            // Angle of incidence calculation 
-            aoi[ix] = atanf((sensor_r-prev_range)/((sensor_az-prev_angle)*sensor_r) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
-            aoi[ix] = LIMIT(aoi[ix],-80*M_PI/180, 80*M_PI/180);
-            prev_range = sensor_r;
-            prev_angle = sensor_az;
+            aoi[ix] = 0;
         }
-        #if 1
-        //Run median filter on data
-        float* aoi_unfiltered = (float*) malloc(len*sizeof(float));
-        memcpy(aoi_unfiltered,aoi,len*sizeof(float));
-        med_filter(aoi_unfiltered, aoi, 7, len);  
-        free(aoi_unfiltered);
-        #endif
+        return;
+    }
+    for (size_t ix=u;ix<len-u;ix++){
+        // Angle of incidence calculation 
+        aoi[ix] = atanf((range[ix+u]-range[ix-u])/range[ix]/(angle[ix+u]-angle[ix-u]) );         //AOI defined as angle between seafloor normal and beam (not seafloor and beam)
+        aoi[ix] = LIMIT(aoi[ix],-80*M_PI/180, 80*M_PI/180);
+    }
+    for (size_t ix=0;ix<u;ix++){
+        aoi[ix] = aoi[u];
+        aoi[len-1-ix] = aoi[len-u];
+    }
+#if 1
+    //Run median filter on data
+    float* aoi_unfiltered = (float*) malloc(len*sizeof(float));
+    memcpy(aoi_unfiltered,aoi,len*sizeof(float));
+    med_filter(aoi_unfiltered, aoi, u+2, len);  
+    free(aoi_unfiltered);
+#endif
 }
 
 void variance_model(const float * range, const float * angle, const float * aoi, size_t len, float droll_dt, float dpitch_dt,/*output*/ float * z_var){
