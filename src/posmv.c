@@ -32,7 +32,61 @@ posmv2_t posmv2;
 posmv3_t posmv3;
 static uint8_t verbose = 0;
 
+#ifdef COLLECT_POSMV_STATS
+static uint32_t posmv_stat_packet_count[POSMV_ID_MAX+1];
+#endif
 
+
+/* Alternative GPS epoch to use if we dont have GPS Week and Leap second info from group 3*/
+static double alt_gps_epoch = 0;
+
+static double calc_epoch(double ts){
+    time_t t;
+    t = ts; //Ignore fract seconds
+	struct tm* buf = gmtime(&t);
+    time_t seconds_since_sunday = (buf->tm_sec + 60*(buf->tm_min + 60*(buf->tm_hour + 24*buf->tm_wday)));
+    t -= seconds_since_sunday;
+    //TODO should GPS UTC leap seconds differnce be added here?
+    // Tested, but it seems very wrong when I do. Perhaps this is added somewhere else
+    return (double) t;
+}
+
+
+void set_posmv_alt_gps_epoch(double ts){
+    if (alt_gps_epoch==0){
+        alt_gps_epoch = calc_epoch(ts);
+        time_t raw_time = (time_t) alt_gps_epoch;
+        fprintf(stderr,"Setting POSMV alt epoch to: ts=%0.3f %s  ",alt_gps_epoch,ctime(&raw_time));
+    }
+}
+
+
+void posmv_init(void){
+    #ifdef COLLECT_POSMV_STATS
+    for (uint32_t id=0;id<POSMV_ID_MAX;id++){
+        posmv_stat_packet_count[id]=0;
+    }
+    #endif
+}
+void posmv_print_stats(void){
+    #ifdef COLLECT_POSMV_STATS
+    uint32_t total_data = 0;
+    for (uint32_t id=0;id<POSMV_ID_MAX;id++){
+        total_data+=posmv_stat_packet_count[id];
+    }
+    if (total_data){
+        fprintf(stderr,"------- Reson POSMV data packet count -----\n");
+    }
+    for (uint32_t id=0;id<POSMV_ID_MAX;id++){
+        if(posmv_stat_packet_count[id]>0){
+            fprintf(stderr, "POSMV record type %5d: %8d\n",id,posmv_stat_packet_count[id]);
+        }
+    }
+    if (total_data){
+        fprintf(stderr,"\n");
+    }
+    #endif
+}
 
 uint8_t posmv_test_file(int fd){
     uint8_t pass=0;
@@ -82,7 +136,10 @@ double posmv_time_to_unix_time(double time1,double time2,uint8_t timetype){
 		case 50: gps = time1+posmv3.gps_utc_diff;break;	//1=UTC;2=USR
 		default: return -1.0;
 	};
-	return POS_MODE_POSMV_GPS_EPOC+(60*60*24*7*posmv3.gps_week) + gps - posmv3.gps_utc_diff;
+    if (group3_cnt==0)
+        return alt_gps_epoch + gps;  //If we dont have any group 3 data GPS week number info, use alternative epoch
+    else
+        return posmv3.gps_epoch + gps;
 }
 
 
@@ -164,6 +221,11 @@ int posmv_fetch_next_packet(char * data, int fd){
         if(n<0){ fprintf(stderr,"Got error from socket\n");return 0;}
         if(n==0){ fprintf(stderr,"End of POS_MODE_POSMV stream\n");return 0;}
     }
+    #ifdef COLLECT_POSMV_STATS
+    if(gid<POSMV_ID_MAX){
+        posmv_stat_packet_count[gid]++;
+    }
+    #endif
     return count+8;
 }
 
@@ -266,6 +328,8 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
             posmv3.geoid_separation = *(((float*)(dp)));dp+=4;
             posmv3.gps_type = *(((uint8_t*)(dp)));dp+=1;
             posmv3.gps_status = *(((uint32_t*)(dp)));dp+=4;
+	
+            posmv3.gps_epoch = POS_MODE_POSMV_GPS_EPOC+(60*60*24*7*posmv3.gps_week) - posmv3.gps_utc_diff;
             
             aux_navdata->mode = posmv3.mode;
             aux_navdata->sv_n = posmv3.sv_n;
@@ -274,10 +338,13 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
                 aux_navdata->vert_accuracy = posmv3.vdop;
             }
             aux_navdata->dgps_latency = posmv3.dgps_latency;
-            aux_navdata->gps_week = posmv3.gps_week;
-            aux_navdata->gps_utc_diff = posmv3.gps_utc_diff;
+            
+            /* The following two values are used to calculate absolute time from POSMV time. If we dont have Group3 data, we use alt_gps_epoch instead*/
+            aux_navdata->gps_week = posmv3.gps_week;                    //This is used to derive absolute time from seconds in week
+            aux_navdata->gps_utc_diff = posmv3.gps_utc_diff;            //This is used to derive time from GPS time
+
             aux_navdata->gps_nav_latency = posmv3.gps_nav_latency;
-            aux_navdata->geoid_separation = posmv3.geoid_separation;
+            aux_navdata->geoid_separation = posmv3.geoid_separation;    //This is used to derive altitude from height above geoid
             aux_navdata->gps_type = posmv3.gps_type;
             aux_navdata->gps_status = posmv3.gps_status;
 
@@ -299,6 +366,7 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
                 group1_cnt++;
                 //Fill out navdata from posmv 1 data
                 navdata->ts = ts;
+                fprintf(stderr,"PosMV Grp1 Ts= %f\n",ts);
                 navdata->lat = *(((double*)(dp)));dp+=8;
                 navdata->lon = *(((double*)(dp)));dp+=8;
                 navdata->alt = *(((double*)(dp)));dp+=8;
@@ -363,14 +431,17 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
             }
 
             navdata->z += z_offset;
+            #if 0
+            //By having an alternative gps epoch derived from data, we can go without group3 data
             if (group3_cnt==0){
-                fprintf(stderr, "No Posmv group 3 data for group102 %d\n",group102_cnt);
+                fprintf(stderr, "No Posmv group 3 data for group %d %d\n",group102_cnt);
                 return NO_NAV_DATA;
             }
             if ((posmv3.ts-navdata->ts)>3600. || (navdata->ts-posmv3.ts)>3600.) {
                 fprintf(stderr, "Posmv group 3 data out of sync for group1_cnt=%d group102_cnt=%d group3_cnt=%d (ts3=%f ts102=%f)\n",group1_cnt, group102_cnt,group3_cnt,posmv3.ts,navdata->ts);
                 return NO_NAV_DATA;
             }
+            #endif
             //Only update time with new nav data
             *ts_out = ts;
             return (proj?NAV_DATA_PROJECTED:NAV_DATA_GEO);

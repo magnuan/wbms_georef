@@ -7,6 +7,8 @@
 //Just a guess, needs to be figuread out from proticol definition
 #define MAX_POSMV_PACKET_SIZE 32768
 
+#define POSMV_ID_MAX 32768
+
 //GRP2 params		
 typedef struct{
 	double ts;
@@ -37,6 +39,7 @@ typedef struct{
 	float geoid_separation;
 	uint8_t gps_type ;
 	uint32_t gps_status ;
+    double gps_epoch;
 }posmv3_t;
 
 uint8_t posmv_test_file(int fd);
@@ -46,4 +49,7 @@ int posmv_fetch_next_packet(char * data, int fd);
 int posmv_identify_packet(char* databuffer, uint32_t len, double* ts_out);
 int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata);
 
+void posmv_init(void);
+void posmv_print_stats(void);
+void set_posmv_alt_gps_epoch(double ts);
 #endif
