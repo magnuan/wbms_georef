@@ -1018,43 +1018,33 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                 beam_range[ix_out] = sensor_r;
 
                 /*** Calculate intensity from snippet data ***/
-                #if 0
-                //Take intensity from detection sample
-                int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in]));
-                float inten = snippet_intensity[snippet_intensity_offset+detection_offset];       //Pick detection sample from snippet data
-                #endif
-                #if 0 
-                //Take intensity from snippet average
-                float inten = 0;
-                for (size_t ix = 0; ix<snippet_length;ix++){
-                    inten += snippet_intensity[snippet_intensity_offset+ix];
-                }
-                inten /= snippet_length;
-                #endif
-                #if 1
-                //Mean snippet power  (root-mean-square)
-                float acum_pow = 0;
-                for (size_t ix = 0; ix<snippet_length;ix++){
-                    float inten = snippet_intensity[snippet_intensity_offset+ix];
-                    acum_pow += powf((float)inten,2);
+                float inten;
+                float acum_pow;
+                switch (sensor_params->snippet_processing_mode){
+                    case snippet_detection_value:
+                        //Take intensity from detection sample
+                        int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in]));
+                        inten = snippet_intensity[snippet_intensity_offset+detection_offset];       //Pick detection sample from snippet data
+                        break;
+                    default:
+                    case snippet_mean_pow:
+                        //Mean snippet power  (root-mean-square)
+                        acum_pow = 0;
+                        for (size_t ix = 0; ix<snippet_length;ix++){
+                            acum_pow += powf((float)snippet_intensity[snippet_intensity_offset+ix],2);
+                        }
+                        inten = sqrtf(acum_pow/snippet_length);
+                        break;
+                    case snippet_sum_pow:
+                        acum_pow = 0;
+                        for (size_t ix = 0; ix<snippet_length;ix++){
+                            acum_pow += powf((float)snippet_intensity[snippet_intensity_offset+ix],2);
+                        }
+                        inten = sqrtf(acum_pow);
+                        break;
                 }
 
-                #ifdef SUM_SNIPPET_POWER
-                float inten = sqrtf(acum_pow);
-                #else
-                float inten = sqrtf(acum_pow/snippet_length);
-                #endif
 
-                #endif
-                #if 0
-                //Max Snippet value
-                float max_val = 0;
-                for (size_t ix = 0; ix<snippet_length;ix++){
-                    float inten = snippet_intensity[snippet_intensity_offset+ix];
-                    max_val = MAX(max_val,inten);
-                }
-                float inten = max_val;
-                #endif
                 // Correct intesity for internal VGA
                 float vga_gain_dB;
                 if (sample_number <= vga_t0){
@@ -1128,9 +1118,10 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
 	for (ix_out=0;ix_out<Nout;ix_out++){
         //Compensate intensity for range and AOI
         float eff_plen = MIN(tx_plen, 2./tx_bw);
-        #ifdef SUM_SNIPPET_POWER
-        eff_plen += snp_len[ix_out] * div_Fs;
-        #endif
+        if (sensor_params->snippet_processing_mode == snippet_sum_pow){
+            // When calculating total snippet energy, the footprint is based on the entire footprint of the snippet, not a sample footprint
+            eff_plen += snp_len[ix_out] * div_Fs;
+        }
         intensity[ix_out]  *= calc_intensity_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
 	}
 
