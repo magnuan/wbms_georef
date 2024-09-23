@@ -388,26 +388,25 @@ void generate_template_config_file(char* fname){
 
 
 	fprintf(fp,"#### BACKSCATTER PARAMETERS ####\n");
-	fprintf(fp,"#  Set to 0 to disable range and AOI compensation of intensity\n");
-	fprintf(fp,"#  AOI compensation is either by model or from angle/intensity CSV file if given with -y option\n");
-	fprintf(fp,"# Uncomment to compensate intensity for range\n");
-	fprintf(fp,"#intensity_range_comp\n");
-	fprintf(fp,"# Damping / attenuation in dB/km one-way when applying intensity range comp\n");
-	fprintf(fp,"#intensity_range_attenuation  100\n\n");
+	fprintf(fp,"# Snippet processing mode.  0: Sqrt Mean power.  1: Sqrt Sum power (energy).  2: Detection intensity\n");
+	fprintf(fp,"snippet_processing_mode 0\n");
+	fprintf(fp,"# Backscatter source for s7k records. 0: Bathy record,  1: Snippets (7028)  2: Normalized snippets (7058)\n");
+	fprintf(fp,"s7k_backscatter_source 0\n");
 	fprintf(fp,"# By default applied S7K Gain and TVG (in 7000 record) is removed, set this to 0 to keep s7k applied gain/TVG\n");
 	fprintf(fp,"# remove_s7k_tvg 1\n");
+	fprintf(fp,"# With this enabled, the backscatter is compensated for attenuation, spreading and footprint\n");
+	fprintf(fp,"# Comment to disable\n");
+	fprintf(fp,"intensity_correction\n");
+	fprintf(fp,"# Damping / attenuation in dB/km one-way when applying intensity range comp\n");
+	fprintf(fp,"#intensity_range_attenuation  100\n\n");
+	fprintf(fp,"# Beamwidth parameters used for footprint calculation\n");
+	fprintf(fp,"rx_nadir_beamwidth 0.5 \n\n");
+	fprintf(fp,"tx_nadir_beamwidth 1.0 \n\n");
 	fprintf(fp,"# Uncomment to compensate intensity for AOI (ARA curve)\n");
 	fprintf(fp,"# AOI compensation is either by model or from angle/intensity CSV file if given with -y option\n");
 	fprintf(fp,"#intensity_aoi_comp\n");
 	fprintf(fp,"# Calculaste angle of incidence:   1: calculate aoi from data (default)  0: assume flat seafloor\n");
-	fprintf(fp,"# calc_aoi 1\n\n");
-	fprintf(fp,"# Beamwidth parameters used for footprint calculation\n");
-	fprintf(fp,"# rx_nadir_beamwidth 0.5 \n\n");
-	fprintf(fp,"# tx_nadir_beamwidth 1.0 \n\n");
-	fprintf(fp,"# Backscatter source for s7k records. 0: Bathy record,  1: Snippets (7028)  2: Normalized snippets (7058)\n");
-	fprintf(fp,"# s7k_backscatter_source 0\n");
-	fprintf(fp,"# Snippet processing mode.  0: Sqrt Mean power.  1: Sqrt Sum power (energy).  2: Detection intensity\n");
-	fprintf(fp,"# snippet_processing_mode 0\n");
+	fprintf(fp,"calc_aoi 1\n\n");
 
 
 	
@@ -568,7 +567,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->sv_offset = 0.0;
     s->force_sv = 0.0;
     s->mounting_depth = 1.0;		//Mounting depth, only for raytracing, SV-profile compensation
-    s->intensity_range_comp = 0;
+    s->intensity_correction = 0;
     s->intensity_range_attenuation = 100;
     s->intensity_aoi_comp = 0;
     s->rx_nadir_beamwidth= 0.5*(M_PI/180);
@@ -743,7 +742,8 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"navigation_max_abs_dpitch_dt",28)==0) sensor_params.max_abs_dpitch_dt = ((float)atof(c+28))* (float)M_PI/180;
             if (strncmp(c,"navigation_max_abs_dyaw_dt",26)==0) sensor_params.max_abs_dyaw_dt = ((float)atof(c+26))* (float)M_PI/180;
 			
-            if (strncmp(c,"intensity_range_comp",20)==0) sensor_params.intensity_range_comp = 1;	
+            if (strncmp(c,"intensity_range_comp",20)==0) sensor_params.intensity_correction = 1;	//LEGACY
+            if (strncmp(c,"intensity_correction",20)==0) sensor_params.intensity_correction = 1;	
             if (strncmp(c,"intensity_range_attenuation",27)==0) sensor_params.intensity_range_attenuation = ((float)atof(c+27));
             if (strncmp(c,"intensity_aoi_comp",18)==0) sensor_params.intensity_aoi_comp = 1;	
 			if (strncmp(c,"rx_nadir_beamwidth",18)==0) sensor_params.rx_nadir_beamwidth = ((float)atof(c+18))* (float)M_PI/180;

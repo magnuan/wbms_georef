@@ -152,13 +152,13 @@ float calc_beam_footprint(float range,float aoi, float beam_angle, float plen, s
 float calc_intensity_scaling(float range, float aoi, float beam_angle, float eff_plen, sensor_params_t* sensor_params, /*OUTPUT*/ float* footprint){
     float gain = 1.0f;
 
-    if (sensor_params->intensity_range_comp){
-        //Compensate for rx sensitivity
-        float rx_sens_dB = rx_sensitivity_model_dB(beam_angle);
-        gain *= powf(10.f,-rx_sens_dB/20);
+    if (sensor_params->intensity_correction){
+        //Compensate for rx sensitivity  (This is specific for the 400kHz norbit, so we leave it out for now)
+        //  float rx_sens_dB = rx_sensitivity_model_dB(beam_angle);
+        //  gain *= powf(10.f,-rx_sens_dB/20);
         //Compensate for source incidence
-        gain *= 1./cosf(aoi);
-        // Compensate for spreading loss: 40dB/log10(r)
+        //  gain *= 1./cosf(aoi);        (This is a part of the ARA model?? At least I can find no place in the literature where this term is removed before ARA)
+        //Compensate for spreading loss: 40dB/log10(r)
         gain *= range*range;              //Comp two-way spreading loss, 40dB/log10(r)     
                                           // Compensate for attenuation
         float damping_dB = sensor_params->intensity_range_attenuation * (2*range/1000); 

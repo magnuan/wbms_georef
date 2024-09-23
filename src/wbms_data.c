@@ -1292,7 +1292,7 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
         inten = sig[ix_in];
         sensor_r  += sensor_offset->r_err;
         
-        if (sensor_params->intensity_range_comp){
+        if (sensor_params->intensity_correction){
             inten *= sensor_r;                  //Only comp one-way spreading loss     
             float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
             inten *= powf(10.f,damping_dB/20); 

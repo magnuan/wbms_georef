@@ -107,7 +107,7 @@ typedef struct{
     float sv_offset;
     float force_sv;
     float mounting_depth;
-    char intensity_range_comp; 
+    char intensity_correction; 
     float intensity_range_attenuation; 
     char intensity_aoi_comp; 
     
