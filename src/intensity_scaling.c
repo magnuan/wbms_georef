@@ -157,15 +157,15 @@ float calc_intensity_scaling(float range, float aoi, float beam_angle, float eff
         //  float rx_sens_dB = rx_sensitivity_model_dB(beam_angle);
         //  gain *= powf(10.f,-rx_sens_dB/20);
         //Compensate for source incidence
-        //  gain *= 1./cosf(aoi);        (This is a part of the ARA model?? At least I can find no place in the literature where this term is removed before ARA)
-        //Compensate for spreading loss: 40dB/log10(r)
+        // gain /= sqrtf(cosf(aoi));        //Subtract 10*log10(cos(aoi)) This is a part of the ARA model so we dont subtract it here
+        //Compensate for spreading loss: Add 40dB/log10(r)
         gain *= range*range;              //Comp two-way spreading loss, 40dB/log10(r)     
                                           // Compensate for attenuation
         float damping_dB = sensor_params->intensity_range_attenuation * (2*range/1000); 
         gain *= powf(10.f,damping_dB/20);
         //Compensate for range and angle dependent footprint
         *footprint = calc_beam_footprint(range,aoi,beam_angle,eff_plen,sensor_params);
-        gain /= sqrtf(*footprint); //Retured power scales with the footprint area, so divide the signal amplitude by the sqrt of the area
+        gain /= sqrtf(*footprint); //Subtract 10log10(A) Retured power scales with the footprint area, so divide the signal amplitude by the sqrt of the area
     }
 
     if (sensor_params->intensity_aoi_comp){
