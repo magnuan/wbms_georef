@@ -471,7 +471,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
     // --- Process S7K 7000 record ----
     if (drf->record_id == 7000){
 
-       //#define PRINT_S7K_7000_CHANGES
+       #define PRINT_S7K_7000_CHANGES
        #ifdef PRINT_S7K_7000_CHANGES
        uint8_t new_param = mbes_tx_freq != rth.r7000->tx_freq ||\
                            mbes_tx_bw != rth.r7000->bw ||\
@@ -896,7 +896,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 if (sensor_params->remove_s7k_tvg){
                     for (size_t ix=0;ix<Nout;ix++){
                         float r = beam_range[ix];
-                        float gain_scaling_dB = -mbes_tx_power -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
+                        float gain_scaling_dB = -(mbes_tx_power-TX_POWER_REF) -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
                         float gain_scaling = powf(10.f,gain_scaling_dB/20);
                         intensity[ix] *= gain_scaling;
                     }
@@ -1072,8 +1072,9 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 // First we remove s7k added Gain/TVG
                 if (sensor_params->remove_s7k_tvg){
                     float r = outbuf->range[ix_bath];
-                    float gain_scaling_dB = -mbes_tx_power -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
+                    float gain_scaling_dB = -(mbes_tx_power-TX_POWER_REF) -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
                     float gain_scaling = powf(10.f,gain_scaling_dB/20);
+                    //fprintf(stderr,"gain scaling = %f\n",gain_scaling);
                     inten *= gain_scaling;
                 }
                 //Then we apply our own TVG
