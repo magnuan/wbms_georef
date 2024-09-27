@@ -233,6 +233,8 @@ int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
 int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
 	static double last_lon, last_lat;
 	static float last_alt, last_heave;
+    static uint8_t has_1015;
+    static uint8_t has_1016;
     
     static navdata_t navdata_collector; 
 	static uint8_t have_pos; 
@@ -270,6 +272,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 
 	switch (drf->record_id){
 		case 1003: // Position
+            if (has_1015) break;  //Prefer 1015, do not process this record if 1015 records are available
 			if (verbose > 2) fprintf(stderr,"ts=%f s7k:1003 Datum=%d Latency=%f Lat=%f Lon=%f Height=%f PosType=%d, UTMZone=%d, Qual=%d Method=%d\n", \
                                 ts, \
 							    rth.r1003->datum,rth.r1003->latency,rth.r1003->lat_northing*180/M_PI, rth.r1003->lon_easting*180/M_PI, rth.r1003->height,  \
@@ -303,6 +306,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			have_pos = 1;
 			break;
 		case 1012:	// Roll Pitch Heave
+            if (has_1016) break;  //Prefer 1016, do not process this record if 1016 records are available
 			if (verbose >2 )fprintf(stderr,"ts=%f s8k:1012 roll=%f pitch=%f heave=%f\n",ts,rth.r1012->roll*180/M_PI,rth.r1012->pitch*180/M_PI, rth.r1012->heave);
 			navdata_collector.roll = rth.r1012->roll;
 			navdata_collector.pitch = rth.r1012->pitch;
@@ -315,6 +319,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			have_attitude = 1;
 			break;
 		case 1013:	// Heading
+            if (has_1016) break;  //Prefer 1016, do not process this record if 1016 records are available
 			if (verbose > 2) fprintf(stderr,"ts=%f s7k:1013 heading=%f\n", ts, rth.r1013->heading*180/M_PI);
 			navdata_collector.yaw = rth.r1013->heading;
 			if (proj){
@@ -325,6 +330,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 
 
 		case 1015:	// Navigation
+            has_1015 = 1;
 			if (verbose>2 ) fprintf(stderr,"ts=%f s7k:1015 Vert_ref=%d Lat=%f Lon=%f Height=%f Accuracy=%f, %f, SoG=%f, Cog=%f Heading=%f\n", \
                     ts, \
 					rth.r1015->vert_ref,rth.r1015->lat*180/M_PI, rth.r1015->lon*180/M_PI, rth.r1015->height,  \
@@ -355,6 +361,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			have_pos = 1;
 			break;
 		case 1016:	// Attitude
+            has_1016=1;
 			if (verbose>2 ) fprintf(stderr,"ts=%f s7k:1016 t_off=%dms roll=%f pitch=%f heading=%f heave=%f\n", \
             ts, \
 			rth.r1016->entry[0].t_off_ms,rth.r1016->entry[0].roll*180/M_PI,rth.r1016->entry[0].pitch*180/M_PI, rth.r1016->entry[0].heading*180/M_PI, rth.r1016->entry[0].heave);
