@@ -129,13 +129,28 @@ inline float rx_sensitivity_model_dB(float beam_angle){
     return 2.98*powf(beam_angle,2) - 2.52*powf(beam_angle,4) + 3.69*powf(beam_angle,6) - 1.32*powf(beam_angle,8);
 }
 
+
+/* Calculate the beam time response in seconds */
+float calc_beam_time_response(float range,float aoi, float beam_angle, float plen, sensor_params_t* sensor_params){
+    beam_angle = ABS(beam_angle);
+    beam_angle = MIN(beam_angle, 80*M_PI/180);
+    const float c = 1500; //We jsut assume 1500m/s SV here, it is not a very precise value anyways in this case
+    float beamwidth = sensor_params->rx_nadir_beamwidth / cosf(beam_angle);
+    float T1 = plen;                            // Pulse length limited 
+    float T2 = (2/c)*range*beamwidth*tanf(ABS(aoi)); //Beam width limited
+    float T = MAX(T1,T2);
+    return T;
+}
+
+
 /* Calculate the beam footprint in square meters*/
 float calc_beam_footprint(float range,float aoi, float beam_angle, float plen, sensor_params_t* sensor_params){
     beam_angle = ABS(beam_angle);
     beam_angle = MIN(beam_angle, 80*M_PI/180);
     const float c = 1500; //We jsut assume 1500m/s SV here, it is not a very precise value anyways in this case
+    float beamwidth = sensor_params->rx_nadir_beamwidth / cosf(beam_angle);
     float Ax1 = c*plen/2 * 1./(sinf(ABS(aoi)+1e-2f));   // Pulse length limited 
-    float Ax2 = range * sensor_params->rx_nadir_beamwidth / (cosf(beam_angle));
+    float Ax2 = range * beamwidth;                      //Beamwidth limited
     #if 0
     //Simple minimum of bandwidth and beamwidth limited footprint
     float Ax = MIN(Ax1, Ax2);
@@ -156,8 +171,6 @@ float calc_intensity_scaling(float range, float aoi, float beam_angle, float eff
         //Compensate for rx sensitivity  (This is specific for the 400kHz norbit, so we leave it out for now)
         //  float rx_sens_dB = rx_sensitivity_model_dB(beam_angle);
         //  gain *= powf(10.f,-rx_sens_dB/20);
-        //Compensate for source incidence
-        // gain /= sqrtf(cosf(aoi));        //Subtract 10*log10(cos(aoi)) This is a part of the ARA model so we dont subtract it here
         //Compensate for spreading loss: Add 40dB/log10(r)
         gain *= range*range;              //Comp two-way spreading loss, 40dB/log10(r)     
                                           // Compensate for attenuation
@@ -168,19 +181,78 @@ float calc_intensity_scaling(float range, float aoi, float beam_angle, float eff
         gain /= sqrtf(*footprint); //Subtract 10log10(A) Retured power scales with the footprint area, so divide the signal amplitude by the sqrt of the area
     }
 
-    if (sensor_params->intensity_aoi_comp){
-        if(sensor_params->use_intensity_angle_corr_table){
-            int ix = ABS(aoi)/INTENSITY_ANGLE_STEP;
-            ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
-            gain *= intenity_angle_corr_table[ix].intensity_scale;
-        }
-        else{
-            //model_clay = 12*( np.exp(-(teta**2)/(0.15**2)) - 1/(np.cos(teta)+0.1))
-            // float reflectivity_model_dB =  12*  (expf( - powf(aoi,2) / powf(0.15,2) ) - (1.f/ (cosf(aoi)+0.1)));
-            //model_gravel = 10*( np.exp(-(teta**2)/(0.33**2)) - 0.2/(np.cos(teta)**2+0.1))
-            float reflectivity_model_dB =  10*  (expf( - powf(aoi,2) / powf(0.33,2) ) - (0.2f/ (powf(cosf(aoi),2)+0.1)));
-            gain *= powf(10.f, -reflectivity_model_dB/20);
-        }
+
+    switch(sensor_params->ara_model){
+        default:
+        case ara_model_none:
+            break;
+        case ara_model_table:
+            {
+                int ix = ABS(aoi)/INTENSITY_ANGLE_STEP;
+                ix = LIMIT(ix,0,INTENSITY_ANGLE_MAX_VALUES-1);
+                gain *= intenity_angle_corr_table[ix].intensity_scale;
+            }
+            break;
+        case ara_model_cos_aoi:
+            //Compensate for source incidence
+            gain /= sqrtf(cosf(aoi));        //Subtract 10*log10(cos(aoi)) 
+            break;
+
+        case ara_model_sandy_gravel:
+            {
+                //10*np.log10(np.cos(teta)) + 20*np.log10(np.cos(np.pi/2*((teta/np.pi*2)**8))) +  1.5*np.exp(-(teta**2)/(np.deg2rad(30)**2)) -15
+                float reflectivity_model_dB =    10*log10f(cosf(aoi)) \
+                                                + 20*log10f(cosf((M_PI/2)*(powf(aoi/(M_PI/2),8)))) \
+                                                + 1.5*(expf(-powf(aoi,2) / powf(30*M_PI/180,2) )) \
+                                                - 15; 
+                gain *= powf(10.f, -reflectivity_model_dB/20);
+            }
+            break;
+        
+        case ara_model_gravelly_muddy_sand:
+            {
+                //10*np.log10(np.cos(teta))  + 20*np.log10(np.cos(np.pi/2*((teta/np.pi*2)**8))) +  8.5*np.exp(-(teta**2)/(np.deg2rad(20)**2)) -18
+                float reflectivity_model_dB =    10*log10f(cosf(aoi)) \
+                                                + 20*log10f(cosf((M_PI/2)*(powf(aoi/(M_PI/2),8)))) \
+                                                + 8.5*(expf(-powf(aoi,2) / powf(20*M_PI/180,2) )) \
+                                                - 18; 
+                gain *= powf(10.f, -reflectivity_model_dB/20);
+            }
+            break;
+
+        case ara_model_muddy_sand:
+            {
+                //10*np.log10(np.cos(teta)) + 30*np.log10(np.cos(np.pi/2*((teta/np.pi*2)**6))) +  12.5*np.exp(-(teta**2)/(np.deg2rad(13)**2)) -22 
+                float reflectivity_model_dB =    10*log10f(cosf(aoi)) \
+                                                + 30*log10f(cosf((M_PI/2)*(powf(aoi/(M_PI/2),6)))) \
+                                                + 12.5*(expf(-powf(aoi,2) / powf(13*M_PI/180,2) )) \
+                                                - 22; 
+                gain *= powf(10.f, -reflectivity_model_dB/20);
+            }
+            break;
+
+        case ara_model_gravelly_mud:
+            {
+                //10*np.log10(np.cos(teta)) + 20*np.log10(np.cos(np.pi/2*((teta/np.pi*2)**8))) +  16.*np.exp(-(teta**2)/(np.deg2rad(5)**2)) -23 
+                float reflectivity_model_dB =    10*log10f(cosf(aoi)) \
+                                                + 20*log10f(cosf((M_PI/2)*(powf(aoi/(M_PI/2),8)))) \
+                                                + 16*(expf(-powf(aoi,2) / powf(5*M_PI/180,2) )) \
+                                                - 23; 
+                gain *= powf(10.f, -reflectivity_model_dB/20);
+            }
+            break;
+
+        case ara_model_clay:
+            {
+                //10*np.log10(np.cos(teta))  + 20*np.log10(np.cos(np.pi/2*((teta/np.pi*2)**8))) +  15.5*np.exp(-(teta**2)/(np.deg2rad(5)**2)) -26 
+                float reflectivity_model_dB =    10*log10f(cosf(aoi)) \
+                                                + 20*log10f(cosf((M_PI/2)*(powf(aoi/(M_PI/2),8)))) \
+                                                + 15.5*(expf(-powf(aoi,2) / powf(5*M_PI/180,2) )) \
+                                                - 26; 
+                gain *= powf(10.f, -reflectivity_model_dB/20);
+            }
+            break;
     }
+
     return gain;
 }
