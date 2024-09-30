@@ -495,6 +495,10 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
        mbes_tx_plen = rth.r7000->tx_len;
        mbes_ping_rate = 1./(rth.r7000->ping_period);
 
+       //For CW pulses, bandwidth is given by pulse length
+       mbes_tx_bw = MAX(mbes_tx_bw,1/mbes_tx_plen);
+       mbes_tx_bw = 40e3; 
+
        mbes_gain = rth.r7000->gain;
        mbes_tx_power = rth.r7000->tx_power;
        mbes_absorbtion = rth.r7000->absorbtion;
@@ -881,6 +885,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 upper_gate_range[ix_out] = upper_gate_range[ix_in];
                 lower_gate_range[ix_out] = lower_gate_range[ix_in];
 
+
                 if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
                 if (swath_y[ix_in]>sensor_params->swath_max_y || swath_y[ix_in]<sensor_params->swath_min_y) continue;
 
@@ -897,6 +902,13 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                     aoi[ix_out] = beam_angle[ix_out];
                 }
             }
+            //Calculate effective pulse length
+            float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
+             
+            //Calculate time domain footprint for each beam / sounding 
+            for (size_t ix=0;ix<Nout;ix++){
+                outbuf->footprint_time[ix] = calc_beam_time_response(beam_range[ix], aoi[ix], beam_angle[ix],eff_plen , sensor_params);
+            }
 
             if (sensor_params->s7k_backscatter_source == s7k_backscatter_bathy){
                 // First we remove s7k added Gain/TVG 
@@ -909,7 +921,6 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                     }
                 }
                 //Then we apply our own TVG
-                float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
                 for (size_t ix=0;ix<Nout;ix++){
                     intensity[ix] *= calc_intensity_scaling(beam_range[ix], aoi[ix_out], beam_angle[ix], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_out]));
                 }
@@ -921,6 +932,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 }
             }
             variance_model(beam_range, beam_angle,aoi,Nout,nav_droll_dt,nav_dpitch_dt,/*output*/ z_var);
+
         }
       
         free(xs); free(ys); free(zs);
@@ -1015,16 +1027,18 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 /**** Here we process the snippet into sounding data intensity ****/
                 float inten;
                 float acum_pow;
+                int32_t detection_offset = sd->detection_sample - sd->snippet_start;
+                int32_t snippet_len;       //This is the snippet length that we will be outputting 
                 switch (sensor_params->snippet_processing_mode){
                     case snippet_detection_value:
                         //Take intensity from detection sample
-                        int32_t detection_offset = sd->detection_sample - sd->snippet_start;
                         if(sample_size==4){
                             inten = *( ((uint32_t*)snp_data_ptr) + detection_offset);
                         }
                         else{
                             inten = *( ((uint16_t*)snp_data_ptr) + detection_offset);
                         }
+                        snippet_len=len;
                         break;
                     default:
                     case snippet_mean_pow:
@@ -1050,6 +1064,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                             }
                         }
                         inten = sqrtf(acum_pow/len);
+                        snippet_len=len;
                         break;
                     case snippet_sum_pow:
                         acum_pow = 0;
@@ -1073,7 +1088,42 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                             }
                         }
                         inten = sqrtf(acum_pow);
+                        snippet_len=len;
                         break;
+                    case snippet_3dB_footprint_mean_pow:
+                        {
+                            // Crop snippet to maximum the 3dB time domain footprint
+                            int32_t snippet_3dB_length=roundf(outbuf->footprint_time[ix_bath]*Fs);
+                            snippet_3dB_length=MAX(snippet_3dB_length,1);
+                            int32_t ix0 = detection_offset-snippet_3dB_length/2;
+                            int32_t ix1 = ix0+snippet_3dB_length;
+                            ix0=MAX(0,ix0);
+                            ix1=MIN(ix1,len);
+                            acum_pow = 0;
+
+
+                            if(sample_size==4){
+                                for (size_t ix = ix0; ix<ix1;ix++){
+                                    float val = *( ((uint32_t*)snp_data_ptr) + ix);
+                                    acum_pow += powf(val,2);
+                                }
+                            }
+                            else{
+                                for (size_t ix = ix0; ix<ix1;ix++){
+                                    float val = *( ((uint16_t*)snp_data_ptr) + ix);
+                                    #ifdef COUNT_S7K_SNIPPET_SATURATION
+                                    if(val>=65530){ 
+                                        //fprintf(stderr,"WARNING, Saturation in s7k snippet\n");
+                                        s7k_snp_satcount++;
+                                    }
+                                    s7k_snp_count++;
+                                    #endif
+                                    acum_pow += powf(val,2);
+                                }
+                            }
+                            inten = sqrtf(acum_pow/(ix1-ix0));
+                            snippet_len=ix1-ix0;
+                        }
                 }
                 
                 // First we remove s7k added Gain/TVG
@@ -1093,7 +1143,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 inten *= calc_intensity_scaling(outbuf->range[ix_bath], outbuf->aoi[ix_bath],outbuf->teta[ix_bath], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_bath]));
 
                 outbuf->i[ix_bath] = inten;
-                outbuf->snp_len[ix_bath] = len; 
+                outbuf->snp_len[ix_bath] = snippet_len; 
             }
             else{
                 outbuf->snp_len[ix_bath] = 0; 
@@ -1124,6 +1174,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         uint8_t* rd_ptr = (((uint8_t*) rth.r7058) + sizeof(r7k_RecordTypeHeader_7058_t));
         r7k_SnippetDescriptor_7058_t* rd = (r7k_SnippetDescriptor_7058_t*)(rd_ptr);
         
+        float Fs = outbuf->sample_rate;
         int Nbath = outbuf->N;      //Number of soundings from bathy data
         int Nsnp = rth.r7058->N;    //Number of snippets in 7058 record
         uint32_t  control_flag = rth.r7058->control_flag;
@@ -1164,8 +1215,66 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 // Mean snippet power  (root-mean-square)
                 // Snippets are reported in bs = 10log10(bcs), where bcs is the scaled power
                 // To calculate a scaled rms intensity, similar as for 7028 and WBMS data, we calulate intensity as  sqrt mean bcs
-                float acum_bcs = 0;
+    
+                #if 1
+                
+                float acum_pow;
+                int32_t detection_offset = sd->detection_sample - sd->snippet_start;
+                switch (sensor_params->snippet_processing_mode){
+                    case snippet_detection_value:
+                        {
+                        //Take intensity from detection sample
+                        float bs  = *( snp_bs_data_ptr + detection_offset);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
+                        float bcs = powf(10,bs/10.f);                         //Backscattering cross sectioni(power value)
+                        outbuf->i[ix_bath] = sqrtf(bcs);        //Sqrt of sample power
+                        outbuf->snp_len[ix_bath] = len; 
+                        }
+                        break;
+                    default:
+                    case snippet_mean_pow:
+                        //Mean snippet power  (root-mean-square)
+                        acum_pow = 0;
+                        for (size_t ix = 0; ix<len;ix++){
+                            float bs  = *( snp_bs_data_ptr + ix);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
+                            float bcs = powf(10,bs/10.f);           //Backscattering cross sectioni(power value)
+                            acum_pow += bcs;
+                        }
+                        outbuf->i[ix_bath] = sqrtf(acum_pow/len);   //Sqrt of mean power
+                        outbuf->snp_len[ix_bath] = len; 
+                        break;
+                    case snippet_sum_pow:
+                        acum_pow = 0;
+                        for (size_t ix = 0; ix<len;ix++){
+                            float bs  = *( snp_bs_data_ptr + ix);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
+                            float bcs = powf(10,bs/10.f);           //Backscattering cross sectioni(power value)
+                            acum_pow += bcs;
+                        }
+                        outbuf->i[ix_bath] = sqrtf(acum_pow);       //Sqrt of summed power
+                        outbuf->snp_len[ix_bath] = len; 
+                        break;
+                    case snippet_3dB_footprint_mean_pow:
+                        {
+                            // Crop snippet to maximum the 3dB time domain footprint
+                            int32_t snippet_3dB_length=roundf(outbuf->footprint_time[ix_bath]*Fs);
+                            snippet_3dB_length=MAX(snippet_3dB_length,1);
+                            int32_t ix0 = detection_offset-snippet_3dB_length/2;
+                            int32_t ix1 = ix0+snippet_3dB_length;
+                            ix0=MAX(0,ix0);
+                            ix1=MIN(ix1,len);
+                            acum_pow = 0;
+                            for (size_t ix = ix0; ix<ix1;ix++){
+                                float bs  = *( snp_bs_data_ptr + ix);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
+                                float bcs = powf(10,bs/10.f);           //Backscattering cross sectioni(power value)
+                                acum_pow += bcs;
+                            }
+                            outbuf->i[ix_bath] = sqrtf(acum_pow/(ix1-ix0));   //Sqrt of mean power
+                            outbuf->snp_len[ix_bath] = ix1-ix0; 
+                            break;
+                        }
+                }
 
+                #else
+                float acum_bcs = 0;
                 for (size_t ix = 0; ix<len;ix++){
                     float bs  = *( snp_bs_data_ptr + ix);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
                     float bcs = powf(10,bs/10.f);           //Backscattering cross section
@@ -1173,7 +1282,8 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 }
                 outbuf->i[ix_bath] = sqrtf(acum_bcs/len);;
                 outbuf->snp_len[ix_bath] = len; 
-               
+                #endif
+
                 if (footprint_included){
                     float acum_footprint = 0;
                     for (size_t ix = 0; ix<len;ix++){

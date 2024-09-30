@@ -388,7 +388,7 @@ void generate_template_config_file(char* fname){
 
 
 	fprintf(fp,"#### BACKSCATTER PARAMETERS ####\n");
-	fprintf(fp,"# Snippet processing mode.  0: Sqrt Mean power.  1: Sqrt Sum power (energy).  2: Detection intensity\n");
+	fprintf(fp,"# Snippet processing mode.  0: Sqrt Mean power.  1: Sqrt Sum power (energy).  2: Detection intensity, 3: Sqrt mean power within 3dB footprint\n");
 	fprintf(fp,"snippet_processing_mode 0\n");
 	fprintf(fp,"# Backscatter source for s7k records. 0: Bathy record,  1: Snippets (7028)  2: Normalized snippets (7058)\n");
 	fprintf(fp,"s7k_backscatter_source 0\n");
@@ -402,9 +402,11 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# Beamwidth parameters used for footprint calculation\n");
 	fprintf(fp,"rx_nadir_beamwidth 0.5 \n\n");
 	fprintf(fp,"tx_nadir_beamwidth 1.0 \n\n");
-	fprintf(fp,"# Uncomment to compensate intensity for AOI (ARA curve)\n");
-	fprintf(fp,"# AOI compensation is either by model or from angle/intensity CSV file if given with -y option\n");
-	fprintf(fp,"#intensity_aoi_comp\n");
+	fprintf(fp,"# ARA curve compensation\n");
+	fprintf(fp,"# 0: No ARA compensation.  1: Incidence angle comp only 10*log10(aoi)  2: sandy gravel  3: gravelly muddy sand  4: muddy sand   5: gravelly mud   6: clay\n");
+
+	fprintf(fp,"# If intensity compensation table is given as a CSV file with the -y option, this is ignored\n");
+	fprintf(fp,"ara_model 0\n");
 	fprintf(fp,"# Calculaste angle of incidence:   1: calculate aoi from data (default)  0: assume flat seafloor\n");
 	fprintf(fp,"calc_aoi 1\n\n");
 
@@ -517,7 +519,8 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  detection quality:         quality\n");
     fprintf(fp,"#  detection priority:         priority\n");
     fprintf(fp,"#  detection strength:        strength\n");
-    fprintf(fp,"#  snippet length:            snp_len\n");
+    fprintf(fp,"#  snippet length:            snp_len\t  #Snippet length in samples \n");
+    fprintf(fp,"#  footprint time (s):        footprint_time\t # in ms for CSV output\n");
     fprintf(fp,"#  footprint size (m2):       footprint\n");
     fprintf(fp,"#  vessel coordinates:        LAT,LON\n");
     fprintf(fp,"#  vessel coordinates:        X,Y,Z\n");
@@ -569,7 +572,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->mounting_depth = 1.0;		//Mounting depth, only for raytracing, SV-profile compensation
     s->intensity_correction = 0;
     s->intensity_range_attenuation = 100;
-    s->intensity_aoi_comp = 0;
+    s->ara_model = ara_model_none;
     s->rx_nadir_beamwidth= 0.5*(M_PI/180);
     s->tx_nadir_beamwidth = 1.0*(M_PI/180);
     s->calc_aoi = 1;
@@ -745,7 +748,7 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"intensity_range_comp",20)==0) sensor_params.intensity_correction = 1;	//LEGACY
             if (strncmp(c,"intensity_correction",20)==0) sensor_params.intensity_correction = 1;	
             if (strncmp(c,"intensity_range_attenuation",27)==0) sensor_params.intensity_range_attenuation = ((float)atof(c+27));
-            if (strncmp(c,"intensity_aoi_comp",18)==0) sensor_params.intensity_aoi_comp = 1;	
+            if (strncmp(c,"ara_model",9)==0) sensor_params.ara_model = (atoi(c+9));	
 			if (strncmp(c,"rx_nadir_beamwidth",18)==0) sensor_params.rx_nadir_beamwidth = ((float)atof(c+18))* (float)M_PI/180;
 			if (strncmp(c,"tx_nadir_beamwidth",18)==0) sensor_params.tx_nadir_beamwidth = ((float)atof(c+18))* (float)M_PI/180;
 
@@ -1273,7 +1276,9 @@ int main(int argc,char *argv[])
     }
 	
     if (angle_intensity_file_name){
-        sensor_params.use_intensity_angle_corr_table = (read_intensity_angle_corr_from_file(angle_intensity_file_name,INTENSITY_ANGLE_STEP,INTENSITY_ANGLE_MAX_VALUES, /*output*/ intenity_angle_corr_table)>0);
+        if (read_intensity_angle_corr_from_file(angle_intensity_file_name,INTENSITY_ANGLE_STEP,INTENSITY_ANGLE_MAX_VALUES, /*output*/ intenity_angle_corr_table)>0){
+            sensor_params.ara_model = ara_model_table;
+        }
     }
     if (sensor_mode == sensor_mode_wbms_v5){
         force_bath_version =5;

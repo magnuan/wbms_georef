@@ -13,8 +13,8 @@
 #define STRINGIFY(v) STRINGIFY0(v)
 
 #define MAX_OUTPUT_FIELDS 128
-typedef enum  {none=0, t,c, x,y,z,z_var, z_stddev,range, teta,steer,beam,el,val,swath_y,aoi,ugate,lgate,cgate,gatew,quality,priority,strength,freq,bw,plen,voltage,multiping,multifreq,pingrate,pingnumber,pingdiff, LAT,LON,X,Y,Z,YAW,PITCH,ROLL, HOR_ACC,VERT_ACC,COURSE,SPEED,MOVEMENT,ALTITUDE,GPS_ACCURACY,GPS_STATUS,SATELLITES,line_of_sight,classification,iref, sref,snp_len,footprint} output_format_e;
-#define iterate_output_format(_F)  _F(x); _F(y); _F(z); _F(z_var); _F(z_stddev);   _F(teta);   _F(range); _F(steer);_F(beam); _F(el);  _F(val); _F(swath_y); _F(aoi); _F(ugate); _F(lgate); _F(cgate); _F(gatew);_F(quality);_F(priority);_F(strength);_F(freq);_F(bw);_F(plen);_F(voltage);_F(pingrate);_F(pingnumber);_F(pingdiff);_F(multiping);_F(multifreq);   _F(LAT); _F(LON); _F(X); _F(Y); _F(Z);   _F(t); _F(c);   _F(YAW); _F(PITCH); _F(ROLL); _F(HOR_ACC); _F(VERT_ACC); _F(COURSE); _F(SPEED);_F(MOVEMENT); _F(ALTITUDE); _F(GPS_ACCURACY); _F(GPS_STATUS); _F(SATELLITES); _F(line_of_sight); _F(classification); _F(iref); _F(sref); _F(snp_len); _F(footprint)
+typedef enum  {none=0, t,c, x,y,z,z_var, z_stddev,range, teta,steer,beam,el,val,swath_y,aoi,ugate,lgate,cgate,gatew,quality,priority,strength,freq,bw,plen,voltage,multiping,multifreq,pingrate,pingnumber,pingdiff, LAT,LON,X,Y,Z,YAW,PITCH,ROLL, HOR_ACC,VERT_ACC,COURSE,SPEED,MOVEMENT,ALTITUDE,GPS_ACCURACY,GPS_STATUS,SATELLITES,line_of_sight,classification,iref, sref,snp_len,footprint_time,footprint} output_format_e;
+#define iterate_output_format(_F)  _F(x); _F(y); _F(z); _F(z_var); _F(z_stddev);   _F(teta);   _F(range); _F(steer);_F(beam); _F(el);  _F(val); _F(swath_y); _F(aoi); _F(ugate); _F(lgate); _F(cgate); _F(gatew);_F(quality);_F(priority);_F(strength);_F(freq);_F(bw);_F(plen);_F(voltage);_F(pingrate);_F(pingnumber);_F(pingdiff);_F(multiping);_F(multifreq);   _F(LAT); _F(LON); _F(X); _F(Y); _F(Z);   _F(t); _F(c);   _F(YAW); _F(PITCH); _F(ROLL); _F(HOR_ACC); _F(VERT_ACC); _F(COURSE); _F(SPEED);_F(MOVEMENT); _F(ALTITUDE); _F(GPS_ACCURACY); _F(GPS_STATUS); _F(SATELLITES); _F(line_of_sight); _F(classification); _F(iref); _F(sref); _F(snp_len); _F(footprint_time); _F(footprint)
 
 #define PROJ_STR_MAGIC_NUMBER (0x207274736a6f7270)
 
@@ -33,7 +33,9 @@ typedef enum  {none=0, t,c, x,y,z,z_var, z_stddev,range, teta,steer,beam,el,val,
 typedef enum {detection=0, upper_gate=1, lower_gate=2, center_gate=3} sonar_sample_mode_e;
 typedef enum {ray_trace_none=0, ray_trace_fixed_depth_lut=1, ray_trace_fixed_depth_direct=2, ray_trace_var_depth=3} ray_tracing_mode_e;
 typedef enum {s7k_backscatter_bathy=0, s7k_backscatter_snippets=1, s7k_backscatter_norm_snippets=2} s7k_backscatter_source_e;
-typedef enum {snippet_mean_pow=0, snippet_sum_pow=1,snippet_detection_value} snippet_processing_mode_e;
+typedef enum {snippet_mean_pow=0, snippet_sum_pow=1,snippet_detection_value=2, snippet_3dB_footprint_mean_pow=3} snippet_processing_mode_e;
+typedef enum {ara_model_table=-1, ara_model_none=0, ara_model_cos_aoi=1, ara_model_sandy_gravel=2, ara_model_gravelly_muddy_sand=3, ara_model_muddy_sand=4, ara_model_gravelly_mud=5, ara_model_clay=6} ara_model_e;
+
 //s7k_backscatter_bathy
 //s7k_backscatter_snippets          From 7028 record
 //s7k_backscatter_norm_snippets     From 7058 record
@@ -111,13 +113,13 @@ typedef struct{
     float mounting_depth;
     char intensity_correction; 
     float intensity_range_attenuation; 
-    char intensity_aoi_comp; 
+    ara_model_e ara_model;
+
     
     float rx_nadir_beamwidth;
     float tx_nadir_beamwidth;
 
     ray_tracing_mode_e ray_tracing_mode;
-    uint8_t use_intensity_angle_corr_table;
     uint8_t calc_aoi;
     sonar_sample_mode_e sonar_sample_mode; 
     uint32_t beam_decimate;
@@ -155,6 +157,7 @@ typedef struct{
     float   strength[MAX_DP];
     int     classification[MAX_DP];
     int     snp_len[MAX_DP];
+    float   footprint_time[MAX_DP];
     float   footprint[MAX_DP];
     float   tx_angle;
     float   sv;

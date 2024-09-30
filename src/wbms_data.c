@@ -528,6 +528,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     int* multifreq_index_out = &(outbuf->multifreq_index);
     int* classification_val = &(outbuf->classification[0]);
     float* footprint_area = &(outbuf->footprint[0]);  
+    float * footprint_time = &(outbuf->footprint_time[0]);  
 
     float sensor_strength;
     #ifdef OUTPUT_QUALITY_VAL
@@ -568,35 +569,39 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 
     bath_data_packet_vX_t* bath_vX = bath_convert_to_universal(bath_in,force_bath_version);
     
-        tx_freq = bath_vX->sub_header.tx_freq;
-        tx_bw = bath_vX->sub_header.tx_bw;
-        tx_plen = bath_vX->sub_header.tx_len;
-        tx_angle = bath_vX->sub_header.tx_angle;
-        tx_voltage = bath_vX->sub_header.tx_voltage;
-        Fs = bath_vX->sub_header.sample_rate;
-        c = bath_vX->sub_header.snd_velocity+sensor_params->sv_offset;
-        if (sensor_params->force_sv > 0){
-            c = sensor_params->force_sv;
-        }
-        if (c != c){
-            fprintf(stderr, "NaN sound velocity encountered in data");
-        }
-        Nin = bath_vX->sub_header.N;
-        multifreq_index =bath_vX->sub_header.multifreq_band_index;
-        ping_number =  bath_vX->sub_header.ping_number;
-        multiping_index =  bath_vX->sub_header.multiping_scan_index;
-        ping_rate =  bath_vX->sub_header.ping_rate;
-			
-        if (0){//rcnt%100==0){
-	        char str_buf[256];
-            sprintf_unix_time(str_buf, bath_in->sub_header.time);
-            fprintf(stderr,"WBMS bathy ver=%d ping=%7d  multi freq=%2d  multi ping %2d tx=%5.1fdeg %s\n",
-                    bath_in->header.version,
-                    ping_number,
-                    multifreq_index,
-                    multiping_index,
-                    tx_angle*180/M_PI, 
-                    str_buf);
+    tx_freq = bath_vX->sub_header.tx_freq;
+    tx_bw = bath_vX->sub_header.tx_bw;
+    tx_plen = bath_vX->sub_header.tx_len;
+    tx_angle = bath_vX->sub_header.tx_angle;
+    tx_voltage = bath_vX->sub_header.tx_voltage;
+    Fs = bath_vX->sub_header.sample_rate;
+    c = bath_vX->sub_header.snd_velocity+sensor_params->sv_offset;
+       
+    //For CW pulses, bandwidth is given by pulse length
+    tx_bw = MAX(tx_bw,1/tx_plen);
+    
+    if (sensor_params->force_sv > 0){
+        c = sensor_params->force_sv;
+    }
+    if (c != c){
+        fprintf(stderr, "NaN sound velocity encountered in data");
+    }
+    Nin = bath_vX->sub_header.N;
+    multifreq_index =bath_vX->sub_header.multifreq_band_index;
+    ping_number =  bath_vX->sub_header.ping_number;
+    multiping_index =  bath_vX->sub_header.multiping_scan_index;
+    ping_rate =  bath_vX->sub_header.ping_rate;
+
+    if (0){//rcnt%100==0){
+        char str_buf[256];
+        sprintf_unix_time(str_buf, bath_in->sub_header.time);
+        fprintf(stderr,"WBMS bathy ver=%d ping=%7d  multi freq=%2d  multi ping %2d tx=%5.1fdeg %s\n",
+                bath_in->header.version,
+                ping_number,
+                multifreq_index,
+                multiping_index,
+                tx_angle*180/M_PI, 
+                str_buf);
         }
 
     *sv_out = c; 
@@ -833,6 +838,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 	for (size_t ix=0;ix<Nout;ix++){
         //Compensate intensity for range and AOI
         intensity[ix]  *= calc_intensity_scaling(beam_range[ix], aoi[ix], beam_angle[ix],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix]));
+        footprint_time[ix] = calc_beam_time_response(beam_range[ix], aoi[ix], beam_angle[ix],eff_plen , sensor_params);
 	}
     variance_model(beam_range, beam_angle,aoi,Nout,nav_droll_dt,nav_dpitch_dt,/*output*/ z_var);
 
@@ -854,6 +860,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     float* beam_angle = &(outbuf->teta[0]);
     int * beam_number = &(outbuf->beam[0]);
     int * snp_len = &(outbuf->snp_len[0]);  
+    float * footprint_time = &(outbuf->footprint_time[0]);  
     float* footprint_area = &(outbuf->footprint[0]);  
     float* aoi = &(outbuf->aoi[0]);
     float* fs_out = &(outbuf->sample_rate);
@@ -906,6 +913,8 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     float vga_t1 = (float) snippet_in->sub_header.vga_t1;
     float vga_g1 = snippet_in->sub_header.vga_g1;
     float vga_dgdt = (vga_g1-vga_g0)/(vga_t1-vga_t0);
+    
+    float eff_plen = MIN(tx_plen, 2./tx_bw);
 
 
     c = snippet_in->sub_header.snd_velocity+sensor_params->sv_offset;
@@ -984,11 +993,21 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     //uint32_t *sippet_tbd      =  (float*)     (snippet_in->payload+(4*4*Nin));
     uint16_t *snippet_intensity =  (uint16_t*)  (snippet_in->payload+(5*4*Nin));
 
+    //Index location of each snippet data section, This needs to be done on all, undecimated data as it is cumulative
+    int32_t snippet_intensity_offset[MAX_DP]; 
+    int32_t snippet_length[MAX_DP];
 
-    int32_t snippet_intensity_offset = 0;                              //Snippet intensity  start index, increments as we progress through all snippets
+    int32_t snp_acum_len = 0;                              //Snippet intensity  start index, increments as we progress through all snippets
     for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
-        int32_t snippet_length = (int32_t) (roundf(snippet_stop_ix[ix_in] - snippet_start_ix[ix_in]))+1;
-        if (ix_in%ix_in_stride==0 && snippet_length>1){
+        int32_t snippet_len = (int32_t) (roundf(snippet_stop_ix[ix_in] - snippet_start_ix[ix_in]))+1;
+        snippet_length[ix_in] = snippet_len;
+        snippet_intensity_offset[ix_in] = snp_acum_len;
+        snp_acum_len += snippet_len;
+    }
+
+    for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
+        int32_t snippet_len = snippet_length[ix_in];
+        if (ix_in%ix_in_stride==0 && snippet_len>1){
             float sample_number = snippet_detection_ix[ix_in];
             float sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
             float sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
@@ -1017,48 +1036,6 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                 beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis
                 beam_range[ix_out] = sensor_r;
 
-                /*** Calculate intensity from snippet data ***/
-                float inten;
-                float acum_pow;
-                switch (sensor_params->snippet_processing_mode){
-                    case snippet_detection_value:
-                        //Take intensity from detection sample
-                        int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in]));
-                        inten = snippet_intensity[snippet_intensity_offset+detection_offset];       //Pick detection sample from snippet data
-                        break;
-                    default:
-                    case snippet_mean_pow:
-                        //Mean snippet power  (root-mean-square)
-                        acum_pow = 0;
-                        for (size_t ix = 0; ix<snippet_length;ix++){
-                            acum_pow += powf((float)snippet_intensity[snippet_intensity_offset+ix],2);
-                        }
-                        inten = sqrtf(acum_pow/snippet_length);
-                        break;
-                    case snippet_sum_pow:
-                        acum_pow = 0;
-                        for (size_t ix = 0; ix<snippet_length;ix++){
-                            acum_pow += powf((float)snippet_intensity[snippet_intensity_offset+ix],2);
-                        }
-                        inten = sqrtf(acum_pow);
-                        break;
-                }
-
-
-                // Correct intesity for internal VGA
-                float vga_gain_dB;
-                if (sample_number <= vga_t0){
-                    vga_gain_dB = vga_g0;
-                }
-                else if (sample_number < vga_t1){
-                    vga_gain_dB = vga_g0 + vga_dgdt*(sample_number-vga_t0);
-                }
-                else{
-                    vga_gain_dB = vga_g1;
-                }
-                float vga_gain_scaling = powf(10,-vga_gain_dB/20);
-                inten *= gain_scaling * vga_gain_scaling;
-                intensity[ix_out] = inten;
 
                 /***** Converting sensor data from spherical to kartesian coordinates *********/
                 // Projection assumes cone-plane coordinates (See assembla ticket #1725)								 
@@ -1069,15 +1046,10 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                 zs[ix_out] = sensor_r * cosf((sensor_az+sensor_az_tx2rx_corr))*cosf(sensor_el);
                 zs[ix_out] += sensor_z_tx2rx_corr;
                 
-                snp_len[ix_out] = snippet_length;
-
                 ix_out++;
-
             }
         }
-        snippet_intensity_offset += snippet_length;
     }
-    //printf(stderr, "snippet_intensity_offset = %d\n",snippet_intensity_offset);
     Nout = ix_out;
 
     georef_to_global_frame(sensor_offset,xs, ys, zs,  Nout,c, nav_x, nav_y, nav_z,  nav_yaw, nav_pitch,  nav_roll, sensor_params->ray_tracing_mode,  sensor_params->mounting_depth, /*OUTPUT*/ x,y,z);
@@ -1091,12 +1063,10 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         x[ix_out] = x[ix_in];
         y[ix_out] = y[ix_in];
         z[ix_out] = z[ix_in];
-        intensity[ix_out] = intensity[ix_in];
         beam_angle[ix_out] = beam_angle[ix_in];
         beam_number[ix_out] = beam_number[ix_in];
         beam_range[ix_out] = beam_range[ix_in];
-        snp_len[ix_out] = snp_len[ix_in];
-
+        
         if((z[ix_in]<sensor_params->min_depth) || (z[ix_in]>sensor_params->max_depth)) continue;
 
         ix_out++;
@@ -1104,7 +1074,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     Nout = ix_out;
 #endif 
     //printf("Nout2 = %d\n",Nout);
-    //Calculate AOIon  Post-filtered data
+    //Calculate AOI on  Post-filtered data
     if (sensor_params->calc_aoi){
         calc_aoi(beam_range, beam_angle, Nout, /*output*/ aoi);
     }
@@ -1113,16 +1083,115 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
             aoi[ix_out] = beam_angle[ix_out];
         }
     }
+                
+	for (ix_out=0;ix_out<Nout;ix_out++){
+        //Calculate time domain footprint for each beam / sounding 
+        footprint_time[ix_out] = calc_beam_time_response(beam_range[ix_out], aoi[ix_out], beam_angle[ix_out],eff_plen , sensor_params);
+	}
+    
+
     //Calculate corrected intensity on  Post-filtered data
 	// Populate r,az,el and t with data from bath data
 	for (ix_out=0;ix_out<Nout;ix_out++){
+        uint16_t ix_in = beam_number[ix_out]; //This is the index used in the original dataset, used to index: snippet_start_ix,snippet_stop_ix,snippet_detection_ix,snippet_angle,snippet_intensity,snippet_intensity_offset,snippet_length
+        float sample_number = snippet_detection_ix[ix_in];
+        int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in])); //Index of detection point in snippet
+
+        /*** Calculate intensity from snippet data ***/
+        float inten;
+        float acum_pow;
+        switch (sensor_params->snippet_processing_mode){
+            case snippet_detection_value:
+                {
+                    //Take intensity from detection sample
+                    inten = snippet_intensity[snippet_intensity_offset[ix_in]+detection_offset];       //Pick detection sample from snippet data
+                }
+                break;
+            default:
+            case snippet_mean_pow:
+                //Mean snippet power  (root-mean-square)
+                acum_pow = 0;
+                for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
+                    acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
+                }
+                inten = sqrtf(acum_pow/snippet_length[ix_in]);
+                break;
+            case snippet_sum_pow:
+                acum_pow = 0;
+                for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
+                    acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
+                }
+                inten = sqrtf(acum_pow);
+                break;
+            case snippet_3dB_footprint_mean_pow:
+                {
+                    #if 1
+                    // Crop snippet to maximum the 3dB time domain footprint
+                    int32_t snippet_3dB_length=roundf(footprint_time[ix_out]*Fs);
+                    snippet_3dB_length=MAX(snippet_3dB_length,1);
+                    int32_t ix0 = detection_offset-snippet_3dB_length/2;
+                    int32_t ix1 = ix0+snippet_3dB_length;
+                    ix0=MAX(0,ix0);
+                    ix1=MIN(ix1,snippet_length[ix_in]);
+                    acum_pow = 0;
+                    for (size_t ix = ix0; ix<ix1;ix++){
+                        inten = (float)snippet_intensity[snippet_intensity_offset[ix_in]+ix];
+                        acum_pow += powf(inten,2);
+                    }
+                    inten = sqrtf(acum_pow/(ix1-ix0));
+                    snippet_length[ix_in]=ix1-ix0;    
+
+
+                    #else
+                    int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in]));
+                    float peak_sig = snippet_intensity[snippet_intensity_offset[ix_in]+detection_offset];       //Pick detection sample from snippet data
+                    /*float peak_sig = 0;
+                      for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
+                      peak_sig = MAX(peak_sig,(float)snippet_intensity[snippet_intensity_offset[ix_in]+ix]);
+                      }*/
+                    float th = peak_sig*0.7071f;
+
+                    acum_pow = 0;
+                    for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
+                        inten = (float)snippet_intensity[snippet_intensity_offset[ix_in]+ix];
+                        if (inten>=th){
+                            acum_pow += powf(inten,2);
+                            snippet_3dB_length++;
+                        }
+                    }
+                    inten = sqrtf(acum_pow/snippet_3dB_length);
+                    #endif
+                }
+                break;
+        }
+
+
+        // Correct intesity for internal VGA
+        float vga_gain_dB;
+        if (sample_number <= vga_t0){
+            vga_gain_dB = vga_g0;
+        }
+        else if (sample_number < vga_t1){
+            vga_gain_dB = vga_g0 + vga_dgdt*(sample_number-vga_t0);
+        }
+        else{
+            vga_gain_dB = vga_g1;
+        }
+        float vga_gain_scaling = powf(10,-vga_gain_dB/20);
+        inten *= gain_scaling * vga_gain_scaling;
+        
         //Compensate intensity for range and AOI
-        float eff_plen = MIN(tx_plen, 2./tx_bw);
         if (sensor_params->snippet_processing_mode == snippet_sum_pow){
             // When calculating total snippet energy, the footprint is based on the entire footprint of the snippet, not a sample footprint
-            eff_plen += snp_len[ix_out] * div_Fs;
+            inten *= calc_intensity_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen+snp_len[ix_out]*div_Fs , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
         }
-        intensity[ix_out]  *= calc_intensity_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
+        else{
+            inten  *= calc_intensity_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
+        }
+    
+        // Write results to output buffers
+        intensity[ix_out] = inten;
+        snp_len[ix_out] = snippet_length[ix_in];
 	}
 
     free(xs);free(ys);free(zs);
