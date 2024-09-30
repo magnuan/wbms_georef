@@ -59,6 +59,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     float* steer_val = &(data->steer[0]);
     int * beam_number = &(data->beam[0]);
     int * snippet_len = &(data->snp_len[0]);
+    float * footprint_t = &(data->footprint_time[0]);
     float * footprint_area = &(data->footprint[0]);
     float* swath_y_val = &(data->swath_y[0]);
     float* aoi_val = &(data->aoi[0]);
@@ -113,7 +114,8 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case z_stddev: len += sprintf(&(outbuf[len]),"%11.3f",sqrtf(z_var_val[ii]));break;
                 case teta: len += sprintf(&(outbuf[len]),"%11.3f",teta_val[ii]*180/M_PI);break;
                 case beam: len += sprintf(&(outbuf[len]),"%11d",beam_number[ii]);break;
-                case snp_len: len += sprintf(&(outbuf[len]),"%5d",snippet_len[ii]);break;
+                case snp_len: len += sprintf(&(outbuf[len]),"%d",snippet_len[ii]);break;
+                case footprint_time: len += sprintf(&(outbuf[len]),"%11.3f",footprint_t[ii]*1e3);break;
                 case footprint: len += sprintf(&(outbuf[len]),"%11.3f",footprint_area[ii]);break;
                 case range: len += sprintf(&(outbuf[len]),"%11.3f",range_val[ii]);break;
                 case steer: len += sprintf(&(outbuf[len]),"%11.3f",steer_val[ii]*180/M_PI);break;

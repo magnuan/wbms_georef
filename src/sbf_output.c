@@ -138,6 +138,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     float* steer_val = &(data->steer[0]);
     int * beam_number = &(data->beam[0]);
     int * snippet_len = &(data->snp_len[0]);
+    float * footprint_t = &(data->footprint_time[0]);
     float * footprint_area = &(data->footprint[0]);
     float* swath_y_val = &(data->swath_y[0]);
     float* aoi_val = &(data->aoi[0]);
@@ -200,6 +201,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 #endif
                 case footprint: write_f32_unaligned_bswap((uint8_t*)dp,(float)(footprint_area[ii])); dp+=4;break;         
                 case snp_len: write_f32_unaligned_bswap((uint8_t*)dp,(float)(snippet_len[ii])); dp+=4;break; 
+                case footprint_time: write_f32_unaligned_bswap((uint8_t*)dp,(float)(footprint_t[ii])); dp+=4;break; 
                 case beam: write_f32_unaligned_bswap((uint8_t*)dp,(float)(beam_number[ii])); dp+=4;break;
                 case range: write_f32_unaligned_bswap((uint8_t*)dp,(float)(range_val[ii])); dp+=4;break;
                 case val: write_f32_unaligned_bswap((uint8_t*)dp,(float)(intensity_val[ii])); dp+=4;break;
