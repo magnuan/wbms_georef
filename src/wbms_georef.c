@@ -392,8 +392,10 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"snippet_processing_mode 0\n");
 	fprintf(fp,"# Backscatter source for s7k records. 0: Bathy record,  1: Snippets (7028)  2: Normalized snippets (7058)\n");
 	fprintf(fp,"s7k_backscatter_source 0\n");
-	fprintf(fp,"# By default applied S7K Gain and TVG (in 7000 record) is removed, set this to 0 to keep s7k applied gain/TVG\n");
-	fprintf(fp,"# remove_s7k_tvg 1\n");
+	fprintf(fp,"# By default applied S7K Gain and TVG (in 7000 record) is removed, uncomment to keep s7k applied gain/TVG\n");
+	fprintf(fp,"# keep_s7k_tvg \n");
+	fprintf(fp,"# By default, the 7058 footprint compensation is removed and replaced with the internal footprint model, uncomment to keep 7058 footprint instead\n");
+	fprintf(fp,"# keep_s7k_footprint \n");
 	fprintf(fp,"# With this enabled, the backscatter is compensated for attenuation, spreading and footprint\n");
 	fprintf(fp,"# Comment to disable\n");
 	fprintf(fp,"intensity_correction\n");
@@ -594,7 +596,8 @@ static void sensor_params_default(sensor_params_t* s){
     s->scale_tx_angle = 1.0;
     s->beam_corr_poly_order=0;
     s->s7k_backscatter_source = s7k_backscatter_bathy;
-    s->remove_s7k_tvg = 1;
+    s->keep_s7k_tvg = 0;
+    s->keep_s7k_footprint_comp = 0;
     s->snippet_processing_mode = snippet_mean_pow;
 }
 
@@ -701,7 +704,8 @@ int read_config_from_file(char* fname){
             }
 			if (strncmp(c,"s7k_backscatter_source",22)==0) sensor_params.s7k_backscatter_source = (atoi(c+22));	
 			if (strncmp(c,"snippet_processing_mode",23)==0) sensor_params.snippet_processing_mode = (atoi(c+23));	
-			if (strncmp(c,"remove_s7k_tvg",14)==0) sensor_params.remove_s7k_tvg = (atoi(c+14));	
+			if (strncmp(c,"keep_s7k_tvg",12)==0) sensor_params.keep_s7k_tvg = 1;	
+			if (strncmp(c,"keep_s7k_footprint",18)==0) sensor_params.keep_s7k_footprint_comp = 1;	
 
             if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
             if (strncmp(c,"raytrace_use_table_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(0);

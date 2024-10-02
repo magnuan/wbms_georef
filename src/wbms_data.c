@@ -837,7 +837,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     float eff_plen = MIN(tx_plen, 2./tx_bw);
 	for (size_t ix=0;ix<Nout;ix++){
         //Compensate intensity for range and AOI
-        intensity[ix]  *= calc_intensity_scaling(beam_range[ix], aoi[ix], beam_angle[ix],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix]));
+        intensity[ix]  *= calc_intensity_range_scaling(beam_range[ix], sensor_params);
+        intensity[ix]  *= calc_footprint_scaling(beam_range[ix], aoi[ix], beam_angle[ix],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix]));
+        intensity[ix]  *= calc_ara_scaling(aoi[ix_out], sensor_params);
         footprint_time[ix] = calc_beam_time_response(beam_range[ix], aoi[ix], beam_angle[ix],eff_plen , sensor_params);
 	}
     variance_model(beam_range, beam_angle,aoi,Nout,nav_droll_dt,nav_dpitch_dt,/*output*/ z_var);
@@ -1181,13 +1183,17 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         inten *= gain_scaling * vga_gain_scaling;
         
         //Compensate intensity for range and AOI
+        inten *= calc_intensity_range_scaling(beam_range[ix_out], sensor_params);
+        
         if (sensor_params->snippet_processing_mode == snippet_sum_pow){
             // When calculating total snippet energy, the footprint is based on the entire footprint of the snippet, not a sample footprint
-            inten *= calc_intensity_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen+snp_len[ix_out]*div_Fs , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
+            inten *= calc_footprint_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen+snp_len[ix_out]*div_Fs , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
         }
         else{
-            inten  *= calc_intensity_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
+            inten  *= calc_footprint_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
         }
+        
+        inten  *= calc_ara_scaling(aoi[ix_out], sensor_params);
     
         // Write results to output buffers
         intensity[ix_out] = inten;

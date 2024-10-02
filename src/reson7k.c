@@ -912,7 +912,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
 
             if (sensor_params->s7k_backscatter_source == s7k_backscatter_bathy){
                 // First we remove s7k added Gain/TVG 
-                if (sensor_params->remove_s7k_tvg){
+                if (!sensor_params->keep_s7k_tvg){
                     for (size_t ix=0;ix<Nout;ix++){
                         float r = beam_range[ix];
                         float gain_scaling_dB = -(mbes_tx_power-TX_POWER_REF) -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
@@ -922,7 +922,9 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 }
                 //Then we apply our own TVG
                 for (size_t ix=0;ix<Nout;ix++){
-                    intensity[ix] *= calc_intensity_scaling(beam_range[ix], aoi[ix_out], beam_angle[ix], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_out]));
+                    intensity[ix] *= calc_intensity_range_scaling(beam_range[ix], sensor_params);
+                    intensity[ix] *= calc_footprint_scaling(beam_range[ix], aoi[ix_out], beam_angle[ix], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_out]));
+                    intensity[ix] *= calc_ara_scaling(aoi[ix_out], sensor_params);
                 }
             }
             else{// If we are not using backscatter from bathy data, just set it to NaN to mark that it is missing
@@ -1127,7 +1129,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 }
                 
                 // First we remove s7k added Gain/TVG
-                if (sensor_params->remove_s7k_tvg){
+                if (!sensor_params->keep_s7k_tvg){
                     float r = outbuf->range[ix_bath];
                     float gain_scaling_dB = -(mbes_tx_power-TX_POWER_REF) -mbes_gain - (2*r/1000)*mbes_absorbtion - mbes_spread_loss*log10f(r);
                     float gain_scaling = powf(10.f,gain_scaling_dB/20);
@@ -1140,7 +1142,9 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                     // When calculating total snippet energy, the footprint is based on the entire footprint of the snippet, not a sample footprint
                     eff_plen += len*div_Fs;
                 }
-                inten *= calc_intensity_scaling(outbuf->range[ix_bath], outbuf->aoi[ix_bath],outbuf->teta[ix_bath], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_bath]));
+                inten *= calc_intensity_range_scaling(outbuf->range[ix_bath], sensor_params);
+                inten *= calc_footprint_scaling(outbuf->range[ix_bath], outbuf->aoi[ix_bath],outbuf->teta[ix_bath], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_bath]));
+                inten *= calc_ara_scaling(outbuf->aoi[ix_bath], sensor_params);
 
                 outbuf->i[ix_bath] = inten;
                 outbuf->snp_len[ix_bath] = snippet_len; 
@@ -1179,7 +1183,12 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         int Nsnp = rth.r7058->N;    //Number of snippets in 7058 record
         uint32_t  control_flag = rth.r7058->control_flag;
         uint8_t footprint_included = (control_flag & (1<<6)) != 0;
-       
+
+        if (!(sensor_params->keep_s7k_footprint_comp) && !(footprint_included)){
+            fprintf(stderr,"WARNING: Requested to remove s7k footprond correction from 7058 records, but footprint data is not included\n");
+        }
+
+        float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
         uint32_t total_snippet_samples = 0;
         // Calculate the sum of all snippet length
         for (uint32_t ix_snp=0;ix_snp<Nsnp;ix_snp++){
@@ -1216,16 +1225,19 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 // Snippets are reported in bs = 10log10(bcs), where bcs is the scaled power
                 // To calculate a scaled rms intensity, similar as for 7028 and WBMS data, we calulate intensity as  sqrt mean bcs
     
-                #if 1
-                
                 float acum_pow;
                 int32_t detection_offset = sd->detection_sample - sd->snippet_start;
+                uint8_t remove_s7k_footprint_comp = !(sensor_params->keep_s7k_footprint_comp);
                 switch (sensor_params->snippet_processing_mode){
                     case snippet_detection_value:
                         {
                         //Take intensity from detection sample
                         float bs  = *( snp_bs_data_ptr + detection_offset);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
                         float bcs = powf(10,bs/10.f);                         //Backscattering cross sectioni(power value)
+                        if( remove_s7k_footprint_comp ){
+                            float footprint  = *( snp_footprint_data_ptr + detection_offset);   //Reported snippet footprint im m2   
+                            bcs *= footprint;
+                        }
                         outbuf->i[ix_bath] = sqrtf(bcs);        //Sqrt of sample power
                         outbuf->snp_len[ix_bath] = len; 
                         }
@@ -1237,6 +1249,10 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                         for (size_t ix = 0; ix<len;ix++){
                             float bs  = *( snp_bs_data_ptr + ix);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
                             float bcs = powf(10,bs/10.f);           //Backscattering cross sectioni(power value)
+                            if( remove_s7k_footprint_comp ){
+                                float footprint  = *( snp_footprint_data_ptr + ix);   //Reported snippet footprint im m2   
+                                bcs *= footprint;
+                            }
                             acum_pow += bcs;
                         }
                         outbuf->i[ix_bath] = sqrtf(acum_pow/len);   //Sqrt of mean power
@@ -1247,6 +1263,10 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                         for (size_t ix = 0; ix<len;ix++){
                             float bs  = *( snp_bs_data_ptr + ix);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
                             float bcs = powf(10,bs/10.f);           //Backscattering cross sectioni(power value)
+                            if( remove_s7k_footprint_comp ){
+                                float footprint  = *( snp_footprint_data_ptr + ix);   //Reported snippet footprint im m2   
+                                bcs *= footprint;
+                            }
                             acum_pow += bcs;
                         }
                         outbuf->i[ix_bath] = sqrtf(acum_pow);       //Sqrt of summed power
@@ -1265,6 +1285,10 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                             for (size_t ix = ix0; ix<ix1;ix++){
                                 float bs  = *( snp_bs_data_ptr + ix);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
                                 float bcs = powf(10,bs/10.f);           //Backscattering cross sectioni(power value)
+                                if( remove_s7k_footprint_comp ){
+                                    float footprint  = *( snp_footprint_data_ptr + ix);   //Reported snippet footprint im m2   
+                                    bcs *= footprint;
+                                }
                                 acum_pow += bcs;
                             }
                             outbuf->i[ix_bath] = sqrtf(acum_pow/(ix1-ix0));   //Sqrt of mean power
@@ -1272,29 +1296,26 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                             break;
                         }
                 }
-
-                #else
-                float acum_bcs = 0;
-                for (size_t ix = 0; ix<len;ix++){
-                    float bs  = *( snp_bs_data_ptr + ix);   //Reported backscattering stength = 10log10(bcs) corrected for footprint
-                    float bcs = powf(10,bs/10.f);           //Backscattering cross section
-                    acum_bcs += bcs;
-                }
-                outbuf->i[ix_bath] = sqrtf(acum_bcs/len);;
-                outbuf->snp_len[ix_bath] = len; 
-                #endif
-
-                if (footprint_included){
-                    float acum_footprint = 0;
-                    for (size_t ix = 0; ix<len;ix++){
-                        float footprint  = *( snp_footprint_data_ptr + ix);   //Reported snippet footprint im m2
-                        acum_footprint += footprint;
-                    }
-                    outbuf->footprint[ix_bath] = acum_footprint/len;
+        
+                // If we remove the 7058 record footprint correction, we instead apply our own footprint correction here
+                if( !(sensor_params->keep_s7k_footprint_comp) ){
+                    outbuf->i[ix_bath] *= calc_footprint_scaling(outbuf->range[ix_bath], outbuf->aoi[ix_bath],outbuf->teta[ix_bath], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_bath]));
                 }
                 else{
-                    outbuf->footprint[ix_bath] = 0./0.;
+                    //Report mean fooprint from 7058 record if not removed 
+                    if (footprint_included){
+                        float acum_footprint = 0;
+                        for (size_t ix = 0; ix<len;ix++){
+                            float footprint  = *( snp_footprint_data_ptr + ix);   //Reported snippet footprint im m2
+                            acum_footprint += footprint;
+                        }
+                        outbuf->footprint[ix_bath] = acum_footprint/len;
+                    }
+                    else{
+                        outbuf->footprint[ix_bath] = 0./0.;
+                    }
                 }
+                outbuf->i[ix_bath] *= calc_ara_scaling(outbuf->aoi[ix_bath], sensor_params);
             }
             else{
                 outbuf->snp_len[ix_bath] = 0; 

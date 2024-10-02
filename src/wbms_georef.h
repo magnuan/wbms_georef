@@ -132,7 +132,8 @@ typedef struct{
     uint32_t beam_corr_poly_order;
     float beam_corr_poly[MAX_BEAM_ANGLE_MODEL_ORDER];
     s7k_backscatter_source_e s7k_backscatter_source; //0=use from  
-    uint8_t remove_s7k_tvg;
+    uint8_t keep_s7k_tvg;
+    uint8_t keep_s7k_footprint_comp;
     snippet_processing_mode_e snippet_processing_mode;
 }sensor_params_t;
 

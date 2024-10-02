@@ -164,7 +164,7 @@ float calc_beam_footprint(float range,float aoi, float beam_angle, float plen, s
     return Ax*Ay;
 }
 
-float calc_intensity_scaling(float range, float aoi, float beam_angle, float eff_plen, sensor_params_t* sensor_params, /*OUTPUT*/ float* footprint){
+float calc_intensity_range_scaling(float range,  sensor_params_t* sensor_params){
     float gain = 1.0f;
 
     if (sensor_params->intensity_correction){
@@ -176,12 +176,24 @@ float calc_intensity_scaling(float range, float aoi, float beam_angle, float eff
                                           // Compensate for attenuation
         float damping_dB = sensor_params->intensity_range_attenuation * (2*range/1000); 
         gain *= powf(10.f,damping_dB/20);
+    }
+    return gain;
+}
+
+float calc_footprint_scaling(float range, float aoi, float beam_angle, float eff_plen, sensor_params_t* sensor_params, /*OUTPUT*/ float* footprint){
+    float gain = 1.0f;
+
+    if (sensor_params->intensity_correction){
         //Compensate for range and angle dependent footprint
         *footprint = calc_beam_footprint(range,aoi,beam_angle,eff_plen,sensor_params);
         gain /= sqrtf(*footprint); //Subtract 10log10(A) Retured power scales with the footprint area, so divide the signal amplitude by the sqrt of the area
     }
+    return gain;
+}
 
 
+float calc_ara_scaling(float aoi, sensor_params_t* sensor_params){
+    float gain = 1.0f;
     switch(sensor_params->ara_model){
         default:
         case ara_model_none:
