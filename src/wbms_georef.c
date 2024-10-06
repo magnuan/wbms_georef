@@ -409,6 +409,8 @@ void generate_template_config_file(char* fname){
 
 	fprintf(fp,"# If intensity compensation table is given as a CSV file with the -y option, this is ignored\n");
 	fprintf(fp,"ara_model 0\n");
+    fprintf(fp,"This is a multiplier applied to the ara model (scaling the model in dB), uncomment and set different from 1.0, to tune the ara model\n");
+	fprintf(fp,"#ara_model_multiplier 1.0\n");
 	fprintf(fp,"# Calculaste angle of incidence:   1: calculate aoi from data (default)  0: assume flat seafloor\n");
 	fprintf(fp,"calc_aoi 1\n\n");
 
@@ -575,6 +577,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->intensity_correction = 0;
     s->intensity_range_attenuation = 100;
     s->ara_model = ara_model_none;
+    s->ara_model_multiplier = 1.0;
     s->rx_nadir_beamwidth= 0.5*(M_PI/180);
     s->tx_nadir_beamwidth = 1.0*(M_PI/180);
     s->calc_aoi = 1;
@@ -753,6 +756,9 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"intensity_correction",20)==0) sensor_params.intensity_correction = 1;	
             if (strncmp(c,"intensity_range_attenuation",27)==0) sensor_params.intensity_range_attenuation = ((float)atof(c+27));
             if (strncmp(c,"ara_model",9)==0) sensor_params.ara_model = (atoi(c+9));	
+            if (strncmp(c,"ara_model_multiplier",20)==0) sensor_params.ara_model_multiplier = ((float)atof(c+20));
+
+
 			if (strncmp(c,"rx_nadir_beamwidth",18)==0) sensor_params.rx_nadir_beamwidth = ((float)atof(c+18))* (float)M_PI/180;
 			if (strncmp(c,"tx_nadir_beamwidth",18)==0) sensor_params.tx_nadir_beamwidth = ((float)atof(c+18))* (float)M_PI/180;
 

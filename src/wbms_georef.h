@@ -114,6 +114,7 @@ typedef struct{
     char intensity_correction; 
     float intensity_range_attenuation; 
     ara_model_e ara_model;
+    float ara_model_multiplier;
 
     
     float rx_nadir_beamwidth;

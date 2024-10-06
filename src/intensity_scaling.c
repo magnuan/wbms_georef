@@ -156,7 +156,7 @@ float calc_beam_footprint(float range,float aoi, float beam_angle, float plen, s
     float Ax = MIN(Ax1, Ax2);
     #else
     //Smoother blending of bandwidth / beamwidth limited footprint  
-    const float k = 3;      //Higher number gives less smooth transition >8 practically the same as MIN()-funtion
+    const float k = 4;      //Higher number gives less smooth transition >8 practically the same as MIN()-funtion
     float Ax = powf(powf(Ax1,-k) + powf(Ax2,-k),-1/k); 
     #endif
     
@@ -264,6 +264,9 @@ float calc_ara_scaling(float aoi, sensor_params_t* sensor_params){
                 gain *= powf(10.f, -reflectivity_model_dB/20);
             }
             break;
+    }
+    if (sensor_params->ara_model_multiplier!=1.0){
+        gain = powf(gain,sensor_params->ara_model_multiplier);
     }
 
     return gain;
