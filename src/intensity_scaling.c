@@ -164,7 +164,7 @@ float calc_beam_footprint(float range,float aoi, float beam_angle, float plen, s
     return Ax*Ay;
 }
 
-float calc_intensity_range_scaling(float range,  sensor_params_t* sensor_params){
+float calc_intensity_range_scaling(float range,float attenuation, sensor_params_t* sensor_params){
     float gain = 1.0f;
 
     if (sensor_params->intensity_correction){
@@ -174,7 +174,7 @@ float calc_intensity_range_scaling(float range,  sensor_params_t* sensor_params)
         //Compensate for spreading loss: Add 40dB/log10(r)
         gain *= range*range;              //Comp two-way spreading loss, 40dB/log10(r)     
                                           // Compensate for attenuation
-        float damping_dB = sensor_params->intensity_range_attenuation * (2*range/1000); 
+        float damping_dB = attenuation * (2*range/1000); 
         gain *= powf(10.f,damping_dB/20);
     }
     return gain;
@@ -271,3 +271,11 @@ float calc_ara_scaling(float aoi, sensor_params_t* sensor_params){
 
     return gain;
 }
+
+
+float calc_attenuation(float freq, sensor_params_t* sensor_params){
+    if (sensor_params->intensity_range_attenuation > 0) return sensor_params->intensity_range_attenuation;
+    else return (100/400e3)*freq;
+}
+
+

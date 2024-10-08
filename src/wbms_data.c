@@ -576,6 +576,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     tx_voltage = bath_vX->sub_header.tx_voltage;
     Fs = bath_vX->sub_header.sample_rate;
     c = bath_vX->sub_header.snd_velocity+sensor_params->sv_offset;
+    float attenuation = calc_attenuation(tx_freq, sensor_params);
        
     //For CW pulses, bandwidth is given by pulse length
     tx_bw = MAX(tx_bw,1/tx_plen);
@@ -714,7 +715,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     
         //#define SHALLOW_ANGLE_SKEW_COR
         #ifdef SHALLOW_ANGLE_SKEW_COR
-        sensor_az += calc_shallow_angle_skew_corrections(sensor_az,sensor_r, sensor_params->intensity_range_attenuation);
+        sensor_az += calc_shallow_angle_skew_corrections(sensor_az,sensor_r, attenuation);
         #endif
 
             
@@ -837,7 +838,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     float eff_plen = MIN(tx_plen, 2./tx_bw);
 	for (size_t ix=0;ix<Nout;ix++){
         //Compensate intensity for range and AOI
-        intensity[ix]  *= calc_intensity_range_scaling(beam_range[ix], sensor_params);
+        intensity[ix]  *= calc_intensity_range_scaling(beam_range[ix],attenuation, sensor_params);
         intensity[ix]  *= calc_footprint_scaling(beam_range[ix], aoi[ix], beam_angle[ix],eff_plen , sensor_params, /*OUTPUT*/ &(footprint_area[ix]));
         intensity[ix]  *= calc_ara_scaling(aoi[ix_out], sensor_params);
         footprint_time[ix] = calc_beam_time_response(beam_range[ix], aoi[ix], beam_angle[ix],eff_plen , sensor_params);
@@ -909,6 +910,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     tx_voltage = snippet_in->sub_header.tx_voltage;
     Fs = snippet_in->sub_header.sample_rate;
     gain_scaling = 1./snippet_in->sub_header.gain;
+    float attenuation = calc_attenuation(tx_freq, sensor_params);
 
     float vga_t0 = (float) snippet_in->sub_header.vga_t0;
     float vga_g0 = snippet_in->sub_header.vga_g0;
@@ -1023,7 +1025,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
             }
 
 #ifdef SHALLOW_ANGLE_SKEW_COR
-            sensor_az += calc_shallow_angle_skew_corrections(sensor_az,sensor_r, sensor_params->intensity_range_attenuation);
+            sensor_az += calc_shallow_angle_skew_corrections(sensor_az,sensor_r, attenuation);
 #endif
 
             // Add correction for roll during tx2rx period for each beam individually
@@ -1183,7 +1185,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         inten *= gain_scaling * vga_gain_scaling;
         
         //Compensate intensity for range and AOI
-        inten *= calc_intensity_range_scaling(beam_range[ix_out], sensor_params);
+        inten *= calc_intensity_range_scaling(beam_range[ix_out],attenuation, sensor_params);
         
         if (sensor_params->snippet_processing_mode == snippet_sum_pow){
             // When calculating total snippet energy, the footprint is based on the entire footprint of the snippet, not a sample footprint
@@ -1257,6 +1259,7 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
     Nin = MIN(Nin,SBP_MAX_SAMPLES);
     ping_number =  sbp_data->sub_header.ping_number;
     int32_t* raw_sig = (int32_t *) &(sbp_data->payload[0]);
+    float attenuation = calc_attenuation(tx_freq, sensor_params);
 
 
     *sv_out = c; 
@@ -1369,7 +1372,7 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
         
         if (sensor_params->intensity_correction){
             inten *= sensor_r;                  //Only comp one-way spreading loss     
-            float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
+            float damping_dB = attenuation * (2*sensor_r/1000); 
             inten *= powf(10.f,damping_dB/20); 
         }
 

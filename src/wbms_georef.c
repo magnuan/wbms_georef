@@ -399,8 +399,8 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# With this enabled, the backscatter is compensated for attenuation, spreading and footprint\n");
 	fprintf(fp,"# Comment to disable\n");
 	fprintf(fp,"intensity_correction\n");
-	fprintf(fp,"# Damping / attenuation in dB/km one-way when applying intensity range comp\n");
-	fprintf(fp,"#intensity_range_attenuation  100\n\n");
+	fprintf(fp,"# Damping / attenuation in dB/km one-way when applying intensity range comp (Default = 0, means attenuation is based on frequency)\n");
+	fprintf(fp,"#intensity_range_attenuation  0\n\n");
 	fprintf(fp,"# Beamwidth parameters used for footprint calculation\n");
 	fprintf(fp,"rx_nadir_beamwidth 0.5 \n\n");
 	fprintf(fp,"tx_nadir_beamwidth 1.0 \n\n");
@@ -575,7 +575,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->force_sv = 0.0;
     s->mounting_depth = 1.0;		//Mounting depth, only for raytracing, SV-profile compensation
     s->intensity_correction = 0;
-    s->intensity_range_attenuation = 100;
+    s->intensity_range_attenuation = 0;
     s->ara_model = ara_model_none;
     s->ara_model_multiplier = 1.0;
     s->rx_nadir_beamwidth= 0.5*(M_PI/180);

@@ -628,6 +628,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         float *ys  = malloc(Nout*sizeof(float));
         float *zs  = malloc(Nout*sizeof(float));
         if ( (xs==NULL)||(ys==NULL)||(zs==NULL) ) return 0;
+        float attenuation = calc_attenuation(sbes_tx_freq, sensor_params);
         
         for (uint32_t ix_in=ix_start;ix_in<ix_stop;ix_in+=ix_in_stride){
             float inten;
@@ -640,7 +641,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
             
             if (sensor_params->intensity_correction){
                 inten *= sensor_r;                  //Only comp one-way spreading loss     
-                float damping_dB = sensor_params->intensity_range_attenuation * (2*sensor_r/1000); 
+                float damping_dB = attenuation * (2*sensor_r/1000); 
                 inten *= powf(10.f,damping_dB/20); 
             }
 
@@ -706,6 +707,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         float c_div_2Fs = c/(2*Fs);
         uint32_t dfs = rth.r7027->data_field_size;
         uint8_t* rd_ptr = (((uint8_t*) rth.r7027) + sizeof(r7k_RecordTypeHeader_7027_t));
+        float attenuation = calc_attenuation(mbes_tx_freq, sensor_params);
         //fprintf(stderr, "GEOREF: Serial=%ld ping_nr=%d Nin=%d dfs=%d\n",rth.r7027->serial, rth.r7027->ping_nr,Nin,dfs);
 
         if (sv==0){
@@ -922,7 +924,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 }
                 //Then we apply our own TVG
                 for (size_t ix=0;ix<Nout;ix++){
-                    intensity[ix] *= calc_intensity_range_scaling(beam_range[ix], sensor_params);
+                    intensity[ix] *= calc_intensity_range_scaling(beam_range[ix],attenuation, sensor_params);
                     intensity[ix] *= calc_footprint_scaling(beam_range[ix], aoi[ix_out], beam_angle[ix], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_out]));
                     intensity[ix] *= calc_ara_scaling(aoi[ix_out], sensor_params);
                 }
@@ -985,6 +987,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         uint8_t* rd_ptr = (((uint8_t*) rth.r7028) + sizeof(r7k_RecordTypeHeader_7028_t));
         r7k_SnippetDescriptor_7028_t* rd = (r7k_SnippetDescriptor_7028_t*)(rd_ptr);
         
+        float attenuation = calc_attenuation(mbes_tx_freq, sensor_params);
         float Fs = outbuf->sample_rate;
         float div_Fs = 1./Fs;
         int Nbath = outbuf->N;      //Number of soundings from bathy data
@@ -1142,7 +1145,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                     // When calculating total snippet energy, the footprint is based on the entire footprint of the snippet, not a sample footprint
                     eff_plen += len*div_Fs;
                 }
-                inten *= calc_intensity_range_scaling(outbuf->range[ix_bath], sensor_params);
+                inten *= calc_intensity_range_scaling(outbuf->range[ix_bath],attenuation, sensor_params);
                 inten *= calc_footprint_scaling(outbuf->range[ix_bath], outbuf->aoi[ix_bath],outbuf->teta[ix_bath], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_bath]));
                 inten *= calc_ara_scaling(outbuf->aoi[ix_bath], sensor_params);
 
