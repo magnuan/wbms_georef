@@ -126,7 +126,7 @@ int wbms_seek_next_header(int fd){
 			if (state==4){
 				dump-=4;
 				if(dump>0)  {
-					//fprintf(stderr,"WBMS seek dump %d bytes\n",dump);
+					fprintf(stderr,"WBMS seek dump %d bytes\n",dump);
 					//sleep(1);
 				}
                 //printf("wbms_seek_next_header end 0\n");
@@ -921,6 +921,8 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     float eff_plen = MIN(tx_plen, 2./tx_bw);
 
 
+
+
     c = snippet_in->sub_header.snd_velocity+sensor_params->sv_offset;
     if (sensor_params->force_sv > 0){
         c = sensor_params->force_sv;
@@ -948,8 +950,13 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     *ping_rate_out = ping_rate;
     float div_Fs = 1.f/Fs;
     float c_div_2Fs = c/(2*Fs);
-    /*printf("ping_number=%9d, multiping= %d tx_angle=%5.1f multifreq_index=%d\n", 
-      ping_number, multiping_index,tx_angle*180/M_PI, multifreq_index);*/
+    /*
+        fprintf(stderr, "Snippet data packet: header.size=%6d, sizeof(headers)=%6ld  \n",
+                snippet_in->header.size,
+                SIZEOF_WATERCOL_PACKET_V8_HEADER
+               );
+        fprintf(stderr,"ping_number=%9d, multiping= %d tx_angle=%5.1f multifreq_index=%d\n", ping_number, multiping_index,tx_angle*180/M_PI, multifreq_index);
+        */
     //printf("tx_angle=%f, Fs=%f, c=%f, Nin=%d, multifreq_index=%d\n", tx_angle,  Fs,  c,  Nin,  multifreq_index);
     tx_angle *= sensor_params->scale_tx_angle;
 
@@ -1008,6 +1015,16 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         snippet_intensity_offset[ix_in] = snp_acum_len;
         snp_acum_len += snippet_len;
     }
+
+    //Test for packet length mismatch
+    if(1){
+        uint32_t payload_length = 2*snp_acum_len+Nin*4*5;
+        uint32_t packet_length = payload_length + SIZEOF_WATERCOL_PACKET_V8_HEADER;
+        if (snippet_in->header.size != packet_length){
+            fprintf(stderr,"WARNING: Snippet Packet size mismatch ping_number=%9d, Reported in header = %8d bytes Actual = %8d Diff=%d\n", ping_number, snippet_in->header.size, packet_length, packet_length-snippet_in->header.size);
+        }
+    }
+
 
     for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
         int32_t snippet_len = snippet_length[ix_in];
