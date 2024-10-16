@@ -541,8 +541,18 @@ typedef struct{
     packet_header_t                 header;                             /**< Common packet header */
     backscatter_data_header_v8_t          sub_header;                         /**< Packet type sub-header*/
     uint8_t                         payload[SNIPPET_MAX_PAYLOAD_SIZE]; /**< Watercoloumn data payload section. 2D intensity data + 1D angle array */
-     // Dtype  watercol_data[M][N], 
-     // float  watercol_angles[N] 
+        
+        /*
+            float[N]     snippet_start
+            float[N]     snippet_stop
+            float[N]     detection
+            float[N]     angle
+            uint32[N]    res
+            uint16[N][v] intensity 
+
+            v for each snippet is snippet_stop - snippet_start
+
+        */
 }snippet_data_packet_t;
 
 #define SIZEOF_WATERCOL_PACKET_V8_HEADER (sizeof(packet_header_t) + sizeof(backscatter_data_header_v8_t))
