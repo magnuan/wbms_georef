@@ -445,6 +445,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
     static float mbes_gain;
     static float mbes_absorbtion;
     static float mbes_spread_loss;
+    static float mbes_eff_plen;
     
     static float sbes_tx_freq;
     static float sbes_tx_bw;
@@ -497,7 +498,11 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
 
        //For CW pulses, bandwidth is given by pulse length
        mbes_tx_bw = MAX(mbes_tx_bw,1/mbes_tx_plen);
-       mbes_tx_bw = 40e3; 
+
+       //mbes_tx_bw = 40e3; 
+            
+       //Calculate effective pulse length
+       mbes_eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
 
        mbes_gain = rth.r7000->gain;
        mbes_tx_power = rth.r7000->tx_power;
@@ -904,12 +909,10 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                     aoi[ix_out] = beam_angle[ix_out];
                 }
             }
-            //Calculate effective pulse length
-            float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
              
             //Calculate time domain footprint for each beam / sounding 
             for (size_t ix=0;ix<Nout;ix++){
-                outbuf->footprint_time[ix] = calc_beam_time_response(beam_range[ix], aoi[ix], beam_angle[ix],eff_plen , sensor_params);
+                outbuf->footprint_time[ix] = calc_beam_time_response(beam_range[ix], aoi[ix], beam_angle[ix],mbes_eff_plen , sensor_params);
             }
 
             if (sensor_params->s7k_backscatter_source == s7k_backscatter_bathy){
@@ -925,7 +928,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 //Then we apply our own TVG
                 for (size_t ix=0;ix<Nout;ix++){
                     intensity[ix] *= calc_intensity_range_scaling(beam_range[ix],attenuation, sensor_params);
-                    intensity[ix] *= calc_footprint_scaling(beam_range[ix], aoi[ix_out], beam_angle[ix], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_out]));
+                    intensity[ix] *= calc_footprint_scaling(beam_range[ix], aoi[ix_out], beam_angle[ix], mbes_eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_out]));
                     intensity[ix] *= calc_ara_scaling(aoi[ix_out], sensor_params);
                 }
             }
@@ -1140,7 +1143,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                     inten *= gain_scaling;
                 }
                 //Then we apply our own TVG
-                float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
+                float eff_plen = mbes_eff_plen;
                 if (sensor_params->snippet_processing_mode == snippet_sum_pow){
                     // When calculating total snippet energy, the footprint is based on the entire footprint of the snippet, not a sample footprint
                     eff_plen += len*div_Fs;
@@ -1191,7 +1194,6 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
             fprintf(stderr,"WARNING: Requested to remove s7k footprond correction from 7058 records, but footprint data is not included\n");
         }
 
-        float eff_plen = MIN(mbes_tx_plen, 2./mbes_tx_bw);
         uint32_t total_snippet_samples = 0;
         // Calculate the sum of all snippet length
         for (uint32_t ix_snp=0;ix_snp<Nsnp;ix_snp++){
@@ -1302,7 +1304,8 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         
                 // If we remove the 7058 record footprint correction, we instead apply our own footprint correction here
                 if( !(sensor_params->keep_s7k_footprint_comp) ){
-                    outbuf->i[ix_bath] *= calc_footprint_scaling(outbuf->range[ix_bath], outbuf->aoi[ix_bath],outbuf->teta[ix_bath], eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_bath]));
+                    //TODO dont we need to calculate different eff plen here based on processing mode like we do for 7028?
+                    outbuf->i[ix_bath] *= calc_footprint_scaling(outbuf->range[ix_bath], outbuf->aoi[ix_bath],outbuf->teta[ix_bath], mbes_eff_plen, sensor_params, /*OUTPUT*/ &(outbuf->footprint[ix_bath]));
                 }
                 else{
                     //Report mean fooprint from 7058 record if not removed 
