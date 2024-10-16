@@ -366,7 +366,7 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
                 group1_cnt++;
                 //Fill out navdata from posmv 1 data
                 navdata->ts = ts;
-                fprintf(stderr,"PosMV Grp1 Ts= %f\n",ts);
+                //fprintf(stderr,"PosMV Grp1 Ts= %f\n",ts);
                 navdata->lat = *(((double*)(dp)));dp+=8;
                 navdata->lon = *(((double*)(dp)));dp+=8;
                 navdata->alt = *(((double*)(dp)));dp+=8;
