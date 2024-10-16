@@ -908,6 +908,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     tx_plen = snippet_in->sub_header.tx_len;
     tx_angle = snippet_in->sub_header.tx_angle;
     tx_voltage = snippet_in->sub_header.tx_voltage;
+    tx_voltage = (tx_voltage==0)?100:tx_voltage;        //Default tx voltage to 100V if reported as 0
     Fs = snippet_in->sub_header.sample_rate;
     gain_scaling = 1./snippet_in->sub_header.gain;
     float attenuation = calc_attenuation(tx_freq, sensor_params);
@@ -920,6 +921,13 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     
     float eff_plen = MIN(tx_plen, 2./tx_bw);
 
+    float rx_Pa_per_LSB = 1./ (sensor_params->rx_sensitivity* sensor_params->rx_processing_gain); // Scaling received intensity to physical value, in Pa/LSB
+    float tx_amp_Pa = tx_voltage/sqrtf(2)*sensor_params->tx_sensitivity;   //Transmitt RMS amplitude in Pa
+    float tx_pow_Pa2 = tx_amp_Pa*tx_amp_Pa;                              //This is the transmitt power in Pa^2
+    float tx_energy_Pa2s = tx_pow_Pa2 * tx_plen;                          //This is the total energy in the transmitt pulse (Pa^2 s)
+    float tx_compression = tx_plen/eff_plen;                                //This is the compression ratio of the macth filter pulse compression
+    tx_pow_Pa2 *= tx_compression;                                          //The tx effective power is scaled with the compression
+    tx_amp_Pa *= sqrtf(tx_compression);                                    //The tx effective amplitude scales with the sqrt of the compression
 
 
 
@@ -1109,7 +1117,8 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         //Calculate time domain footprint for each beam / sounding 
         footprint_time[ix_out] = calc_beam_time_response(beam_range[ix_out], aoi[ix_out], beam_angle[ix_out],eff_plen , sensor_params);
 	}
-    
+   
+
 
     //Calculate corrected intensity on  Post-filtered data
 	// Populate r,az,el and t with data from bath data
@@ -1121,12 +1130,14 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         /*** Calculate intensity from snippet data ***/
         float inten;
         float acum_pow;
+        float acum_energy;
         switch (sensor_params->snippet_processing_mode){
             case snippet_detection_value:
                 {
                     //Take intensity from detection sample
                     inten = snippet_intensity[snippet_intensity_offset[ix_in]+detection_offset];       //Pick detection sample from snippet data
                 }
+                inten *= rx_Pa_per_LSB / tx_amp_Pa;
                 break;
             default:
             case snippet_mean_pow:
@@ -1136,17 +1147,19 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                     acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
                 }
                 inten = sqrtf(acum_pow/snippet_length[ix_in]);
+                inten *= rx_Pa_per_LSB / tx_amp_Pa;
                 break;
             case snippet_sum_pow:
                 acum_pow = 0;
                 for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
                     acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
                 }
-                inten = sqrtf(acum_pow);
+                acum_energy = acum_pow/Fs;
+                inten = sqrtf(acum_energy/tx_energy_Pa2s);
+                inten *= rx_Pa_per_LSB;
                 break;
             case snippet_3dB_footprint_mean_pow:
                 {
-                    #if 1
                     // Crop snippet to maximum the 3dB time domain footprint
                     int32_t snippet_3dB_length=roundf(footprint_time[ix_out]*Fs);
                     snippet_3dB_length=MAX(snippet_3dB_length,1);
@@ -1160,28 +1173,8 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                         acum_pow += powf(inten,2);
                     }
                     inten = sqrtf(acum_pow/(ix1-ix0));
+                    inten *= rx_Pa_per_LSB / tx_amp_Pa;
                     snippet_length[ix_in]=ix1-ix0;    
-
-
-                    #else
-                    int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in]));
-                    float peak_sig = snippet_intensity[snippet_intensity_offset[ix_in]+detection_offset];       //Pick detection sample from snippet data
-                    /*float peak_sig = 0;
-                      for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
-                      peak_sig = MAX(peak_sig,(float)snippet_intensity[snippet_intensity_offset[ix_in]+ix]);
-                      }*/
-                    float th = peak_sig*0.7071f;
-
-                    acum_pow = 0;
-                    for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
-                        inten = (float)snippet_intensity[snippet_intensity_offset[ix_in]+ix];
-                        if (inten>=th){
-                            acum_pow += powf(inten,2);
-                            snippet_3dB_length++;
-                        }
-                    }
-                    inten = sqrtf(acum_pow/snippet_3dB_length);
-                    #endif
                 }
                 break;
         }

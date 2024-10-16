@@ -602,6 +602,9 @@ static void sensor_params_default(sensor_params_t* s){
     s->keep_s7k_tvg = 0;
     s->keep_s7k_footprint_comp = 0;
     s->snippet_processing_mode = snippet_mean_pow;
+    s->tx_sensitivity = powf(10,(220/20)-6); //220dB uPa / V => 100000Pa/V 
+    s->rx_sensitivity = powf(10,-195/20 +6); //-190dB V/uPa = 0.0001778 V/Pa
+    s->rx_processing_gain = 1000.;         //TODO find a value, Just guesswork so far  LSB/V
 }
 
 

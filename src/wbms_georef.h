@@ -136,6 +136,9 @@ typedef struct{
     uint8_t keep_s7k_tvg;
     uint8_t keep_s7k_footprint_comp;
     snippet_processing_mode_e snippet_processing_mode;
+    float  tx_sensitivity;                          //In Pa @1m / V
+    float  rx_sensitivity;                          //In V / Pa
+    float  rx_processing_gain;                      //In LSB / V
 }sensor_params_t;
 
 
