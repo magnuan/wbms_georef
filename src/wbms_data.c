@@ -577,6 +577,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     Fs = bath_vX->sub_header.sample_rate;
     c = bath_vX->sub_header.snd_velocity+sensor_params->sv_offset;
     float attenuation = calc_attenuation(tx_freq, sensor_params);
+    outbuf->gain = bath_vX->sub_header.gain;
        
     //For CW pulses, bandwidth is given by pulse length
     tx_bw = MAX(tx_bw,1/tx_plen);
@@ -911,6 +912,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     tx_voltage = (tx_voltage==0)?100:tx_voltage;        //Default tx voltage to 100V if reported as 0
     Fs = snippet_in->sub_header.sample_rate;
     gain_scaling = 1./snippet_in->sub_header.gain;
+    outbuf->gain = snippet_in->sub_header.gain;
     float attenuation = calc_attenuation(tx_freq, sensor_params);
 
     float vga_t0 = (float) snippet_in->sub_header.vga_t0;
@@ -1131,6 +1133,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         float inten;
         float acum_pow;
         float acum_energy;
+        float max_sig;
         switch (sensor_params->snippet_processing_mode){
             case snippet_detection_value:
                 {
@@ -1139,7 +1142,15 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                 }
                 inten *= rx_Pa_per_LSB / tx_amp_Pa;
                 break;
-            default:
+            case snippet_max:
+                //Max snippet signal  
+                max_sig = 0;
+                for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
+                    max_sig = MAX(max_sig,snippet_intensity[snippet_intensity_offset[ix_in]+ix]);
+                }
+                inten = max_sig;
+                inten *= rx_Pa_per_LSB / tx_amp_Pa;
+                break;
             case snippet_mean_pow:
                 //Mean snippet power  (root-mean-square)
                 acum_pow = 0;
@@ -1149,6 +1160,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                 inten = sqrtf(acum_pow/snippet_length[ix_in]);
                 inten *= rx_Pa_per_LSB / tx_amp_Pa;
                 break;
+            default:
             case snippet_sum_pow:
                 acum_pow = 0;
                 for (size_t ix = 0; ix<snippet_length[ix_in];ix++){

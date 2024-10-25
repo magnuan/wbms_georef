@@ -158,6 +158,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
     float*   ping_rate = &(data->ping_rate);
     int* classification_val = &(data->classification[0]);
     static int prev_ping_number;
+    float*  gain_val = &(data->gain);
 
 	char * dp = outbuf;
 	uint32_t ii,jj;
@@ -199,6 +200,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case el: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*tx_angle)); dp+=4;break;
                 case aoi: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aoi_val[ii])); dp+=4;break;
                 #endif
+                case gain: write_f32_unaligned_bswap((uint8_t*)dp,(float)(*gain_val)); dp+=4;break;         
                 case footprint: write_f32_unaligned_bswap((uint8_t*)dp,(float)(footprint_area[ii])); dp+=4;break;         
                 case snp_len: write_f32_unaligned_bswap((uint8_t*)dp,(float)(snippet_len[ii])); dp+=4;break; 
                 case footprint_time: write_f32_unaligned_bswap((uint8_t*)dp,(float)(footprint_t[ii])); dp+=4;break; 

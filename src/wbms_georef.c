@@ -388,7 +388,7 @@ void generate_template_config_file(char* fname){
 
 
 	fprintf(fp,"#### BACKSCATTER PARAMETERS ####\n");
-	fprintf(fp,"# Snippet processing mode.  0: Sqrt Mean power.  1: Sqrt Sum power (energy).  2: Detection intensity, 3: Sqrt mean power within 3dB footprint\n");
+	fprintf(fp,"# Snippet processing mode.  0: Sqrt Mean power.  1: Sqrt Sum power (energy).  2: Detection intensity, 3: Sqrt mean power within 3dB footprint, 4:Snippet max\n");
 	fprintf(fp,"snippet_processing_mode 0\n");
 	fprintf(fp,"# Backscatter source for s7k records. 0: Bathy record,  1: Snippets (7028)  2: Normalized snippets (7058)\n");
 	fprintf(fp,"s7k_backscatter_source 0\n");
@@ -409,7 +409,7 @@ void generate_template_config_file(char* fname){
 
 	fprintf(fp,"# If intensity compensation table is given as a CSV file with the -y option, this is ignored\n");
 	fprintf(fp,"ara_model 0\n");
-    fprintf(fp,"This is a multiplier applied to the ara model (scaling the model in dB), uncomment and set different from 1.0, to tune the ara model\n");
+    fprintf(fp,"# This is a multiplier applied to the ara model (scaling the model in dB), uncomment and set different from 1.0, to tune the ara model\n");
 	fprintf(fp,"#ara_model_multiplier 1.0\n");
 	fprintf(fp,"# Calculaste angle of incidence:   1: calculate aoi from data (default)  0: assume flat seafloor\n");
 	fprintf(fp,"calc_aoi 1\n\n");
@@ -511,6 +511,7 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  tx pulselength :           plen\n");
     fprintf(fp,"#  tx voltage :               voltage\t  #For reson s7k this is tx power in dB rel 1uPa\n");
     fprintf(fp,"#  pingrate :                 pingrate\n");
+    fprintf(fp,"#  gain :                     Sonar processing gain\t #Not in use for reson s7k\n");
     fprintf(fp,"#  multiping index :          multiping\n");
     fprintf(fp,"#  multifreq index :          multifreq\n");
     fprintf(fp,"#  ping number :              pingnumber\n");

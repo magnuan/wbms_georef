@@ -1035,8 +1035,10 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 /**** Here we process the snippet into sounding data intensity ****/
                 float inten;
                 float acum_pow;
+                
                 int32_t detection_offset = sd->detection_sample - sd->snippet_start;
                 int32_t snippet_len;       //This is the snippet length that we will be outputting 
+
                 switch (sensor_params->snippet_processing_mode){
                     case snippet_detection_value:
                         //Take intensity from detection sample
@@ -1049,6 +1051,28 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                         snippet_len=len;
                         break;
                     default:
+                    case snippet_max:
+                        //Max snippet singal
+                        inten = 0;
+                        if(sample_size==4){
+                            for (size_t ix = 0; ix<len;ix++){
+                                inten = MAX(inten, *( ((uint32_t*)snp_data_ptr) + ix));
+                            }
+                        }
+                        else{
+                            for (size_t ix = 0; ix<len;ix++){
+                                inten = MAX(inten, *( ((uint16_t*)snp_data_ptr) + ix));
+                                #ifdef COUNT_S7K_SNIPPET_SATURATION
+                                if(val>=65530){ 
+                                    //fprintf(stderr,"WARNING, Saturation in s7k snippet\n");
+                                    s7k_snp_satcount++;
+                                }
+                                s7k_snp_count++;
+                                #endif
+                            }
+                        }
+                        snippet_len=len;
+                        break;
                     case snippet_mean_pow:
                         //Mean snippet power  (root-mean-square)
                         acum_pow = 0;

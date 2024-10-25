@@ -78,6 +78,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     int*   ping_number = &(data->ping_number);
     float*   ping_rate = &(data->ping_rate);
     int* classification_val = &(data->classification[0]);
+    float*  gain_val = &(data->gain);
     static int prev_ping_number;
 
 	uint32_t ii,jj,len;
@@ -133,6 +134,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case gatew: len += sprintf(&(outbuf[len]),"%11.3f",(low_gate[ii]-up_gate[ii])*200/(low_gate[ii]+up_gate[ii]));break;
                 case t: len += sprintf(&(outbuf[len]),"%12.5f",ts);break;
                 case c: len += sprintf(&(outbuf[len]),"%8.3f",*sv);break;
+                case gain: len += sprintf(&(outbuf[len]),"%8.3f",*gain_val);break;
                 
                 case iref: len += sprintf(&(outbuf[len]),"%8.3f",*intensity_noise_ref);break;
                 case sref: len += sprintf(&(outbuf[len]),"%8.3f",*strength_noise_ref);break;
