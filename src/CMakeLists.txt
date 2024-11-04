@@ -17,6 +17,7 @@ list(APPEND wbms_georef_SOURCES
     reson7k.c
     reson7k_output.c
     wbms_data.c
+    3dss_dx.c
     sim_data.c
     velodyne.c
     time_functions.c

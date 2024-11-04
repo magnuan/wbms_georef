@@ -31,6 +31,7 @@
 #include "time_functions.h"
 #include "sim_data.h"
 #include "wbms_data.h"
+#include "3dss_dx.h"
 #include "reson7k.h"
 #include "velodyne.h"
 #include "posmv.h"
@@ -176,7 +177,7 @@ output_format_e output_format[MAX_OUTPUT_FIELDS];
 
 static PJ *proj_latlon_to_output_utm;
 
-typedef enum  { pos_mode_posmv=0, pos_mode_xtf=1,pos_mode_wbm_tool=2, pos_mode_sbet=3, pos_mode_sim=4, pos_mode_s7k=5, pos_mode_eelume=6,pos_mode_nmea=7,pos_mode_sbet_csv=8, pos_mode_autodetect=10,pos_mode_unknown=11} pos_mode_e; 
+typedef enum  { pos_mode_posmv=0, pos_mode_xtf=1,pos_mode_wbm_tool=2, pos_mode_sbet=3, pos_mode_sim=4, pos_mode_s7k=5, pos_mode_3dss_stream=6, pos_mode_eelume=7,pos_mode_nmea=8,pos_mode_sbet_csv=9, pos_mode_autodetect=10,pos_mode_unknown=11} pos_mode_e; 
 pos_mode_e pos_mode = pos_mode_autodetect;
 static const char *pos_mode_names[] = {
 	"Posmv102",
@@ -185,15 +186,15 @@ static const char *pos_mode_names[] = {
     "SBET",
     "Simulator",
     "s7k",
+    "PingDSP 3DSS stream",
     "eelume sbd",
     "nmea",
     "SBET CSV",
-    "-",
     "Autodetect",
     "Unknown"
 };
 
-typedef enum  {sensor_mode_wbms=1,sensor_mode_wbms_v5=2, sensor_mode_velodyne=3, sensor_mode_sim=4, sensor_mode_s7k=5, sensor_mode_autodetect=10,sensor_mode_unknown=11} sensor_mode_e; 
+typedef enum  {sensor_mode_wbms=1,sensor_mode_wbms_v5=2, sensor_mode_velodyne=3, sensor_mode_sim=4, sensor_mode_s7k=5, sensor_mode_3dss_stream=6, sensor_mode_autodetect=10,sensor_mode_unknown=11} sensor_mode_e; 
 sensor_mode_e sensor_mode = sensor_mode_autodetect;
 static const char *sensor_mode_names[] = {
 	"-",
@@ -202,7 +203,7 @@ static const char *sensor_mode_names[] = {
     "Velodyne",
     "Simulator",
     "s7k",
-    "-",
+    "PingDSP 3DSS stream",
     "-",
     "-",
     "-",
@@ -426,7 +427,7 @@ void generate_template_config_file(char* fname){
 
 
 	fprintf(fp,"#### SENSOR DATA FORMAT ####\n");
-	fprintf(fp,"# Sensor mode 1=WBMS 2=WBMS_V5 3=Velodyne 4=SIM 5=S7K 10=Autodetect (default)\n");
+	fprintf(fp,"# Sensor mode 1=WBMS 2=WBMS_V5 3=Velodyne 4=SIM 5=S7K 6=PingDSP_stream 10=Autodetect (default)\n");
 	fprintf(fp,"# sensor_mode 10\n");
     fprintf(fp,"# Uncomment to force wbms bathy data to be read as specific version\n");
     fprintf(fp,"#force_bath_version 0\n\n");
@@ -435,7 +436,7 @@ void generate_template_config_file(char* fname){
 
 	fprintf(fp,"#### NAVIGATION DATA FORMAT ####\n");
 	fprintf(fp,"# Nav input parameters \n");
-	fprintf(fp,"# Pos mode 0=POSMV 1=XTF_NAV 2=WBM_TOOL 3=SBET 4=SIM 5=S7K 10=Autodetect (default)\n");
+	fprintf(fp,"# Pos mode 0=POSMV 1=XTF_NAV 2=WBM_TOOL 3=SBET 4=SIM 5=S7K 6=PingDSP_stream 10=Autodetect (default)\n");
 	fprintf(fp,"# pos_mode 10\n");
 	fprintf(fp,"# Set forward speed in m/s when using simulated navigation data \n");
 	fprintf(fp,"pos_sim_speed 1\n\n");
@@ -894,6 +895,7 @@ uint8_t navigation_test_file(int fd, pos_mode_e mode){
         case pos_mode_wbm_tool: return  wbm_tool_nav_test_file(fd);
         case pos_mode_sim:      return 1;
         case pos_mode_s7k:      return  r7k_test_nav_file(fd);
+        case pos_mode_3dss_stream:      return  p3dss_test_nav_file(fd);
         case pos_mode_nmea:      return  nmea_nav_test_file(fd);
         case pos_mode_eelume:      return  eelume_sbd_nav_test_file(fd);
         default: case pos_mode_autodetect: case pos_mode_unknown: return 0;
@@ -933,6 +935,7 @@ int navigation_fetch_next_packet(char * data, int fd, pos_mode_e mode){
         case pos_mode_wbm_tool: len= wbm_tool_nav_fetch_next_packet(data,fd);break;
         case pos_mode_sim:      len= sim_nav_fetch_next_packet(data,fd);break;
         case pos_mode_s7k:      len= r7k_fetch_next_packet(data,fd);break;
+        case pos_mode_3dss_stream:      len= p3dss_fetch_next_packet(data,fd);break;
         case pos_mode_eelume:    len= eelume_sbd_nav_fetch_next_packet(data,fd);break;
         case pos_mode_nmea:      len= nmea_nav_fetch_next_packet(data,fd);break;
         case pos_mode_autodetect: case pos_mode_unknown: return -1;
@@ -958,8 +961,9 @@ int process_nav_data_packet(char* databuffer, uint32_t len, double ts_in, double
         case pos_mode_wbm_tool: ret= wbm_tool_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_sim:      ret = sim_nav_process_packet(ts_in,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_s7k:      ret = s7k_process_nav_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
+        case pos_mode_3dss_stream:      ret = p3dss_process_nav_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_eelume:    ret = eelume_sbd_nav_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_nmea:      ret = nmea_nav_process_nav_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
+        case pos_mode_nmea:      ret = nmea_nav_process_nav_packet(databuffer,len,0,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_autodetect: case pos_mode_unknown: return 0;
     }
     if (ret == NAV_DATA_PROJECTED){  //Only count when projected coordinates are returned
@@ -984,6 +988,8 @@ uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version){
             return velodyne_test_file(fd);
         case sensor_mode_s7k:	
             return r7k_test_bathy_file(fd);
+        case sensor_mode_3dss_stream:	
+            return p3dss_test_bathy_file(fd);
         default:
         case sensor_mode_autodetect: //TODO fix this
         case sensor_mode_unknown:
@@ -997,7 +1003,7 @@ sensor_mode_e sensor_autodetect_file(FILE* fp){
     int version;
     sensor_mode_e ret = sensor_mode_unknown;
 
-    for (sensor_mode_e mode=sensor_mode_wbms; mode<=sensor_mode_s7k;mode++){
+    for (sensor_mode_e mode=sensor_mode_wbms; mode<=sensor_mode_3dss_stream;mode++){
         //fprintf(stderr,"Testing sensor file in mode %s\n", sensor_mode_names[mode]);
         if(mode==sensor_mode_sim) continue;
         if (sensor_test_file(fd,mode,&version)){
@@ -1026,6 +1032,8 @@ int sensor_fetch_next_packet(char * data, int fd, sensor_mode_e mode){
 			len = velodyne_fetch_next_packet(data, fd);break;
 		case sensor_mode_s7k:	
 			len = r7k_fetch_next_packet(data, fd);break;
+		case sensor_mode_3dss_stream:	
+			len = p3dss_fetch_next_packet(data, fd);break;
 		case  sensor_mode_sim:
 			len = sim_fetch_next_packet(data, fd);break;
 		case sensor_mode_autodetect: //TODO fix this
@@ -1050,6 +1058,8 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
             id = r7k_identify_sensor_packet(databuffer, len, ts_out);
 	        //So far we only process s7k record 7027 and 10018 for sensor  bathy data and 7610 for SV data
             return ((id==7027) ||(id==7028) ||(id==7058)|| (id==7610) || (id==7000) ||(id==10000)||(id==10018))?id:0;
+		case sensor_mode_3dss_stream:	
+            return  p3dss_identify_sensor_packet(databuffer, len, ts_out);
 		case  sensor_mode_sim:
 			return sim_identify_packet(databuffer, len, ts_out, ts_in);
 		case sensor_mode_autodetect: //TODO fix this
@@ -1198,6 +1208,7 @@ int main(int argc,char *argv[])
     
     wbms_set_sensor_offset(&sensor_offset);
     r7k_set_sensor_offset(&sensor_offset);
+    p3dss_set_sensor_offset(&sensor_offset);
     velodyne_set_sensor_offset(&sensor_offset);
 
 	/**** PARSING COMMAND LINE OPTIONS ****/
@@ -2060,6 +2071,9 @@ int main(int argc,char *argv[])
                                     break;
                                 case sensor_mode_s7k:
                                     datapoints = s7k_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
+                                    break;
+                                case sensor_mode_3dss_stream:
+                                    datapoints = p3dss_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
                                     break;
                                 default:
                                     datapoints = 0;

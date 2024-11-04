@@ -119,6 +119,8 @@ int nmea_nav_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_o
     else if (strncmp(msgID,"ORI",3)==0) id = nmea_id_ORI;
     else if (strncmp(msgID,"DEP",3)==0) id = nmea_id_DEP;
     else if (strncmp(msgID,"POS",3)==0) id = nmea_id_POS;
+    else if (strncmp(msgID,"GGA",3)==0) id = nmea_id_GGA;
+    else if (strncmp(msgID,"HDT",3)==0) id = nmea_id_HDT;
     else id = nmea_id_unknown;
  
     double ts; 
@@ -131,6 +133,8 @@ int nmea_nav_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_o
             sscanf(databuffer+7,"%*d,%*f,%ld", &ts_ms);
             ts = (double)(ts_ms) * 1e-3;
             break;
+        case nmea_id_GGA:
+        case nmea_id_HDT:
 	    default:
             ts = 0.0;
     }
@@ -147,7 +151,7 @@ int nmea_nav_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_o
 * This function is assuming that position and attitude data comes synched, with same time stamp. As from an integrated navigation system
 * For more generic nmea_nav streams, where attitude and position messages might come from different sources, at different time and rate. This will not work
 */
-int nmea_nav_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
+int nmea_nav_process_nav_packet(char* databuffer, uint32_t len, double force_ts, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata){
 	static float last_alt;
     
     static navdata_t navdata_collector; 
@@ -162,8 +166,10 @@ int nmea_nav_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, 
 
     nmea_sentence_id_e id = (nmea_sentence_id_e) nmea_nav_identify_sensor_packet(databuffer,len, &ts);
     //fprintf(stderr,"nmea_nav_process_nav_packet ts = %f\n",ts);
-	
-
+	if (force_ts){
+        ts=force_ts;
+    }
+    
 	//So far we only process nmea_nav record 1015 and 1016 for navigation
 	if (id == nmea_id_unknown)
 		return NO_NAV_DATA;	
@@ -186,6 +192,25 @@ int nmea_nav_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, 
             have_heading=0;
         }
     }
+    
+    // This is not very accurate navigation data, so we dont cate if it is a bit out of sync 
+    #if 0
+    if ( (id==nmea_id_GGA) || (id==nmea_id_HDT) ){  //Timestamp taken from these three sentences have to agree
+        if (ts != navdata_collector.ts){ 	// If this data has a new timestamp
+            navdata_collector.ts = ts;
+            //New entry, still no navigation data 
+            if (have_pos || have_attitude || have_heading){
+                if (! (have_pos && have_attitude && have_heading) ){
+                   fprintf(stderr,"Dumping incomplete nav dataset\n");
+                }
+            }
+            have_pos=0;
+            have_attitude=0;
+            have_heading=0;
+            have_depth=0;
+        }
+    }
+    #endif
 
     
     double lon, lat;
@@ -193,8 +218,54 @@ int nmea_nav_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, 
     float depth, alt;
     char depth_unit, alt_unit;
     float heading, roll, pitch;
+    float time_hhmmss;
+    float lat_ddmm, lon_dddmm;
 
 	switch (id){
+        case nmea_id_GGA:
+            // $GPGGA,123247.20,6326.53,N, 01025.84,E,7,10,1.0,10.000,M,0.000,M,,*65
+            if(sscanf(databuffer+7,"%f,%f,%c,%f,%c,%*d,%*d,%*f,%f,%c", &time_hhmmss,&lat_ddmm,&latNS,&lon_dddmm,&lonEW,&alt,&alt_unit ) >=7){
+                lat =  floorf(lat_ddmm/100.f);
+                lat += (lat_ddmm-(lat*100.f))/60.f;
+                lon =  floorf(lon_dddmm/100.f);
+                lon += (lon_dddmm-(lon*100.f))/60.f;
+                if(latNS=='S') lat *=-1;
+                if(lonEW=='W') lon *=-1;
+                navdata_collector.lon = lon*M_PI/180;
+                navdata_collector.lat = lat*M_PI/180;
+                
+                navdata_collector.alt = alt;
+                depth = -alt;
+                last_alt = alt;
+                
+                have_pos = 1;
+                have_depth = 1;
+                //fprintf(stderr,"POS from GGA Lat=%f  Lon=%f alt=%f\n ", lat,lon, alt);
+                
+                if (proj){
+                    latlon_to_kart(navdata_collector.lon, navdata_collector.lat , last_alt, proj,     &(navdata_collector.x), &(navdata_collector.y) , &(navdata_collector.z));
+                }
+
+            }
+            break;
+        case nmea_id_HDT:
+            // $GPHDT,88.9838,T*3F
+            if(sscanf(databuffer+7,"%f", &heading ) >=1){
+                //TODO remove this hack to fix a bug in fake navigation from encoder in tank
+                heading *=-1;
+
+                navdata_collector.yaw = heading*M_PI/180.;
+                have_heading = 1;
+                
+                //TODO remove this hack, we dont have attitude
+                navdata_collector.roll = 0*M_PI/180;
+                navdata_collector.pitch = 0*M_PI/180;
+			    navdata_collector.heave = 0.0;
+                navdata_collector.ts = ts;
+                have_attitude = 1;  
+                //fprintf(stderr,"HEADING from HDT heading=%f\n ", heading);
+            }
+            break;
 		case nmea_id_POS: // Position
             // $EIPOS,064,102150.677,1648722110677,63.461563,N,10.546222,E*72
             if(sscanf(databuffer+7,"%*d,%*f,%*d,%lf,%c,%lf,%c", &lat,&latNS,&lon,&lonEW) >=4){
@@ -248,6 +319,7 @@ int nmea_nav_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, 
         have_attitude = 0;	
         have_heading = 0;
         have_depth = 0;
+        //fprintf(stderr,"Complete nav data from NMEA: ts=%f, lat=%f, lon=%f, alt=%f, heading=%f\n",navdata_collector.ts,navdata_collector.lat*180/M_PI, navdata_collector.lon*180/M_PI,navdata_collector.alt,navdata_collector.yaw*180/M_PI);
 
         return (proj?NAV_DATA_PROJECTED:NAV_DATA_GEO);
     }

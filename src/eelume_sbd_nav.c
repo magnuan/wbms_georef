@@ -230,7 +230,7 @@ int eelume_sbd_nav_process_packet(char* databuffer, uint32_t len, double* ts_out
             dp++;
             len--;
         }
-        return nmea_nav_process_nav_packet(dp,len,ts_out,z_offset, alt_mode, proj, navdata,aux_navdata);
+        return nmea_nav_process_nav_packet(dp,len,0,ts_out,z_offset, alt_mode, proj, navdata,aux_navdata);
     }
     return NO_NAV_DATA;
 }
