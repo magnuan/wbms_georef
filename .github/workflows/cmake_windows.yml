@@ -31,7 +31,7 @@ jobs:
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
     - name: Archive binary output
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: wbms_georef_windows_binary
         path: build/src/Release/wbms_georef.exe
