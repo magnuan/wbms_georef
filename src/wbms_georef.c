@@ -406,7 +406,7 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"rx_nadir_beamwidth 0.5 \n\n");
 	fprintf(fp,"tx_nadir_beamwidth 1.0 \n\n");
 	fprintf(fp,"# ARA curve compensation\n");
-	fprintf(fp,"# 0: No ARA compensation.  1: Incidence angle comp only 10*log10(aoi)  2: sandy gravel  3: gravelly muddy sand  4: muddy sand   5: gravelly mud   6: clay\n");
+	fprintf(fp,"# 0: No ARA compensation.  1: Incidence angle comp only 10*log10(aoi)  2: sandy gravel  3: sandy gravel w/some mud 4: gravelly muddy sand  5: muddy sand   6: gravelly mud   7: clay\n");
 
 	fprintf(fp,"# If intensity compensation table is given as a CSV file with the -y option, this is ignored\n");
 	fprintf(fp,"ara_model 0\n");

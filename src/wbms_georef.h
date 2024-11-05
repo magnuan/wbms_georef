@@ -1,6 +1,14 @@
 #ifndef __WBMS_GEOREF_H__
 #define __WBMS_GEOREF_H__
 
+#if defined(_MSC_VER)
+#define NANF (nanf(""))
+#define ATT_UNUSED
+#else
+#define NANF (0.f/0.f)
+#define ATT_UNUSED __attribute__((unused))
+#endif
+
 #define NAVDATA_BUFFER_LEN (4*256)
 #define POS_PREFETCH_SEC (4.0)
 //Use input sound velocity profile to correct for ray bending 
@@ -34,7 +42,7 @@ typedef enum {detection=0, upper_gate=1, lower_gate=2, center_gate=3} sonar_samp
 typedef enum {ray_trace_none=0, ray_trace_fixed_depth_lut=1, ray_trace_fixed_depth_direct=2, ray_trace_var_depth=3} ray_tracing_mode_e;
 typedef enum {s7k_backscatter_bathy=0, s7k_backscatter_snippets=1, s7k_backscatter_norm_snippets=2} s7k_backscatter_source_e;
 typedef enum {snippet_mean_pow=0, snippet_sum_pow=1,snippet_detection_value=2, snippet_3dB_footprint_mean_pow=3, snippet_max=4} snippet_processing_mode_e;
-typedef enum {ara_model_table=-1, ara_model_none=0, ara_model_cos_aoi=1, ara_model_sandy_gravel=2, ara_model_gravelly_muddy_sand=3, ara_model_muddy_sand=4, ara_model_gravelly_mud=5, ara_model_clay=6} ara_model_e;
+typedef enum {ara_model_table=-1, ara_model_none=0, ara_model_cos_aoi=1, ara_model_sandy_gravel=2,ara_model_sandy_gravel_some_mud=3, ara_model_gravelly_muddy_sand=4, ara_model_muddy_sand=5, ara_model_gravelly_mud=6, ara_model_clay=7} ara_model_e;
 
 //s7k_backscatter_bathy
 //s7k_backscatter_snippets          From 7028 record

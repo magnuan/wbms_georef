@@ -275,7 +275,7 @@ int cmp_wbms_vX_dp_on_angle_func (const void * a, const void * b) {
 * @return difference from corrected azimuth angle
 *
 ******************************************************************************/
-__attribute__((unused)) static float calc_sonar_to_cp_corrections(float azimuth, float elevation, float steer){
+ATT_UNUSED static float calc_sonar_to_cp_corrections(float azimuth, float elevation, float steer){
     //See assembla ticket #1725
     float az,az1,az2,el,cos_el,sin2_el, sin_az2, sin2_az2;
     el = elevation;
@@ -290,7 +290,7 @@ __attribute__((unused)) static float calc_sonar_to_cp_corrections(float azimuth,
     return  asin ( ( cos(az1)*sin_az2 + sin(az1)*sqrt(1-sin2_az2-sin2_el) )/cos_el )-az;
 }
 
-__attribute__((unused)) static float calc_shallow_angle_skew_corrections(float angle, float range, float att){
+ATT_UNUSED static float calc_shallow_angle_skew_corrections(float angle, float range, float att){
     angle = LIMIT(angle,-80.f*M_PI/180.f, 80.f*M_PI/180.f);
     //Opening angle model
     const float psi0 = 0.5*M_PI/180;        //Nadir opening angle for WH

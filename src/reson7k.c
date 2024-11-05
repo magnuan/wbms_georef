@@ -934,8 +934,8 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
             }
             else{// If we are not using backscatter from bathy data, just set it to NaN to mark that it is missing
                 for (size_t ix=0;ix<Nout;ix++){
-                    intensity[ix] = 0./0.;
-                    outbuf->footprint[ix] = 0./0.;
+                    intensity[ix] = NANF;
+                    outbuf->footprint[ix] = NANF;
                 }
             }
             variance_model(beam_range, beam_angle,aoi,Nout,nav_droll_dt,nav_dpitch_dt,/*output*/ z_var);
@@ -1342,7 +1342,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                         outbuf->footprint[ix_bath] = acum_footprint/len;
                     }
                     else{
-                        outbuf->footprint[ix_bath] = 0./0.;
+                        outbuf->footprint[ix_bath] = NANF;
                     }
                 }
                 outbuf->i[ix_bath] *= calc_ara_scaling(outbuf->aoi[ix_bath], sensor_params);

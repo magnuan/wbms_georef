@@ -220,6 +220,19 @@ float calc_ara_scaling(float aoi, sensor_params_t* sensor_params){
                 gain *= powf(10.f, -reflectivity_model_dB/20);
             }
             break;
+
+
+        case ara_model_sandy_gravel_some_mud:
+            {
+                //10*np.log10(np.cos(teta)) + 20*np.log10(np.cos(np.pi/2*((teta/np.pi*2)**8))) +  4.5*np.exp(-(teta**2)/(np.deg2rad(25)**2)) -16
+                float reflectivity_model_dB =    10*log10f(cosf(aoi)) \
+                                                + 20*log10f(cosf((M_PI/2)*(powf(aoi/(M_PI/2),8)))) \
+                                                + 4.5*(expf(-powf(aoi,2) / powf(25*M_PI/180,2) )) \
+                                                - 16; 
+                gain *= powf(10.f, -reflectivity_model_dB/20);
+            }
+            break;
+
         
         case ara_model_gravelly_muddy_sand:
             {
