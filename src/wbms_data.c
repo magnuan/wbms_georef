@@ -1170,6 +1170,25 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                 inten = sqrtf(acum_energy/tx_energy_Pa2s);
                 inten *= rx_Pa_per_LSB;
                 break;
+            case snippet_10dB_footprint_sum_pow:
+                {
+                    // Crop snippet to maximum the 10dB time domain footprint (Assuming a bell shaped responce, 10dB is 1.82x 3dB)
+                    int32_t snippet_10dB_length=roundf(1.82f*footprint_time[ix_out]*Fs);
+                    snippet_10dB_length=MAX(snippet_10dB_length,1);
+                    int32_t ix0 = detection_offset-snippet_10dB_length/2;
+                    int32_t ix1 = ix0+snippet_10dB_length;
+                    ix0=MAX(0,ix0);
+                    ix1=MIN(ix1,snippet_length[ix_in]);
+                    acum_pow = 0;
+                    for (size_t ix = ix0; ix<ix1;ix++){
+                        acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
+                    }
+                    acum_energy = acum_pow/Fs;
+                    inten = sqrtf(acum_energy/tx_energy_Pa2s);
+                    inten *= rx_Pa_per_LSB;
+                    snippet_length[ix_in]=ix1-ix0;    
+                }
+                break;
             case snippet_3dB_footprint_mean_pow:
                 {
                     // Crop snippet to maximum the 3dB time domain footprint
@@ -1209,7 +1228,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         //Compensate intensity for range and AOI
         inten *= calc_intensity_range_scaling(beam_range[ix_out],attenuation, sensor_params);
         
-        if (sensor_params->snippet_processing_mode == snippet_sum_pow){
+        if ((sensor_params->snippet_processing_mode == snippet_sum_pow) || (sensor_params->snippet_processing_mode == snippet_10dB_footprint_sum_pow)){
             // When calculating total snippet energy, the footprint is based on the entire footprint of the snippet, not a sample footprint
             inten *= calc_footprint_scaling(beam_range[ix_out], aoi[ix_out],  beam_angle[ix_out],eff_plen+((snippet_length[ix_in]-1)*div_Fs) , sensor_params, /*OUTPUT*/ &(footprint_area[ix_out]));
         }

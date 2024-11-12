@@ -389,7 +389,7 @@ void generate_template_config_file(char* fname){
 
 
 	fprintf(fp,"#### BACKSCATTER PARAMETERS ####\n");
-	fprintf(fp,"# Snippet processing mode.  0: Sqrt Mean power.  1: Sqrt Sum power (energy).  2: Detection intensity, 3: Sqrt mean power within 3dB footprint, 4:Snippet max\n");
+	fprintf(fp,"# Snippet processing mode.  0: Sqrt Mean power.  1: Sqrt Sum power (energy).  2: Detection intensity, 3: Sqrt mean power within 3dB footprint, 4: Sqrt Sum power (energy) within 10dB footprint, 5:Snippet max\n");
 	fprintf(fp,"snippet_processing_mode 0\n");
 	fprintf(fp,"# Backscatter source for s7k records. 0: Bathy record,  1: Snippets (7028)  2: Normalized snippets (7058)\n");
 	fprintf(fp,"s7k_backscatter_source 0\n");

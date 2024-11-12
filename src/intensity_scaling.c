@@ -130,15 +130,22 @@ inline float rx_sensitivity_model_dB(float beam_angle){
 }
 
 
-/* Calculate the beam time response in seconds */
+/* Calculate the beam time response in seconds 
+*
+*   This is given by the effective pulse length in nadir, and by the beam width (beam lobe intersection with seafloor) at oblique angles.
+*   However, there is also an additional component given by range, to account for some bunpyness within the nadir beam
+*   See: BRFR-4425
+*/
 float calc_beam_time_response(float range,float aoi, float beam_angle, float plen, sensor_params_t* sensor_params){
     beam_angle = ABS(beam_angle);
     beam_angle = MIN(beam_angle, 80*M_PI/180);
     const float c = 1500; //We jsut assume 1500m/s SV here, it is not a very precise value anyways in this case
     float beamwidth = sensor_params->rx_nadir_beamwidth / cosf(beam_angle);
-    float T1 = plen;                            // Pulse length limited 
-    float T2 = (2/c)*range*beamwidth*tanf(ABS(aoi)); //Beam width limited
+    float T1 = plen;                                    // Pulse length limited 
+    float T2 = (2/c)*range*beamwidth*tanf(ABS(aoi));    //Beam width limited
+    float T3 = (2/c)*range*(8e-3 * (sensor_params->rx_nadir_beamwidth/(1.0f*M_PI/180.f))); //Minimum 0.8% range for a 1deg system
     float T = MAX(T1,T2);
+    T = MAX(T,T3);
     return T;
 }
 
