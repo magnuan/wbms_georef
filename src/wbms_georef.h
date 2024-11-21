@@ -9,8 +9,8 @@
 #define ATT_UNUSED __attribute__((unused))
 #endif
 
-#define NAVDATA_BUFFER_LEN (4*256)
-#define POS_PREFETCH_SEC (4.0)
+#define NAVDATA_BUFFER_LEN (8*256)
+#define POS_PREFETCH_SEC (8.0)
 //Use input sound velocity profile to correct for ray bending 
 
 #define MAX_DP 16*1024					//Maximum number of detection points in one dataset
