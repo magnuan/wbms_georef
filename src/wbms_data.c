@@ -29,6 +29,8 @@
 #define IGNORE_WBMS_CRC_FOR_SBP_DATA
 #define ROLL_VECTOR_LEN 512
 #define ROLL_VECTOR_RATE 500.
+// To get an unique identifier from beam+pingnumber when using multiping, we add 10k*mf_index to the beamnumber
+#define ADD_10K_MFINDEX_TO_BEAMNUMBER
 
 static uint8_t verbose = 1;
 
@@ -740,6 +742,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 			){
             
             beam_number[ix_out] = bath_vX->dp[ix_in].beam_number;
+            #ifdef ADD_10K_MFINDEX_TO_BEAMNUMBER
+            beam_number[ix_out] += multifreq_index*10000;
+            #endif
             beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis
             beam_steer[ix_out] = sensor_elec_steer;
             beam_range[ix_out] = sensor_r;
@@ -1064,6 +1069,9 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                ){
 
                 beam_number[ix_out] = ix_in;
+                #ifdef ADD_10K_MFINDEX_TO_BEAMNUMBER
+                beam_number[ix_out] += multifreq_index*10000;
+                #endif
                 beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis
                 beam_range[ix_out] = sensor_r;
 
