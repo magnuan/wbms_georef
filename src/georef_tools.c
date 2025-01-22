@@ -180,7 +180,7 @@ int georef_to_global_frame(
 
 
 
-size_t find_closest_index_in_posdata(navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, double ts){
+size_t find_closest_index_in_posdata(navdata_t posdata[NAVDATA_BUFFER_LEN],const size_t pos_ix, const double ts){
     navdata_t *pos0;      //Navdata last before and firs after ts instant
 	double ts_offset0=1000;
     double ts_offset1=1000;
@@ -216,7 +216,7 @@ size_t find_closest_index_in_posdata(navdata_t posdata[NAVDATA_BUFFER_LEN],size_
 / nav_yaw, nav_pitch, nav_roll Output navigation attitude
 / nav_dyaw_dt, nav_dpitch_dt, nav_droll_dt Output navigation attitude time derivates
 */
-int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, double ts,/*OUTPUT*/ double* nav_x, double* nav_y, double* nav_z, float* nav_yaw, float* nav_pitch, float* nav_roll, float* nav_dyaw_dt, float* nav_dpitch_dt, float* nav_droll_dt){
+int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],const size_t pos_ix, const double ts,/*OUTPUT*/ double* nav_x, double* nav_y, double* nav_z, float* nav_yaw, float* nav_pitch, float* nav_roll, float* nav_dyaw_dt, float* nav_dpitch_dt, float* nav_droll_dt){
     
     navdata_t *pos0, *pos1;      //Navdata last before and firs after tx instant
 	double ts_offset0, ts_offset1, max_ts_offset;
@@ -224,18 +224,21 @@ int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos
 
     //Start at last posdata index, go through datasets bacwards in time until we have the dataset before last bathy data
     pos0 = &(posdata[pos_ix]);
-    //fprintf(stderr,"calc_interpolated_nav_data ts=%f pos0->ts=%f\n",ts,pos0->ts);
+    size_t pix = pos_ix;
     for(size_t ii=0;ii<NAVDATA_BUFFER_LEN;ii++){
         pos1 = pos0;
-        pos0 = &(posdata[pos_ix]);
+        pos0 = &(posdata[pix]);
 	    ts_offset0 = ts - pos0->ts;
         if (ts_offset0>0) break;
-        pos_ix = (pos_ix+NAVDATA_BUFFER_LEN-1)%NAVDATA_BUFFER_LEN;
+        pix = (pix+NAVDATA_BUFFER_LEN-1)%NAVDATA_BUFFER_LEN;
     }
 	ts_offset1 = ts - pos1->ts;
-    //fprintf(stderr,"ts_offset0=%f ts_offset1=%f\n",ts_offset0,ts_offset1);
-    if (ts_offset0<0 || ts_offset1>0) return -1;
-    
+    if (ts_offset0<0 || ts_offset1>0){
+        fprintf(stderr,"calc_interpolated_nav_data ts=%f pos0->ts=%f\n",ts,pos0->ts);
+        fprintf(stderr,"ts_offset0=%f ts_offset1=%f\n",ts_offset0,ts_offset1);
+        return -1;
+    }
+
     max_ts_offset = MAX(ts_offset0,-ts_offset1);
 
 	if ((pos0->ts) == 0) return -1;
@@ -288,7 +291,7 @@ int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos
 / TODO  This function needs to calculate roll as rotation around sonar x-axis (azmuth angle)
 /       If sonar is significantly rotated with resoect to vessel / nav. We need tor transform yaw-pith-roll to rotation and heave wrt sonar coordinates
 */
-int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], size_t  pos_ix_tail, double ts, float t_dur, float fs, size_t N, /*output*/ float* roll_vector, float* z_vector){
+int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], const size_t  pos_ix_tail, const double ts, const float t_dur, const float fs, const size_t N, /*output*/ float* roll_vector, float* z_vector){
     navdata_t *pos0, *pos1;      //Navdata last before and firs after tx instant
 	float ts_offset0, ts_offset1;
     float scaling0, scaling1;
