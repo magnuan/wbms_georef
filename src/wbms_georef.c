@@ -548,6 +548,11 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# BIN output format is [(uint16) preamble , (uint16) type, (float) val, (double) x, (double) y, (double) z] where preamble is 0xBEEF \n");
 	fprintf(fp,"# Here X,Y,Z depends on projection but will typically be in meters Easting, Northing, Altitude\n");
 	fprintf(fp,"# Val is intensity values, as given by either sonar or lidar\n");
+    
+	fprintf(fp,"# Autocalib required fields \n");
+    fprintf(fp,"# output_format x,y,z,teta,el,range,YAW,PITCH,ROLL,Z\n");
+        
+
 
 	fclose(fp);
 }
@@ -760,7 +765,7 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"intensity_range_comp",20)==0) sensor_params.intensity_correction = 1;	//LEGACY
             if (strncmp(c,"intensity_correction",20)==0) sensor_params.intensity_correction = 1;	
             if (strncmp(c,"intensity_range_attenuation",27)==0) sensor_params.intensity_range_attenuation = ((float)atof(c+27));
-            if (strncmp(c,"ara_model",9)==0) sensor_params.ara_model = (atoi(c+9));	
+            if (strncmp(c,"ara_model ",10)==0) sensor_params.ara_model = (atoi(c+10));	
             if (strncmp(c,"ara_model_multiplier",20)==0) sensor_params.ara_model_multiplier = ((float)atof(c+20));
 
 
