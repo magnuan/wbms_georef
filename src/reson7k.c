@@ -319,7 +319,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			have_attitude = 1;
 			break;
 		case 1013:	// Heading
-            if (has_1016) break;  //Prefer 1016, do not process this record if 1016 records are available
+            if (has_1016 || has_1015) break;  //Prefer 1016 and 1015, do not process this record if any of those are available
 			if (verbose > 2) fprintf(stderr,"ts=%f s7k:1013 heading=%f\n", ts, rth.r1013->heading*180/M_PI);
 			navdata_collector.yaw = rth.r1013->heading;
 			if (proj){
@@ -344,6 +344,10 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			last_alt =  rth.r1015->height;
 			aux_navdata->vert_accuracy = rth.r1015->vert_accuracy;
 			aux_navdata->hor_accuracy = rth.r1015->hor_accuracy;
+			if (!has_1016){  //Prefer heading from 1016 if available
+                navdata_collector.yaw = rth.r1015->heading;
+			    have_heading = 1;
+            }
 
 			if (proj){
                 double alt;

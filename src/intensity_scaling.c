@@ -285,6 +285,7 @@ float calc_ara_scaling(float aoi, sensor_params_t* sensor_params){
             }
             break;
     }
+    //fprintf(stderr, "ara model=%d multiplier=%f\n",sensor_params->ara_model,sensor_params->ara_model_multiplier);
     if (sensor_params->ara_model_multiplier!=1.0){
         gain = powf(gain,sensor_params->ara_model_multiplier);
     }
