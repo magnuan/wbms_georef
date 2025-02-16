@@ -531,6 +531,8 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  vessel coordinates:        LAT,LON\n");
     fprintf(fp,"#  vessel coordinates:        X,Y,Z\n");
     fprintf(fp,"#  vessel altitude (=Z):      ALTITUDE\n");
+    fprintf(fp,"#  vessel altimeter :         ALTIMETER\t #Altimeter data (from s7k record 1006) \n" );
+    fprintf(fp,"#  vessel depth :             DEPTH\t #Depth data (from s7k record 1008) \n" );
     fprintf(fp,"#  vessel attitude:           YAW,PITCH,ROLL\n");
     fprintf(fp,"#  vessel pos accuracy:       HOR_ACC,VERT_ACC\n");
     fprintf(fp,"#  vessel speed:              SPEED\n");

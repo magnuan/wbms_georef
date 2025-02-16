@@ -154,6 +154,8 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case X: len += sprintf(&(outbuf[len]),"%11.3f",pos->y);break;
                 case Y: len += sprintf(&(outbuf[len]),"%11.3f",pos->x);break;
                 case Z: len += sprintf(&(outbuf[len]),"%11.3f",-pos->z);break;
+                case ALTIMETER: len += sprintf(&(outbuf[len]),"%11.3f",pos->altimeter);break;
+                case DEPTH: len += sprintf(&(outbuf[len]),"%11.3f",pos->depth);break;
                 case ALTITUDE: len += sprintf(&(outbuf[len]),"%11.3f",-pos->z);break;
                 case HOR_ACC: len += sprintf(&(outbuf[len]),"%11.3f",aux_navdata->hor_accuracy);break;
                 case VERT_ACC: len += sprintf(&(outbuf[len]),"%11.3f",aux_navdata->vert_accuracy);break;

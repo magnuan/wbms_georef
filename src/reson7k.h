@@ -484,6 +484,19 @@ typedef struct{
 	uint8_t		pos_method;
 }r7k_RecordTypeHeader_1003_t;  //36B
 
+// ****1006 Altitude ****
+typedef struct{
+	float	 	distance;       //Distance from seafloor in meters to sensor, positive up (0 at sea bottom).
+}r7k_RecordTypeHeader_1006_t;  //4B
+
+// ****1008 Depth ****
+typedef struct{
+	uint8_t		depth_descriptor; //  0 – Depth to sensor 1 – Water depth
+	uint8_t		correction_flag; //  0 – RAW depth (as measured) 1 – Corrected depth (relative to mean-sea level)
+	uint16_t    res1;
+	float	 	depth;       //The deeper, the bigger (positive) this value becomes
+}r7k_RecordTypeHeader_1008_t;  //8B
+
 // ****1012 Roll Pitch Heave ****
 typedef struct{
 	float		roll;
@@ -546,6 +559,8 @@ union r7k_RecordTypeHeader{
 	r7k_RecordTypeHeader_10018_t* r10018;
 
 	r7k_RecordTypeHeader_1003_t* r1003;
+	r7k_RecordTypeHeader_1006_t* r1006;
+	r7k_RecordTypeHeader_1008_t* r1008;
 	r7k_RecordTypeHeader_1012_t* r1012;
 	r7k_RecordTypeHeader_1013_t* r1013;
 	r7k_RecordTypeHeader_1015_t* r1015;

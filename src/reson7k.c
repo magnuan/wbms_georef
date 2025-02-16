@@ -240,6 +240,8 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 	static uint8_t have_pos; 
 	static uint8_t have_attitude; 
 	static uint8_t have_heading; 
+	static uint8_t have_depth; 
+	static uint8_t have_altimeter; 
 
     r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
 	
@@ -267,6 +269,8 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
         have_pos=0;
         have_attitude=0;	
         have_heading=0;
+        have_depth=0;
+        have_altimeter=0;
     }
 
 
@@ -305,6 +309,16 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			}
 			have_pos = 1;
 			break;
+
+		case 1006: // Altitude
+            have_altimeter=1;
+            navdata_collector.altimeter = rth.r1006->distance;
+			break;
+		case 1008: // Depth
+            have_depth=1;
+            navdata_collector.depth = rth.r1008->depth;
+			break;
+            
 		case 1012:	// Roll Pitch Heave
             if (has_1016) break;  //Prefer 1016, do not process this record if 1016 records are available
 			if (verbose >2 )fprintf(stderr,"ts=%f s8k:1012 roll=%f pitch=%f heave=%f\n",ts,rth.r1012->roll*180/M_PI,rth.r1012->pitch*180/M_PI, rth.r1012->heave);

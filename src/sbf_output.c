@@ -241,6 +241,9 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case Y: write_f32_unaligned_bswap((uint8_t*)dp,(float)(pos->x-x_offset)); dp+=4;break;
                 case Z: write_f32_unaligned_bswap((uint8_t*)dp,(float)(-(pos->z-z_offset))); dp+=4;break;
                 case ALTITUDE: write_f32_unaligned_bswap((uint8_t*)dp,(float)(-(pos->z-z_offset))); dp+=4;break;
+
+                case ALTIMETER: write_f32_unaligned_bswap((uint8_t*)dp,(float)((pos->altimeter))); dp+=4;break;
+                case DEPTH: write_f32_unaligned_bswap((uint8_t*)dp,(float)((pos->depth))); dp+=4;break;
                 
                 case HOR_ACC: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aux_navdata->hor_accuracy)); dp+=4;break;
                 case VERT_ACC: write_f32_unaligned_bswap((uint8_t*)dp,(float)(aux_navdata->vert_accuracy)); dp+=4;break;
