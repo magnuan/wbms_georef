@@ -246,7 +246,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
     r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
 	
 	//So far we process s7k record 1003, 1012, 1013, 1015 and 1016 for navigation  (we dont care about time stamps in any other records)
-	if ((drf->record_id != 1015) && (drf->record_id != 1016) && (drf->record_id != 1003) && (drf->record_id != 1012) && (drf->record_id != 1013))
+	if ((drf->record_id != 1015) && (drf->record_id != 1016) && (drf->record_id != 1003) && (drf->record_id != 1012) && (drf->record_id != 1013) && (drf->record_id != 1006)&& (drf->record_id != 1008))
 		return NO_NAV_DATA;	
 	
     double ts = r7k_r7ktime_to_ts(&(drf->time));
@@ -313,10 +313,12 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 		case 1006: // Altitude
             have_altimeter=1;
             navdata_collector.altimeter = rth.r1006->distance;
+            //fprintf(stderr, "Altimeter = %f\n",rth.r1006->distance);
 			break;
 		case 1008: // Depth
             have_depth=1;
             navdata_collector.depth = rth.r1008->depth;
+            //fprintf(stderr, "Depth = %f\n",rth.r1008->depth);
 			break;
             
 		case 1012:	// Roll Pitch Heave
