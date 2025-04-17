@@ -1,0 +1,22 @@
+Add uncertainty model:
+
+Derive vertical and horizontal variance controbution from different sources.
+
+- Angular uncertainty angular std.dev. sigma_teta given by user or default 0.1deg
+  var_teta_vert = (sigma_teta*range*cos(teta))^2
+  var_teta_hor  = (sigma_teta*range*sin(teta))^2
+
+- Range uncertainy, range std.dev, set to SoS/BW
+  var_range_vert = (sigma_range*cos(teta))^2
+  var_range_hor  = (sigma_range*sin(teta))^2
+
+- Motion uncertainty, calculate from a user given time uncertainty
+  var_roll_vert = (sigma_t*droll_dt*range*cos(teta))^2
+  var_roll_vert = (sigma_t*droll_dt*range*sin(teta))^2
+
+  pitch and yaw is kept out for now
+    
+
+- SV uncertainty. User input SV std.dev sigma_sv
+  in apply_ray_bending() / apply_ray_bending_direct(), take in  sigma_c and output sigma_z for each sounding 
+  
