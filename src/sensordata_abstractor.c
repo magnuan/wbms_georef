@@ -1,0 +1,119 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+//#include <sys/time.h>
+#include <fcntl.h>
+#include <time.h>
+#include <string.h>
+
+#ifdef __unix__
+#include <unistd.h>
+#endif
+
+#include "cmath.h"
+#include <math.h>
+
+#include "wbms_georef.h"
+#include "georef_tools.h"
+#include "time_functions.h"
+#include "sim_data.h"
+#include "wbms_data.h"
+#include "3dss_dx.h"
+#include "reson7k.h"
+#include "velodyne.h"
+#include "misc.h"
+#include "sensordata_abstractor.h"
+
+uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version){
+    if(version){
+        *version = -1;
+    }
+    switch (mode){
+        case  sensor_mode_wbms: case sensor_mode_wbms_v5:
+            return wbms_test_file(fd,version);
+        case  sensor_mode_sim:
+            return 1;
+        case sensor_mode_velodyne:
+            return velodyne_test_file(fd);
+        case sensor_mode_s7k:	
+            return r7k_test_bathy_file(fd);
+        case sensor_mode_3dss_stream:	
+            return p3dss_test_bathy_file(fd);
+        default:
+        case sensor_mode_autodetect: //TODO fix this
+        case sensor_mode_unknown:
+            return 0;
+    }
+    return 0;
+}
+
+sensor_mode_e sensor_autodetect_file(FILE* fp){
+    int fd = fileno(fp);
+    int version;
+    sensor_mode_e ret = sensor_mode_unknown;
+
+    for (sensor_mode_e mode=sensor_mode_wbms; mode<=sensor_mode_3dss_stream;mode++){
+        //fprintf(stderr,"Testing sensor file in mode %s\n", sensor_mode_names[mode]);
+        if(mode==sensor_mode_sim) continue;
+        if (sensor_test_file(fd,mode,&version)){
+            ret = mode;
+            break;
+        }
+        fseek(fp,0,SEEK_SET);
+    }
+    fseek(fp,0,SEEK_SET);
+    fprintf(stderr,"Autodetecting sensor file to mode: %s version %d\r\n",sensor_mode_names[ret],version);			
+
+    return ret;
+
+}
+
+
+
+
+int sensor_fetch_next_packet(char * data, int fd, sensor_mode_e mode){ 
+    int len=0;
+    //fprintf(stderr,"sensor_fetch_next_packet mode=%d\n",mode);
+	switch (mode){
+		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
+			len = wbms_fetch_next_packet(data, fd);break;
+		case sensor_mode_velodyne:
+			len = velodyne_fetch_next_packet(data, fd);break;
+		case sensor_mode_s7k:	
+			len = r7k_fetch_next_packet(data, fd);break;
+		case sensor_mode_3dss_stream:	
+			len = p3dss_fetch_next_packet(data, fd);break;
+		case  sensor_mode_sim:
+			len = sim_fetch_next_packet(data, fd);break;
+		case sensor_mode_autodetect: //TODO fix this
+		case sensor_mode_unknown:
+			len = 0;break;
+	}
+    if (len>MAX_SENSOR_PACKET_SIZE){
+        fprintf(stderr,"ERROR: Over sized sensor data = %d, MAX=%d\n", len,MAX_SENSOR_PACKET_SIZE);
+        return(-1);
+    };
+	return len;
+}
+
+int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double* ts_out, sensor_mode_e mode){
+    int id;
+	switch (mode){
+		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
+			return wbms_identify_packet(databuffer, len, ts_out, NULL);
+		case sensor_mode_velodyne:
+			return velodyne_identify_packet(databuffer, len, ts_out, ts_in);
+		case sensor_mode_s7k:	
+            id = r7k_identify_sensor_packet(databuffer, len, ts_out);
+	        //So far we only process s7k record 7027 and 10018 for sensor  bathy data and 7610 for SV data
+            return ((id==7027) ||(id==7028) ||(id==7058)|| (id==7610) || (id==7000) ||(id==10000)||(id==10018))?id:0;
+		case sensor_mode_3dss_stream:	
+            return  p3dss_identify_sensor_packet(databuffer, len, ts_out);
+		case  sensor_mode_sim:
+			return sim_identify_packet(databuffer, len, ts_out, ts_in);
+		case sensor_mode_autodetect: //TODO fix this
+		case sensor_mode_unknown:
+			return 0;
+	}
+	return 0;
+}

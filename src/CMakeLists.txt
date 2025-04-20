@@ -38,15 +38,60 @@ list(APPEND wbms_georef_SOURCES
     csv_output.c
     bin_output.c
     intensity_scaling.c
+    misc.c
+    navdata_abstractor.c
+    sensordata_abstractor.c
+  )
+
+# wbms_georef_identify
+list(APPEND wbms_georef_identify_SOURCES
+    wbms_georef_identify.c
+    crc32.c
+    cmath.c
+    reson7k.c
+    reson7k_output.c
+    wbms_data.c
+    3dss_dx.c
+    sim_data.c
+    velodyne.c
+    time_functions.c
+    linalg.c
+    raytracing.c
+    posmv.c
+    xtf_nav.c
+    wbm_tool_nav.c
+    sim_nav.c
+    sbet_nav.c
+    eelume_sbd_nav.c
+    nmea_nav.c
+    proj_wrapper.c
+    georef_tools.c
+    sbf_output.c
+    nmea_output.c
+    json_output.c
+    csv_output.c
+    bin_output.c
+    intensity_scaling.c
+    misc.c
+    navdata_abstractor.c
+    sensordata_abstractor.c
   )
 if(WIN32 OR CYGWIN)
     list(APPEND wbms_georef_SOURCES
       non_posix.c
     )
+    list(APPEND wbms_georef_identify_SOURCES
+      non_posix.c
+    )
 endif()
+
 
 add_executable(wbms_georef
   ${wbms_georef_SOURCES}
+  )
+
+add_executable(wbms_georef_identify
+  ${wbms_georef_identify_SOURCES}
   )
 
 if(WIN32 OR CYGWIN)
@@ -55,8 +100,17 @@ if(WIN32 OR CYGWIN)
     ${PROJ_LIBRARY}
     ${XGETOPT_LIBRARIES}
     )
+  target_link_libraries(wbms_georef_identify
+    ${GEOTRANZ_LIBRARIES}
+    ${PROJ_LIBRARY}
+    ${XGETOPT_LIBRARIES}
+    )
 else()
   target_link_libraries(wbms_georef
+    ${GEOTRANZ_LIBRARIES}
+    ${PROJ_LIBRARY}
+    )
+  target_link_libraries(wbms_georef_identify
     ${GEOTRANZ_LIBRARIES}
     ${PROJ_LIBRARY}
     )
@@ -71,3 +125,4 @@ endif()
 
 
 install(TARGETS wbms_georef DESTINATION ${INSTALL_BIN_DIR})
+install(TARGETS wbms_georef_identify DESTINATION ${INSTALL_BIN_DIR})

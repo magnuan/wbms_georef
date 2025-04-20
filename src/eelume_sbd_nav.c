@@ -133,7 +133,7 @@ int eelume_sbd_nav_seek_next_header(int fd){    //Search for a legal entry type,
         n = buffered_read(fd,&v,1);
         read_bytes++;
         if(n<0){ fprintf(stderr,"Got error from socket\n");return -1;}
-        if(n==0){ fprintf(stderr,"End of POS_MODE_EELUME stream\n");return -1;}
+        if(n==0){ /*fprintf(stderr,"End of POS_MODE_EELUME stream\n");*/return -1;}
         if(n>0){
             dump += 1;
             switch (state){
@@ -176,7 +176,7 @@ int eelume_sbd_nav_fetch_next_packet(char * data, int fd){
     while (rem>0){ 
         n= buffered_read(fd,dp,rem);rem -= n; dp+=n;
         if(n<0){ fprintf(stderr,"Got error from socket\n");return 0;}
-        if(n==0){ fprintf(stderr,"End of POS_MODE_EELUME stream\n");return 0;}
+        if(n==0){ /*fprintf(stderr,"End of POS_MODE_EELUME stream\n");*/return 0;}
     }
     return header->entry_size+sizeof(sbdEntryHeader_t);
 }

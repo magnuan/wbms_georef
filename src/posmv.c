@@ -184,7 +184,7 @@ int posmv_seek_next_header(int fd){
         n = buffered_read(fd,&v,1);
         read_bytes++;
         if(n<0){ fprintf(stderr,"Got error from socket\n");return -1;}
-        if(n==0){ fprintf(stderr,"End of POS_MODE_POSMV stream\n");return -1;}
+        if(n==0){ /*fprintf(stderr,"End of POS_MODE_POSMV stream\n");*/return -1;}
         if(n>0){
             dump += 1;
             switch (state){
@@ -219,7 +219,7 @@ int posmv_fetch_next_packet(char * data, int fd){
     while (rem>0){ 
         n= buffered_read(fd,dp,rem);rem -= n; dp+=n;
         if(n<0){ fprintf(stderr,"Got error from socket\n");return 0;}
-        if(n==0){ fprintf(stderr,"End of POS_MODE_POSMV stream\n");return 0;}
+        if(n==0){ /*fprintf(stderr,"End of POS_MODE_POSMV stream\n");*/return 0;}
     }
     #ifdef COLLECT_POSMV_STATS
     if(gid<POSMV_ID_MAX){

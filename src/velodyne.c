@@ -59,7 +59,7 @@ int velodyne_seek_next_header(int fd){
 		n = read(fd,&v,1);
         read_bytes++;
 		if(n<0){ fprintf(stderr,"Got error from socket\n");return -1;}
-		if(n==0){ fprintf(stderr,"End of LIDAR stream\n");return -1;}
+		if(n==0){ /*fprintf(stderr,"End of LIDAR stream\n");*/return -1;}
 		if(n>0){
 			dump += 1;
 			switch (state){
@@ -88,7 +88,7 @@ int velodyne_fetch_next_packet(char * data, int fd){
 	//while (rem>0){ n= read(fd,dp,rem);rem -= n; dp+=n;}
 	while (rem>0){ n= read(fd,dp,rem);if (n<=0) return 0;rem -= n; dp+=n;} //Read neccessary data, abort if no data or failure occurs TODO: verify that this works with all stream types 
 	if(n<0){ fprintf(stderr,"Got error from socket\n");return 0;}
-	if(n==0){ fprintf(stderr,"End of stream\n");return 0;}
+	if(n==0){ /*fprintf(stderr,"End of stream\n");*/return 0;}
 	return 1206;;
 }
 

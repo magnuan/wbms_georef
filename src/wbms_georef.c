@@ -48,6 +48,9 @@
 #include "bin_output.h"
 #include "reson7k_output.h"
 #include "intensity_scaling.h"
+#include "misc.h"
+#include "navdata_abstractor.h"
+#include "sensordata_abstractor.h"
 
 
 #if defined(_MSC_VER)
@@ -119,10 +122,6 @@ void close_windows_winsock_dll(void){
 static char verbose = 0;
 
 #define PREFER_HEAP
-//#define MAX_NAVIGATION_PACKET_SIZE (128*1024)
-//#define MAX_SENSOR_PACKET_SIZE (128*1024)
-#define MAX_SENSOR_PACKET_SIZE (4*1024*1024)
-#define MAX_NAVIGATION_PACKET_SIZE (4*1024*1024)
 
 #ifdef ENABLE_NETWORK_IO
     #ifdef __unix__
@@ -175,43 +174,9 @@ static output_mode_e output_mode = output_sbf;
 const char *output_mode_name[] = {"BINARY","CSV","SBF","NMEA","JSON","S7K"};
 output_format_e output_format[MAX_OUTPUT_FIELDS];
 
-static PJ *proj_latlon_to_output_utm;
-
-typedef enum  { pos_mode_posmv=0, pos_mode_xtf=1,pos_mode_wbm_tool=2, pos_mode_sbet=3, pos_mode_sim=4, pos_mode_s7k=5, pos_mode_3dss_stream=6, pos_mode_eelume=7,pos_mode_nmea=8,pos_mode_sbet_csv=9, pos_mode_autodetect=10,pos_mode_unknown=11} pos_mode_e; 
 pos_mode_e pos_mode = pos_mode_autodetect;
-static const char *pos_mode_names[] = {
-	"Posmv102",
-	"XTF_nav",
-	"wbm_tool dump",
-    "SBET",
-    "Simulator",
-    "s7k",
-    "PingDSP 3DSS stream",
-    "eelume sbd",
-    "nmea",
-    "SBET CSV",
-    "Autodetect",
-    "Unknown"
-};
-
-typedef enum  {sensor_mode_wbms=1,sensor_mode_wbms_v5=2, sensor_mode_velodyne=3, sensor_mode_sim=4, sensor_mode_s7k=5, sensor_mode_3dss_stream=6, sensor_mode_autodetect=10,sensor_mode_unknown=11} sensor_mode_e; 
 sensor_mode_e sensor_mode = sensor_mode_autodetect;
-static const char *sensor_mode_names[] = {
-	"-",
-	"WBMS",
-	"WBMS_V5",
-    "Velodyne",
-    "Simulator",
-    "s7k",
-    "PingDSP 3DSS stream",
-    "-",
-    "-",
-    "-",
-    "Autodetect",
-    "Unknown"
-};
 
-uint16_t alt_mode = 1;
 double z_off = 0;
 static int projection_header=1;
 static const char *ray_tracing_mode_names[] = {
@@ -251,18 +216,6 @@ void error(const char *msg)
 {
 	perror(msg);
 	exit(0);
-}
-
-
-int atobool(char* str){
-    if (strstr(str,"True")) return 1;
-    if (strstr(str,"true")) return 1;
-    if (strstr(str,"TRUE")) return 1;
-    if (strstr(str,"yes")) return 1;
-    if (strstr(str,"Yes")) return 1;
-    if (strstr(str,"YES")) return 1;
-    if (strstr(str,"1")) return 1;
-    return 0;
 }
 
 
@@ -694,7 +647,7 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"time_diff_limit",15)==0)  set_time_diff_limit((float)atof(c+15));
 			if (strncmp(c,"sensor_sv_offset",16)==0)  sensor_params.sv_offset = (float)atof(c+16);
 			if (strncmp(c,"sensor_force_sv",15)==0)  sensor_params.force_sv = (float)atof(c+15);
-			if (strncmp(c,"alt_mode",8)==0) alt_mode = atoi(c+8);	
+			if (strncmp(c,"alt_mode",8)==0) navdata_alt_mode = atoi(c+8);	
 			if (strncmp(c,"vert_offset",11)==0) z_off = (float)atof(c+11);
 			
             if (strncmp(c,"sbp_motion_stab",15)==0) sensor_params.sbp_motion_stab = atoi(c+15);	
@@ -886,195 +839,6 @@ int output_clientlist_max(void){
 
 
 
-/********************* FILE INPUT FUNCTIONS *********************************/
-/* Array of nav data entries, each detection needs to pick correct, interpolated nav data from this*/
-static navdata_t navdata[NAVDATA_BUFFER_LEN];
-size_t navdata_ix = 0;
-uint32_t navdata_count = 0;
-static aux_navdata_t aux_navdata;
-
-uint8_t navigation_test_file(int fd, pos_mode_e mode){
-    switch (mode){
-        case pos_mode_posmv:    return  posmv_test_file(fd);
-        case pos_mode_sbet:     return  sbet_test_file(fd);
-        case pos_mode_sbet_csv:     return  sbet_csv_test_file(fd);
-        case pos_mode_xtf:      return  xtf_test_file(fd);
-        case pos_mode_wbm_tool: return  wbm_tool_nav_test_file(fd);
-        case pos_mode_sim:      return 1;
-        case pos_mode_s7k:      return  r7k_test_nav_file(fd);
-        case pos_mode_3dss_stream:      return  p3dss_test_nav_file(fd);
-        case pos_mode_nmea:      return  nmea_nav_test_file(fd);
-        case pos_mode_eelume:      return  eelume_sbd_nav_test_file(fd);
-        default: case pos_mode_autodetect: case pos_mode_unknown: return 0;
-    }
-    return 0;
-}
-
-pos_mode_e navigation_autodetect_file(FILE* fp){
-    int fd = fileno(fp);
-    pos_mode_e ret = pos_mode_unknown;
-
-    for (pos_mode_e mode=pos_mode_posmv; mode<=pos_mode_sbet_csv;mode++){
-        if(mode==pos_mode_sim) continue;
-        //fprintf(stderr,"Testing nav file in mode %s\n", pos_mode_names[mode]);
-        if (navigation_test_file(fd,mode)){
-            ret = mode;
-            break;
-        }
-        fseek(fp,0,SEEK_SET);
-    }
-    fseek(fp,0,SEEK_SET);
-    fprintf(stderr,"Autodetecting navigation file to mode: %s\r\n",pos_mode_names[ret]);			
-    return ret;
-
-}
-
-
-
-//Read next set of pos data from fd into data
-int navigation_fetch_next_packet(char * data, int fd, pos_mode_e mode){
-    int len = 0;
-    switch (mode){
-        case pos_mode_posmv:    len= posmv_fetch_next_packet(data,fd);break;
-        case pos_mode_sbet:     len= sbet_nav_fetch_next_packet(data,fd);break;
-        case pos_mode_sbet_csv:     len= sbet_csv_nav_fetch_next_packet(data,fd);break;
-        case pos_mode_xtf:      len= xtf_nav_fetch_next_packet(data,fd);break;
-        case pos_mode_wbm_tool: len= wbm_tool_nav_fetch_next_packet(data,fd);break;
-        case pos_mode_sim:      len= sim_nav_fetch_next_packet(data,fd);break;
-        case pos_mode_s7k:      len= r7k_fetch_next_packet(data,fd);break;
-        case pos_mode_3dss_stream:      len= p3dss_fetch_next_packet(data,fd);break;
-        case pos_mode_eelume:    len= eelume_sbd_nav_fetch_next_packet(data,fd);break;
-        case pos_mode_nmea:      len= nmea_nav_fetch_next_packet(data,fd);break;
-        case pos_mode_autodetect: case pos_mode_unknown: return -1;
-    }
-    //fprintf(stderr,"navigation_fetch_next_packet = %d\n",len);
-    if (len>MAX_NAVIGATION_PACKET_SIZE){
-        fprintf(stderr,"ERROR: Over sized navigation data = %d, MAX=%d\n", len,MAX_NAVIGATION_PACKET_SIZE);
-        return(-1);
-    };
-	return len;
-}
-
-
-int process_nav_data_packet(char* databuffer, uint32_t len, double ts_in, double* ts_out, pos_mode_e mode, double z_offset){
-    int ret = 0;
-    size_t next_navdata_ix = (navdata_ix+1)%NAVDATA_BUFFER_LEN;
-        
-    switch (mode){
-        case pos_mode_posmv:    ret= posmv_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_sbet:     ret= sbet_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_sbet_csv:     ret= sbet_csv_nav_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_xtf:      ret = xtf_nav_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_wbm_tool: ret= wbm_tool_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_sim:      ret = sim_nav_process_packet(ts_in,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_s7k:      ret = s7k_process_nav_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_3dss_stream:      ret = p3dss_process_nav_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_eelume:    ret = eelume_sbd_nav_process_packet(databuffer,len,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_nmea:      ret = nmea_nav_process_nav_packet(databuffer,len,0,ts_out,z_offset, alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_autodetect: case pos_mode_unknown: return 0;
-    }
-    if (ret == NAV_DATA_PROJECTED){  //Only count when projected coordinates are returned
-        navdata_ix = next_navdata_ix;  //navdata_ix now points to the last updated nav data set
-        navdata_count +=1;
-    }
-	return ret;
-}
-
-
-
-uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version){
-    if(version){
-        *version = -1;
-    }
-    switch (mode){
-        case  sensor_mode_wbms: case sensor_mode_wbms_v5:
-            return wbms_test_file(fd,version);
-        case  sensor_mode_sim:
-            return 1;
-        case sensor_mode_velodyne:
-            return velodyne_test_file(fd);
-        case sensor_mode_s7k:	
-            return r7k_test_bathy_file(fd);
-        case sensor_mode_3dss_stream:	
-            return p3dss_test_bathy_file(fd);
-        default:
-        case sensor_mode_autodetect: //TODO fix this
-        case sensor_mode_unknown:
-            return 0;
-    }
-    return 0;
-}
-
-sensor_mode_e sensor_autodetect_file(FILE* fp){
-    int fd = fileno(fp);
-    int version;
-    sensor_mode_e ret = sensor_mode_unknown;
-
-    for (sensor_mode_e mode=sensor_mode_wbms; mode<=sensor_mode_3dss_stream;mode++){
-        //fprintf(stderr,"Testing sensor file in mode %s\n", sensor_mode_names[mode]);
-        if(mode==sensor_mode_sim) continue;
-        if (sensor_test_file(fd,mode,&version)){
-            ret = mode;
-            break;
-        }
-        fseek(fp,0,SEEK_SET);
-    }
-    fseek(fp,0,SEEK_SET);
-    fprintf(stderr,"Autodetecting sensor file to mode: %s version %d\r\n",sensor_mode_names[ret],version);			
-
-    return ret;
-
-}
-
-
-
-
-int sensor_fetch_next_packet(char * data, int fd, sensor_mode_e mode){ 
-    int len=0;
-    //fprintf(stderr,"sensor_fetch_next_packet mode=%d\n",mode);
-	switch (mode){
-		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
-			len = wbms_fetch_next_packet(data, fd);break;
-		case sensor_mode_velodyne:
-			len = velodyne_fetch_next_packet(data, fd);break;
-		case sensor_mode_s7k:	
-			len = r7k_fetch_next_packet(data, fd);break;
-		case sensor_mode_3dss_stream:	
-			len = p3dss_fetch_next_packet(data, fd);break;
-		case  sensor_mode_sim:
-			len = sim_fetch_next_packet(data, fd);break;
-		case sensor_mode_autodetect: //TODO fix this
-		case sensor_mode_unknown:
-			len = 0;break;
-	}
-    if (len>MAX_SENSOR_PACKET_SIZE){
-        fprintf(stderr,"ERROR: Over sized sensor data = %d, MAX=%d\n", len,MAX_SENSOR_PACKET_SIZE);
-        return(-1);
-    };
-	return len;
-}
-
-int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double* ts_out, sensor_mode_e mode){
-    int id;
-	switch (mode){
-		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
-			return wbms_identify_packet(databuffer, len, ts_out, NULL);
-		case sensor_mode_velodyne:
-			return velodyne_identify_packet(databuffer, len, ts_out, ts_in);
-		case sensor_mode_s7k:	
-            id = r7k_identify_sensor_packet(databuffer, len, ts_out);
-	        //So far we only process s7k record 7027 and 10018 for sensor  bathy data and 7610 for SV data
-            return ((id==7027) ||(id==7028) ||(id==7058)|| (id==7610) || (id==7000) ||(id==10000)||(id==10018))?id:0;
-		case sensor_mode_3dss_stream:	
-            return  p3dss_identify_sensor_packet(databuffer, len, ts_out);
-		case  sensor_mode_sim:
-			return sim_identify_packet(databuffer, len, ts_out, ts_in);
-		case sensor_mode_autodetect: //TODO fix this
-		case sensor_mode_unknown:
-			return 0;
-	}
-	return 0;
-}
 
 
 /************************************** MAIN *********************************************/
@@ -1322,7 +1086,7 @@ int main(int argc,char *argv[])
 	fprintf(stderr,"Sensor time offset:  %f\n",sensor_offset.time_offset);
 	fprintf(stderr,"Sonar sv offset:  %fm/s\n",sensor_params.sv_offset);
 	fprintf(stderr,"Sonar force sv:  %fm/s\n",sensor_params.force_sv);
-	fprintf(stderr,"Altitude mode:  %d %s\n",alt_mode, alt_mode_names[alt_mode]);
+	fprintf(stderr,"Altitude mode:  %d %s\n",navdata_alt_mode, alt_mode_names[navdata_alt_mode]);
 	fprintf(stderr,"Sonar min quality flag = %d\n",sensor_params.min_quality_flag);
 	fprintf(stderr,"Sonar max quality flag = %d\n",sensor_params.max_quality_flag);
 	fprintf(stderr,"Sonar min priority flag = %d\n",sensor_params.min_priority_flag);

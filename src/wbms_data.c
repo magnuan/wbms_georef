@@ -98,7 +98,7 @@ int wbms_seek_next_header(int fd){
 		n = read(fd,&v,1);
         read_bytes++;
 		if(n<0){ fprintf(stderr,"Got error from socket\n");return -1;}
-		if(n==0){ fprintf(stderr,"End of WBMS stream\n");return -1;}
+		if(n==0){ /*fprintf(stderr,"End of WBMS stream\n");*/return -1;}
 		if(n>0){
 			//fprintf(stderr,"%02x ",v);
 			dump += 1;

@@ -142,7 +142,7 @@ int r7k_seek_next_header(int fd, /*out*/ uint8_t* pre_sync){
 		n = read(fd,&v,1);                              //TODO: Speed this up, it takes too long time to read one and one byte
         read_bytes++;
 		if(n<0){ fprintf(stderr,"Got error from socket\n");return -1;}
-		if(n==0){ fprintf(stderr,"End of S7K stream\n");return -1;}
+		if(n==0){ /*fprintf(stderr,"End of S7K stream\n");*/return -1;}
 		if(n>0){
 			pre_sync_buffer[(psb_ix++)%8] = v;
 			dump += 1;
@@ -183,7 +183,7 @@ int r7k_fetch_next_packet(char * data, int fd){
 	while (rem>0){ 
         n= read(fd,dp,rem);		
         if(n<0){ fprintf(stderr,"Got error from socket 2. Errno=%d  %s  data=0x%08lx  dp=0x%08lx\n",errno, strerror(errno), (uint64_t) data, (uint64_t) dp);return 0;}
-        if(n==0){ fprintf(stderr,"End of POS_MODE_S7K stream\n");return 0;}
+        if(n==0){ /*fprintf(stderr,"End of POS_MODE_S7K stream\n");*/return 0;}
         rem -= n; dp+=n;
 
 	}
