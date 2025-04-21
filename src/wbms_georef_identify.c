@@ -286,6 +286,7 @@ int main(int argc,char *argv[])
         }
 
         file_stats->has_navigation = 1;
+        file_stats->navigation_points = cnt;
         file_stats->start_time = ts_start;
         file_stats->duration  = ts_end - ts_start;
         file_stats->latitude = (lat_max+lat_min)/2;     

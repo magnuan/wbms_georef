@@ -16,6 +16,7 @@ typedef struct{
     uint8_t  has_sensor;
     uint8_t  has_aux;          //SV-profile, etc
     uint32_t datapoints;
+    uint32_t navigation_points;
     double start_time;
     float duration;
     double latitude;        //Ceter of nav line

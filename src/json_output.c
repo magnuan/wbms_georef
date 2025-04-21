@@ -49,6 +49,7 @@ int write_stats_json_to_buffer(file_stats_t* stats, /*OUTPUT*/char* outbuf){
                             {    len += sprintf(&(outbuf[len]),"\t\"has_sensor\": %s,\n",            stats->has_sensor?"true":"false");}
                             {    len += sprintf(&(outbuf[len]),"\t\"has_aux\": %s,\n",               stats->has_aux?"true":"false");}
     if(stats->datapoints)   {    len += sprintf(&(outbuf[len]),"\t\"datapoints\": %d,\n",            stats->datapoints);}
+    if(stats->navigation_points)   {    len += sprintf(&(outbuf[len]),"\t\"navigation_points\": %d,\n",            stats->navigation_points);}
     if(stats->start_time)   {    len += sprintf(&(outbuf[len]),"\t\"start_time\": %.3f,\n",          stats->start_time);}
     if(stats->duration)     {    len += sprintf(&(outbuf[len]),"\t\"duration\": %.3f,\n",            stats->duration);}
     if(stats->latitude)     {    len += sprintf(&(outbuf[len]),"\t\"latitude\": %.6f,\n",            stats->latitude*180/M_PI);}
@@ -58,9 +59,17 @@ int write_stats_json_to_buffer(file_stats_t* stats, /*OUTPUT*/char* outbuf){
     if(stats->start_stop_distance){    len += sprintf(&(outbuf[len]),"\t\"start_stop_distance\": %.3f,\n", stats->start_stop_distance);}
     if(stats->mean_depth)   {    len += sprintf(&(outbuf[len]),"\t\"mean_depth\": %.3f,\n",          stats->mean_depth);}
     if(stats->coverage_area){    len += sprintf(&(outbuf[len]),"\t\"coverage_area\": %.3f,\n",       stats->coverage_area);}
+    if(stats->num_record_types){
+        len += sprintf(&(outbuf[len]),"\t\"records\": [");
+        for (int ix=0;ix<stats->num_record_types;ix++){
+            len += sprintf(&(outbuf[len]),"[%d, %d],",stats->records[ix].type,stats->records[ix].count);
+        }
+        len -= 1;
+        len += sprintf(&(outbuf[len]),"],\n");
+    }
 
-    //Remove the last ',' from the JSON dict
-    len -= 2;
+    
+    len -= 2; //Remove the last ",\n" from the JSON dict
     len += sprintf(&(outbuf[len]),"\n}\n");
     return len;
 }
