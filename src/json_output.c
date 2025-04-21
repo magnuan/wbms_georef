@@ -49,6 +49,7 @@ int write_stats_json_to_buffer(file_stats_t* stats, /*OUTPUT*/char* outbuf){
                             {    len += sprintf(&(outbuf[len]),"\t\"has_sensor\": %s,\n",            stats->has_sensor?"true":"false");}
                             {    len += sprintf(&(outbuf[len]),"\t\"has_aux\": %s,\n",               stats->has_aux?"true":"false");}
     if(stats->datapoints)   {    len += sprintf(&(outbuf[len]),"\t\"datapoints\": %d,\n",            stats->datapoints);}
+    if(stats->datasets)     {    len += sprintf(&(outbuf[len]),"\t\"datasets\": %d,\n",              stats->datasets);}
     if(stats->navigation_points)   {    len += sprintf(&(outbuf[len]),"\t\"navigation_points\": %d,\n",            stats->navigation_points);}
     if(stats->start_time)   {    len += sprintf(&(outbuf[len]),"\t\"start_time\": %.3f,\n",          stats->start_time);}
     if(stats->duration)     {    len += sprintf(&(outbuf[len]),"\t\"duration\": %.3f,\n",            stats->duration);}
@@ -57,8 +58,6 @@ int write_stats_json_to_buffer(file_stats_t* stats, /*OUTPUT*/char* outbuf){
     if(stats->altitude)     {    len += sprintf(&(outbuf[len]),"\t\"altitude\": %.3f,\n",            stats->altitude);}
     if(stats->line_length)  {    len += sprintf(&(outbuf[len]),"\t\"line_length\": %.3f,\n",         stats->line_length);}
     if(stats->start_stop_distance){    len += sprintf(&(outbuf[len]),"\t\"start_stop_distance\": %.3f,\n", stats->start_stop_distance);}
-    if(stats->mean_depth)   {    len += sprintf(&(outbuf[len]),"\t\"mean_depth\": %.3f,\n",          stats->mean_depth);}
-    if(stats->coverage_area){    len += sprintf(&(outbuf[len]),"\t\"coverage_area\": %.3f,\n",       stats->coverage_area);}
     if(stats->num_record_types){
         len += sprintf(&(outbuf[len]),"\t\"records\": [");
         for (int ix=0;ix<stats->num_record_types;ix++){

@@ -16,6 +16,7 @@ typedef struct{
     uint8_t  has_sensor;
     uint8_t  has_aux;          //SV-profile, etc
     uint32_t datapoints;
+    uint32_t datasets;
     uint32_t navigation_points;
     double start_time;
     float duration;
@@ -24,8 +25,6 @@ typedef struct{
     float altitude;
     float line_length;
     float start_stop_distance;
-    float mean_depth;       // For sonars, this is defined as depth under sonar
-    float coverage_area;
     uint32_t num_record_types;
     record_count_t records[];
 }file_stats_t;
