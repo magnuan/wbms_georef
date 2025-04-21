@@ -13,5 +13,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_B
 uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version);
 uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf);
 
+uint32_t wbms_count_data( bath_data_packet_t* bath_in, int force_bath_version,double *ts);
+uint32_t wbms_count_snippet_data(  snippet_data_packet_t* snippet_in,double *ts);
+uint32_t wbms_count_sbp_data(  sbp_data_packet_t* sbp_data,double *ts);
 
 #endif

@@ -496,6 +496,11 @@ bath_data_packet_vX_t* bath_convert_to_universal(bath_data_packet_t* bath_in, ui
     return &bvX;
 }
 
+uint32_t wbms_count_data( bath_data_packet_t* bath_in, int force_bath_version,double *ts){
+    bath_data_packet_vX_t* bath_vX = bath_convert_to_universal(bath_in,force_bath_version);
+    *ts = bath_vX->sub_header.time;
+    return  bath_vX->sub_header.N;
+}
 
 uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
     double* x = &(outbuf->x[0]);
@@ -859,6 +864,10 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 }
 
 
+uint32_t wbms_count_snippet_data(  snippet_data_packet_t* snippet_in,double *ts){
+    *ts = snippet_in->sub_header.time;
+    return  snippet_in->sub_header.N;
+}
     
 uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
     double* x = &(outbuf->x[0]);
@@ -1257,6 +1266,10 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
 }
 
 
+uint32_t wbms_count_sbp_data(  sbp_data_packet_t* sbp_data,double *ts){
+    *ts = sbp_data->sub_header.time;
+    return  sbp_data->sub_header.N;
+}
 
 uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf){
      double* x = &(outbuf->x[0]);
