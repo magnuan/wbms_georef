@@ -102,7 +102,7 @@ uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types){
     if (data==NULL){
         return 0;
     }
-    for(int test=0;test<1000000;test++){     //Test the first 1000 packets, if none of them contains requested data it is pobably not a valid data file
+    for(int test=0;test<1000;test++){     //Test the first 1000 packets, if none of them contains requested data it is pobably not a valid data file
         int len; 
         len = r7k_fetch_next_packet(data, fd);
         //printf("r7k_test_file, %d len=%d test_cnt=%d\n",req_types[0],len,test);
@@ -235,8 +235,9 @@ int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
     
 	//So far we only process s7k record 7000, 7027,7028,10000,10018  and 7610  
     // we dont care about time stamps in any other records as they could come out ot order (like 7030)
+    double ts = 0;
     if ((drf->record_id == 7000) || (drf->record_id == 7027) || (drf->record_id == 7028)|| (drf->record_id == 7058)|| (drf->record_id == 7610)|| (drf->record_id == 10000)|| (drf->record_id == 10018)){
-        double ts = r7k_r7ktime_to_ts(&(drf->time));
+        ts = r7k_r7ktime_to_ts(&(drf->time));
         // If record data is from sensor (sonar) add sensor time offset
         if ( drf->record_id >= 7000  && drf->record_id < 11000){
             ts += sensor_offset->time_offset;
@@ -444,6 +445,36 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 
 
 
+
+uint32_t s7k_count_data( char* databuffer,uint32_t databuffer_len, double* ts){
+	r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
+ 	*ts = r7k_r7ktime_to_ts(&(drf->time));
+    static uint32_t prev_ping_number=0;
+    uint32_t ping_number;
+    uint32_t samples = 0;
+
+	union r7k_RecordTypeHeader rth;
+	rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (databuffer+4+(drf->offset));
+    // --- Process S7K 10018 record ----
+	if (drf->record_id == 10018){
+        ping_number = rth.r10018->ping_nr;
+        samples = rth.r10018->number_of_samples;  
+    }
+    // --- Process S7K 7027 record ----
+	else if (drf->record_id == 7027){
+        ping_number = rth.r7027->ping_nr;
+        samples = rth.r7027->N;  //Number of beams
+    }
+    else{
+        return 0;
+    }
+
+    if (ping_number == prev_ping_number){ //Dont count same ping twice (e.g. 10018 and 10038)
+        return 0;
+    }
+    prev_ping_number = ping_number;
+    return samples;
+}
 
 uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,  /*OUTPUT*/ output_data_t* outbuf){
 
