@@ -4,7 +4,7 @@
 #include "wbms_georef.h"
 
 
-#define MAX_3DSS_PACKET_SIZE (16*1024*1024)
+#define MAX_3DSS_PACKET_SIZE (4*1024*1024)
 
 #pragma pack(1)
 typedef struct{
