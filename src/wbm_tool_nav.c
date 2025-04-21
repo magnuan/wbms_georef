@@ -39,7 +39,7 @@ int wbm_tool_nav_seek_next_header(int fd){
     while (1){
         n = read(fd,&v,1);
         if(n<0){ fprintf(stderr,"Got error from socket\n");return -1;}
-        if(n==0){ fprintf(stderr,"End of wbm_tool NAV stream\n");return -1;}
+        if(n==0){ /*fprintf(stderr,"End of wbm_tool NAV stream\n");*/return -1;}
         if(n>0){
             if (v=='\n'){
                 return 0;	
@@ -54,7 +54,7 @@ int wbm_tool_nav_fetch_next_packet(char * data, int fd){
     for (rem=0;rem<MAX_WBM_TOOL_PACKET_SIZE;rem++){
         n = read(fd,&(data[rem]),1);
         if(n<0){ fprintf(stderr,"Got error from socket\n");return 0;}
-        if(n==0){ fprintf(stderr,"End of wbm_tool NAV stream\n");return 0;}
+        if(n==0){ /*fprintf(stderr,"End of wbm_tool NAV stream\n");*/return 0;}
         if (data[rem]=='\n') break;
     }
     return rem;

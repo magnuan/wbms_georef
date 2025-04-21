@@ -83,7 +83,7 @@ int sbet_nav_fetch_next_packet(char * data, int fd){
     while (rem>0){ 
         n= read(fd,dp,rem);rem -= n; dp+=n;
         if(n<0){ fprintf(stderr,"Got error from socket\n");return 0;}
-        if(n==0){ fprintf(stderr,"End of SBET stream\n");return 0;}
+        if(n==0){ /*fprintf(stderr,"End of SBET stream\n");*/return 0;}
     }
     return count;
 }
@@ -193,7 +193,7 @@ int sbet_csv_nav_seek_next_header(int fd){
     while (1){
         n = read(fd,&v,1);
         if(n<0){ fprintf(stderr,"Got error from socket\n");return -1;}
-        if(n==0){ fprintf(stderr,"End of SBET_CSV NAV stream\n");return -1;}
+        if(n==0){ /*fprintf(stderr,"End of SBET_CSV NAV stream\n");*/return -1;}
         if(n>0){
             if (v=='\n'){
                 return 0;	
@@ -207,13 +207,13 @@ int sbet_csv_nav_fetch_next_packet(char * data, int fd){
     //But in probably only works with file input.
     //Ideally this should be chosen run-time based on wether input is file or stream
     #if 1
-    size_t len;
     ssize_t read;
     static FILE *file;
     if (file==NULL){
         file = fdopen(fd, "r");
     }
     if (file ==NULL) return -1;
+    //size_t len;
     //read = getline(&data, &len,file);
     char* ret = fgets(data, MAX_SBET_CSV_NAV_PACKET_SIZE,file);
     if (ret==NULL) return 0;
