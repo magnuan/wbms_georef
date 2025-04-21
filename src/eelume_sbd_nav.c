@@ -146,7 +146,7 @@ int eelume_sbd_nav_seek_next_header(int fd){    //Search for a legal entry type,
             }
             if (state==4){
                 dump-=4;
-                if(dump>2) fprintf(stderr,"Eelume nav seek dump %d bytes\n",dump);
+                //if(dump>2) fprintf(stderr,"Eelume nav seek dump %d bytes\n",dump);
                 return type;	
             }
         }
@@ -163,6 +163,7 @@ int eelume_sbd_nav_fetch_next_packet(char * data, int fd){
     header->entry_type = type;
     dp = data+4;
     n = buffered_read(fd,dp,sizeof(sbdEntryHeader_t)-4);
+    if (header->entry_size>MAX_EELUME_SBD_NAV_PACKET_SIZE) return 0;
     /*for (int ix = 0; ix<32;ix++){
         fprintf(stderr, "%02x ", data[ix]);
     }
@@ -185,7 +186,7 @@ int eelume_sbd_nav_identify_packet(char* databuffer, uint32_t len, double* ts_ou
     sbdEntryHeader_t* header = (sbdEntryHeader_t*) databuffer;
     double ts = header->absolute_time.tv_usec;
     ts = header->absolute_time.tv_sec + ts*1e-6;
-    fprintf(stderr, "identify EElume packet type=%d, Rel time = %d, Time =%f, Size=%d\n",header->entry_type, header->relative_time, ts,header->entry_size); 
+    //fprintf(stderr, "identify EElume packet type=%d, Rel time = %d, Time =%f, Size=%d\n",header->entry_type, header->relative_time, ts,header->entry_size); 
     *ts_out = ts;
     return header->entry_type; 
 }
