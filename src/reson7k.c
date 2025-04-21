@@ -66,6 +66,31 @@ void r7k_print_stats(void){
     #endif
 }
 
+uint32_t r7k_num_record_types(void){
+    #ifdef COLLECT_S7K_STATS
+    uint32_t ret = 0;
+    for (uint32_t id=0;id<S7K_ID_MAX;id++){
+        ret+= (s7k_stat_packet_count[id]>0);
+    }
+    return ret;
+    #else
+    return 0;
+    #endif
+}
+
+uint32_t r7k_get_record_count(record_count_t* records){
+    size_t ix = 0;
+    for (uint32_t id=0;id<S7K_ID_MAX;id++){
+        if(s7k_stat_packet_count[id] > 0){
+            (records+ix)->type = id;
+            (records+ix)->count = s7k_stat_packet_count[id];
+            ix++;
+        }
+    }
+    return (uint32_t) ix;
+}
+
+
 void r7k_set_sensor_offset(offset_t* s){
     sensor_offset = s;
 }

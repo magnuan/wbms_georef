@@ -193,5 +193,9 @@ typedef struct{
     float   gain;
 }output_data_t;
 
+typedef struct{
+    uint32_t type;
+    uint32_t count;
+}record_count_t;
 
 #endif

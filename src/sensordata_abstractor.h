@@ -16,5 +16,9 @@ static const char *sensor_mode_names[] = {
     "Autodetect",
     "Unknown"
 };
+uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version);
+sensor_mode_e sensor_autodetect_file(FILE* fp);
+int sensor_fetch_next_packet(char * data, int fd, sensor_mode_e mode);
+int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double* ts_out, sensor_mode_e mode);
 
 #endif

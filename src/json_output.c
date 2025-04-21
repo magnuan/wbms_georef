@@ -11,7 +11,59 @@
 #include "wbms_georef.h"
 #include <math.h>
 #include "cmath.h"
+#include "json_output.h"
 
+
+/*
+{
+  "file_type": "xyz",
+  "file_version": "1.2",
+  "data_type": "depth",
+  "sensor_type": "multibeam",
+  "has_navigation": true,
+  "datapoints": 5423,
+  "start_time": 1713091825.123,
+  "duration": 365.2,
+  "latitude": 59.9139,
+  "longitude": 10.7522,
+  "altitude": 3.0,
+  "line_length": 402.5,
+  "start_stop_distance": 1.1,
+  "mean_depth": 83.7,
+  "coverage_area": 1250.0,
+  "records": [[101, 13], [102, 8], [103, 2]]
+}
+
+
+*/
+int write_stats_json_to_buffer(file_stats_t* stats, /*OUTPUT*/char* outbuf){
+    int len=0;
+    
+    len += sprintf(&(outbuf[len]),"{\n");
+
+    if(stats->file_type)    {    len += sprintf(&(outbuf[len]),"\t\"file_type\": \"%s\",\n",         stats->file_type);}
+    if(stats->file_version) {    len += sprintf(&(outbuf[len]),"\t\"file_version\": \"%s\",\n",      stats->file_version);}
+    if(stats->data_type)    {    len += sprintf(&(outbuf[len]),"\t\"data_type\": \"%s\",\n",         stats->data_type);}
+    if(stats->sensor_type)  {    len += sprintf(&(outbuf[len]),"\t\"sensor_type\": \"%s\",\n",       stats->sensor_type);}
+                            {    len += sprintf(&(outbuf[len]),"\t\"has_navigation\": %s,\n",        stats->has_navigation?"true":"false");}
+                            {    len += sprintf(&(outbuf[len]),"\t\"has_sensor\": %s,\n",            stats->has_sensor?"true":"false");}
+                            {    len += sprintf(&(outbuf[len]),"\t\"has_aux\": %s,\n",               stats->has_aux?"true":"false");}
+    if(stats->datapoints)   {    len += sprintf(&(outbuf[len]),"\t\"datapoints\": %d,\n",            stats->datapoints);}
+    if(stats->start_time)   {    len += sprintf(&(outbuf[len]),"\t\"start_time\": %.3f,\n",          stats->start_time);}
+    if(stats->duration)     {    len += sprintf(&(outbuf[len]),"\t\"duration\": %.3f,\n",            stats->duration);}
+    if(stats->latitude)     {    len += sprintf(&(outbuf[len]),"\t\"latitude\": %.6f,\n",            stats->latitude*180/M_PI);}
+    if(stats->longitude)    {    len += sprintf(&(outbuf[len]),"\t\"longitude\": %.6f,\n",           stats->longitude*180/M_PI);}
+    if(stats->altitude)     {    len += sprintf(&(outbuf[len]),"\t\"altitude\": %.3f,\n",            stats->altitude);}
+    if(stats->line_length)  {    len += sprintf(&(outbuf[len]),"\t\"line_length\": %.3f,\n",         stats->line_length);}
+    if(stats->start_stop_distance){    len += sprintf(&(outbuf[len]),"\t\"start_stop_distance\": %.3f,\n", stats->start_stop_distance);}
+    if(stats->mean_depth)   {    len += sprintf(&(outbuf[len]),"\t\"mean_depth\": %.3f,\n",          stats->mean_depth);}
+    if(stats->coverage_area){    len += sprintf(&(outbuf[len]),"\t\"coverage_area\": %.3f,\n",       stats->coverage_area);}
+
+    //Remove the last ',' from the JSON dict
+    len -= 2;
+    len += sprintf(&(outbuf[len]),"\n}\n");
+    return len;
+}
 
 int write_json_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, aux_navdata_t *aux_navdata,output_format_e format[MAX_OUTPUT_FIELDS], /*OUTPUT*/char* outbuf){
     double* x_val = &(data->x[0]);

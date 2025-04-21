@@ -56,7 +56,7 @@ pos_mode_e navigation_autodetect_file(FILE* fp){
 
     for (pos_mode_e mode=pos_mode_posmv; mode<=pos_mode_sbet_csv;mode++){
         if(mode==pos_mode_sim) continue;
-        //fprintf(stderr,"Testing nav file in mode %s\n", pos_mode_names[mode]);
+        fprintf(stderr,"Testing nav file in mode %s\n", pos_mode_names[mode]);
         if (navigation_test_file(fd,mode)){
             ret = mode;
             break;

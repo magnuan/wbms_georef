@@ -15,7 +15,7 @@ int sbet_process_packet(char* databuffer, uint32_t len, double* ts_out, double z
 
 
 /***************** SECTION FOR CSV FORMATED SBET DATA ***************************************/
-#define MAX_SBET_CSV_NAV_PACKET_SIZE 1024
+#define MAX_SBET_CSV_NAV_PACKET_SIZE 32*1024
 uint8_t sbet_csv_test_file(int fd);
 int sbet_csv_nav_seek_next_header(int fd);
 int sbet_csv_nav_fetch_next_packet(char * data, int fd);
