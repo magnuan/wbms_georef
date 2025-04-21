@@ -47,7 +47,6 @@ typedef SSIZE_T ssize_t;
 #endif
 
 
-static char verbose = 0;
 
 #ifdef COUNT_S7K_SNIPPET_SATURATION
 uint32_t s7k_snp_satcount=0;
@@ -81,17 +80,6 @@ void showUsage(char *pgmname)
 
 
 /************************************** MAIN *********************************************/
-enum time_ref_e {tref_line=1, tref_day=2, tref_week=3, tref_unix=0};
-
-static const char *input_source_names[] = {
-	"None",
-	"TCP",
-	"UDP",
-	"stdin",
-	"File",
-	"zero",
-	"sim",
-};
 
 
 int main(int argc,char *argv[])
@@ -100,33 +88,17 @@ int main(int argc,char *argv[])
 
 	//File input and output stuff
 	FILE * input_fileptr = NULL;
-
-	int input_fd;
-	
-	uint32_t len;
-	uint32_t sensor_data_buffer_len = 0;
-	uint32_t output_databuffer_len = 0;
-	uint32_t navigation_data_buffer_len = 0;
-	
-	uint32_t navigation_total_packets = 0;
-	uint32_t sensor_data_packet_counter = 0;
-	uint32_t navigation_total_data = 0;
-	uint32_t sensor_total_data = 0;
-	uint32_t output_total_data = 0;
-    uint32_t sensor_total_datapoints = 0;
-
-	uint32_t datapoints;
-
-	double ts_pos = 0.;
-	double ts_sensor = 0.;
-   
     static char * input_file_string = NULL;
-
     file_stats_t* file_stats= NULL;
 
     r7k_init();
     posmv_init();
 
+    static offset_t sensor_offset;
+    wbms_set_sensor_offset(&sensor_offset);
+    r7k_set_sensor_offset(&sensor_offset);
+    p3dss_set_sensor_offset(&sensor_offset);
+    velodyne_set_sensor_offset(&sensor_offset);
 	/**** PARSING COMMAND LINE OPTIONS ****/
 
 
@@ -153,9 +125,10 @@ int main(int argc,char *argv[])
         fprintf(stderr,"Could not open sensor data file%s\n",input_file_string);
         exit(-1);
     }
+	int input_fd = fileno(input_fileptr);
     
 
-    
+    #if 1
     /************ Parse file as navigation data file ******************/
     pos_mode = navigation_autodetect_file(input_fileptr);
     fprintf(stderr,"pos_mode = %d\n", pos_mode);
@@ -164,11 +137,10 @@ int main(int argc,char *argv[])
         double ts_pos;
         char navigation_data_buffer[MAX_NAVIGATION_PACKET_SIZE];
         
-        int input_navigation_fd = fileno(input_fileptr);
         
         // Read out first position to derive UTM zone for data
         while (1){
-            uint32_t navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_navigation_fd,pos_mode);
+            uint32_t navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_fd,pos_mode);
             if(navigation_data_buffer_len>0){
 
                 int new_nav_data = process_nav_data_packet(navigation_data_buffer,navigation_data_buffer_len,ts_sensor, &ts_pos,pos_mode,0);  
@@ -217,16 +189,25 @@ int main(int argc,char *argv[])
         double ts_start=0;
         double ts_end=0;
         uint32_t cnt=0;
-        double prev_x,prev_y;
-        double x_start, y_start, z_start;
-        double x_end, y_end, z_end;
+        double prev_x=0;
+        double prev_y=0;
+        double x_start=0;
+        double y_start=0;
+        double z_start=0;
+        double x_end=0; 
+        double y_end=0;
+        double z_end=0;
         float acum_dist = 0;
-        uint32_t navigation_data_buffer_len;
 
-        double lat,lon;
-        double x,y,z;
+        double lat=0;
+        double lon=0;
+        double x=0;
+        double y=0;
+        double z=0;
 
-        while (navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_navigation_fd,pos_mode)){
+        while(1){
+            uint32_t navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_fd,pos_mode);
+            if (navigation_data_buffer_len==0) break;
             if(process_nav_data_packet(navigation_data_buffer,navigation_data_buffer_len,ts_sensor, &ts_pos,pos_mode,0)){
                 lat = navdata[navdata_ix].lat;
                 lon  = navdata[navdata_ix].lon;
@@ -278,11 +259,11 @@ int main(int argc,char *argv[])
             uint32_t num_record_types = r7k_num_record_types();
             file_stats= calloc(1,sizeof(file_stats_t) + num_record_types*sizeof(record_count_t));
         
-            file_stats->file_type = "s7k";     
-            file_stats->file_version = "0";  
-            file_stats->data_type = "mbes";     
+            file_stats->file_type = pos_mode_short_names[pos_mode];     
+            file_stats->file_version = NULL;  
+            file_stats->data_type = "nav";     
             file_stats->sensor_type = "unknown";   
-            file_stats->num_record_types = r7k_get_record_count(&(file_stats->records));
+            file_stats->num_record_types = r7k_get_record_count(file_stats->records);
         }
 
         file_stats->has_navigation = 1;
@@ -298,34 +279,105 @@ int main(int argc,char *argv[])
 
     // Check for sensor data in file
     fseek(input_fileptr,0,SEEK_SET);
-   
+    #else
+    pos_mode = pos_mode_unknown;
+    #endif
+    
+    #if 1
 
     /************ Parse file as sensor data file ******************/
-    sensor_mode = sensor_autodetect_file(input_fileptr);
-    if (sensor_mode != sensor_mode_unknown){
-        //TODO Code to parse sensor data here
+    /* Only these formats allows sensor data merged with nav data */
+    if ( (pos_mode == pos_mode_unknown) || (pos_mode==pos_mode_s7k) || (pos_mode==pos_mode_3dss_stream)){ 
+        sensor_mode = sensor_autodetect_file(input_fileptr);
+
+        int version;
+        sensor_test_file(input_fd,sensor_mode,&version);
+        fseek(input_fileptr,0,SEEK_SET);
+        char ver_string[32];
+        snprintf(ver_string,32,"%d",version);
 
 
+        if (sensor_mode != sensor_mode_unknown){
+            //TODO Code to parse sensor data here
+            char sensor_data_buffer[MAX_SENSOR_PACKET_SIZE];
+            double ts_start=0;
+            double ts_end=0;
+            uint32_t cnt=0;
+            double ts_pos = 0.; //For nav data sources that does not give full time, this might need to be popolated
+            double ts_sensor;
+            uint32_t datapoints = 0;
+            uint32_t force_bath_version = 0;
 
-        /* Write file stats */
-        if (file_stats==NULL){ // If file stats is filled out for the first time, add these fields
-            uint32_t num_record_types = r7k_num_record_types();
-            file_stats= calloc(1,sizeof(file_stats_t) + num_record_types*sizeof(record_count_t));
-            
-            file_stats->file_type = "s7k";     
-            file_stats->file_version = "0";  
+            while(1){
+                uint32_t sensor_data_buffer_len = sensor_fetch_next_packet(sensor_data_buffer, input_fd, sensor_mode);
+                //fprintf(stderr,"sensor_data_buffer_len = %d\n",sensor_data_buffer_len);fflush(stderr);
+                if(sensor_data_buffer_len==0) break;
+                int new_sensor_data = sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &ts_sensor, sensor_mode);
+                //fprintf(stderr,"new_sensor_data = %d\n",new_sensor_data);
+
+                if (new_sensor_data){ 
+                    switch (sensor_mode){
+                        case sensor_mode_wbms: case sensor_mode_wbms_v5:
+                            if (new_sensor_data == PACKET_TYPE_BATH_DATA){
+                                datapoints += wbms_count_data( (bath_data_packet_t*) sensor_data_buffer, force_bath_version,&ts_sensor);
+                            }
+                            else if (new_sensor_data == PACKET_TYPE_SNIPPET_DATA){
+                                datapoints += wbms_count_snippet_data( (snippet_data_packet_t*) sensor_data_buffer, &ts_sensor);
+                            }
+                            else if (new_sensor_data == PACKET_TYPE_SBP_DATA){
+                                datapoints += wbms_count_sbp_data( (sbp_data_packet_t*) sensor_data_buffer,&ts_sensor);
+                            }
+                            else{
+                                datapoints += 0;
+                            }
+                            break;
+                        case sensor_mode_sim:
+                            datapoints = 0;
+                            break;
+                        case sensor_mode_velodyne:
+                            //datapoints = velodyne_count_data( (uint16_t *) sensor_data_buffer,&ts_sensor);
+                            break;
+                        case sensor_mode_s7k:
+                            datapoints += s7k_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);
+                            break;
+                        case sensor_mode_3dss_stream:
+                            //datapoints = p3dss_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);
+                            break;
+                        default:
+                            datapoints = 0;
+                    }
+                    if(cnt==0){
+                        ts_start = ts_sensor;
+                    }
+                    cnt++;
+                    //fprintf(stderr, "Datapoints = %d\n",datapoints);
+                    //fprintf(stderr,"(sensor_data_packet_counter=%d, sensor_params.data_skip=%d  sensor_params.data_length=%d\n",sensor_data_packet_counter,sensor_params.data_skip,sensor_params.data_length);
+                }
+            }
+            ts_end = ts_sensor;
+
+            /* Write file stats */
+            if (file_stats==NULL){ // If file stats is filled out for the first time, add these fields
+                uint32_t num_record_types = r7k_num_record_types();
+                file_stats= calloc(1,sizeof(file_stats_t) + num_record_types*sizeof(record_count_t));
+
+                file_stats->file_type = sensor_mode_short_names[sensor_mode];     
+                file_stats->file_version = (version>0)?ver_string:NULL;  
+                file_stats->sensor_type = "unknown";   
+                file_stats->num_record_types = r7k_get_record_count(file_stats->records);
+            }
             file_stats->data_type = "mbes";     
-            file_stats->sensor_type = "unknown";   
-            file_stats->num_record_types = r7k_get_record_count(&(file_stats->records));
-        }
+            file_stats->has_sensor = 1;
+            file_stats->datapoints = datapoints;
+            file_stats->datasets = cnt;
 
-        file_stats->has_sensor = 1;
-        /*file_stats->datapoints;
-        file_stats->start_time = ts_start;
-        file_stats->duration ts_end - ts_start;
-        file_stats->mean_depth;
-        file_stats->coverage_area;*/
+            file_stats->start_time = ts_start;
+            file_stats->duration = ts_end - ts_start;
+            /*file_stats->mean_depth;
+              file_stats->coverage_area;*/
+        }
     }
+    #endif
 
 
     /************ Generate JSON  ******************/
