@@ -37,7 +37,7 @@ typedef struct{
 }r7k_Record;
 */
 
-#define MAX_S7K_PACKET_SIZE (16*1024*1024)
+#define MAX_S7K_PACKET_SIZE (4*1024*1024)
 #define S7K_ID_MAX 65535
 
 #pragma pack(1)
@@ -584,5 +584,8 @@ int r7k_fetch_next_packet(char * data, int fd);
 int r7k_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out);
 int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, double z_offset, uint16_t alt_mode, PJ *proj, navdata_t *navdata, aux_navdata_t *aux_navdata);
 uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, /*OUTPUT*/ output_data_t* outbuf);
+uint32_t s7k_count_data( char* databuffer,uint32_t databuffer_len, double* ts);
+uint32_t r7k_num_record_types(void);
+uint32_t r7k_get_record_count(record_count_t* records);
 
 #endif
