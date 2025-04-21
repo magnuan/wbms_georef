@@ -3,20 +3,8 @@
 
 typedef enum  { pos_mode_posmv=0, pos_mode_xtf=1,pos_mode_wbm_tool=2, pos_mode_sbet=3, pos_mode_sim=4, pos_mode_s7k=5, pos_mode_3dss_stream=6, pos_mode_eelume=7,pos_mode_nmea=8,pos_mode_sbet_csv=9, pos_mode_autodetect=10,pos_mode_unknown=11} pos_mode_e; 
 
-static const char *pos_mode_names[] = {
-	"Posmv102",
-	"XTF_nav",
-	"wbm_tool dump",
-    "SBET",
-    "Simulator",
-    "s7k",
-    "PingDSP 3DSS stream",
-    "eelume sbd",
-    "nmea",
-    "SBET CSV",
-    "Autodetect",
-    "Unknown"
-};
+extern const char *pos_mode_names[];
+extern char *pos_mode_short_names[];
 
 extern navdata_t navdata[NAVDATA_BUFFER_LEN];
 extern size_t navdata_ix;

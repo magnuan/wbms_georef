@@ -33,6 +33,35 @@ aux_navdata_t aux_navdata;
 uint16_t navdata_alt_mode = 1;
 PJ *proj_latlon_to_output_utm;
 
+const char *pos_mode_names[] = {
+	"Posmv",
+	"XTF_nav",
+	"wbm_tool dump",
+    "SBET",
+    "Simulator",
+    "s7k",
+    "PingDSP 3DSS stream",
+    "eelume sbd",
+    "nmea",
+    "SBET CSV",
+    "Autodetect",
+    "Unknown"
+};
+char *pos_mode_short_names[] = {
+	"posmv",
+	"csv",
+	"wbm_dump",
+    "SBET",
+    "sim",
+    "s7k",
+    "3DSS",
+    "sbd",
+    "nmea",
+    "SBET_CSV",
+    "Auto",
+    "Unknown"
+};
+
 uint8_t navigation_test_file(int fd, pos_mode_e mode){
     switch (mode){
         case pos_mode_posmv:    return  posmv_test_file(fd);
@@ -56,7 +85,7 @@ pos_mode_e navigation_autodetect_file(FILE* fp){
 
     for (pos_mode_e mode=pos_mode_posmv; mode<=pos_mode_sbet_csv;mode++){
         if(mode==pos_mode_sim) continue;
-        //fprintf(stderr,"Testing nav file in mode %s\n", pos_mode_names[mode]);
+        fprintf(stderr,"Testing nav file in mode %s\n", pos_mode_names[mode]);
         if (navigation_test_file(fd,mode)){
             ret = mode;
             break;

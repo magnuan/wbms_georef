@@ -24,6 +24,36 @@
 #include "misc.h"
 #include "sensordata_abstractor.h"
 
+const char *sensor_mode_names[] = {
+	"-",
+	"WBMS",
+	"WBMS_V5",
+    "Velodyne",
+    "Simulator",
+    "s7k",
+    "PingDSP 3DSS stream",
+    "-",
+    "-",
+    "-",
+    "Autodetect",
+    "Unknown"
+};
+
+char *sensor_mode_short_names[] = {
+	"-",
+	"WBMS",
+	"WBMS",
+    "Velodyne",
+    "sim",
+    "s7k",
+    "3DSS",
+    "-",
+    "-",
+    "-",
+    "Auto",
+    "Unknown"
+};
+
 uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version){
     if(version){
         *version = -1;
