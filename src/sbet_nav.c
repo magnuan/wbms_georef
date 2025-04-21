@@ -214,7 +214,10 @@ int sbet_csv_nav_fetch_next_packet(char * data, int fd){
         file = fdopen(fd, "r");
     }
     if (file ==NULL) return -1;
-    read = getline(&data, &len,file);
+    //read = getline(&data, &len,file);
+    char* ret = fgets(data, MAX_SBET_CSV_NAV_PACKET_SIZE,file);
+    if (ret==NULL) return 0;
+    read = strlen(data);
     if (read>=0){
         return read;
     }
