@@ -186,7 +186,10 @@ int eelume_sbd_nav_identify_packet(char* databuffer, uint32_t len, double* ts_ou
     sbdEntryHeader_t* header = (sbdEntryHeader_t*) databuffer;
     double ts = header->absolute_time.tv_usec;
     ts = header->absolute_time.tv_sec + ts*1e-6;
-    //fprintf(stderr, "identify EElume packet type=%d, Rel time = %d, Time =%f, Size=%d\n",header->entry_type, header->relative_time, ts,header->entry_size); 
+    // Some additional sanitiation to reduce chanse of recognizing random binary data as sbd
+    if (ts < 	946681200) return 0;  //Jan 1st 2000
+    if (ts > 	2840137200) return 0;  //Jan 1st 2060
+    fprintf(stderr, "identify EElume packet type=%d, Rel time = %d, Time =%f, Size=%d\n",header->entry_type, header->relative_time, ts,header->entry_size); 
     *ts_out = ts;
     return header->entry_type; 
 }
@@ -197,7 +200,7 @@ uint8_t eelume_sbd_nav_test_file(int fd){
     if (data==NULL){
         return 0;
     }
-    for(int test=0;test<20;test++){     //Test the first 20 packets, if none of them contains requested data it is pobably not a valid data file
+    for(int test=0;test<2;test++){     //Test the first 20 packets, if none of them contains requested data it is pobably not a valid data file
         int len; 
         len = eelume_sbd_nav_fetch_next_packet(data, fd);
         //printf("len=%d\n",len);
