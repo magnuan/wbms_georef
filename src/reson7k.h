@@ -587,5 +587,6 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
 uint32_t s7k_count_data( char* databuffer,uint32_t databuffer_len, double* ts);
 uint32_t r7k_num_record_types(void);
 uint32_t r7k_get_record_count(record_count_t* records);
+const char * r7k_get_data_type(void);
 
 #endif

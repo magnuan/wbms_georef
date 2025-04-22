@@ -41,17 +41,17 @@ const char *sensor_mode_names[] = {
 
 char *sensor_mode_short_names[] = {
 	"-",
-	"WBMS",
-	"WBMS",
-    "Velodyne",
+	"wbms",
+	"wbms",
+    "velodyne",
     "sim",
     "s7k",
-    "3DSS",
+    "3dss",
     "-",
     "-",
     "-",
-    "Auto",
-    "Unknown"
+    "auto",
+    "unknown"
 };
 
 uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version){
@@ -185,3 +185,23 @@ int sensor_get_record_count(sensor_mode_e mode, record_count_t* records){
 	}
 	return 0;
 }
+
+const char *  sensor_get_data_type(sensor_mode_e mode){
+	switch (mode){
+		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
+			return wbms_get_data_type();
+		case sensor_mode_velodyne:
+			return "lidar";
+		case sensor_mode_s7k:	
+            return r7k_get_data_type();
+		case sensor_mode_3dss_stream:	
+            return  "mbes";
+		case  sensor_mode_sim:
+			return "sim";
+		case sensor_mode_autodetect:
+		case sensor_mode_unknown:
+        default:
+			return "unknown";
+	}
+}
+    

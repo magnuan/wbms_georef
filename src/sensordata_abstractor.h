@@ -12,4 +12,5 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
 int sensor_num_record_types(sensor_mode_e mode);
 int sensor_get_record_count(sensor_mode_e mode, record_count_t* records);
 
+const char *  sensor_get_data_type(sensor_mode_e mode);
 #endif

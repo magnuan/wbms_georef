@@ -1512,3 +1512,19 @@ uint32_t wbms_get_record_count(record_count_t* records){
     }
     return (uint32_t) ix;
 }
+
+const char * wbms_get_data_type(void){
+    for (uint32_t id=0;id<WBMS_ID_MAX;id++){
+        if(wbms_stat_packet_count[id] > 0){
+            switch (id){
+                case PACKET_TYPE_BATH_DATA: return "mbes"; 
+                case PACKET_TYPE_WATERCOL_DATA: return "watercolumn";      
+                case PACKET_TYPE_SNIPPET_DATA: return "mbes snippet";       
+                case PACKET_TYPE_SIDESCAN_DATA: return "sidescan";
+                case PACKET_TYPE_GEOREF_SIDESCAN_DATA: return "sidescan";
+                case PACKET_TYPE_SBP_DATA: return "sbp"; 
+            }
+        }
+    }
+    return "unknown";
+}

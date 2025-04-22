@@ -257,14 +257,14 @@ int main(int argc,char *argv[])
         
         /* Write file stats */
         if (file_stats==NULL){ // If file stats is filled out for the first time, add these fields
-            uint32_t num_record_types = r7k_num_record_types();
+            uint32_t num_record_types = navigation_num_record_types(pos_mode);
             file_stats= calloc(1,sizeof(file_stats_t) + num_record_types*sizeof(record_count_t));
         
             file_stats->file_type = pos_mode_short_names[pos_mode];     
             file_stats->file_version = NULL;  
             file_stats->data_type = "nav";     
             file_stats->sensor_type = "unknown";   
-            file_stats->num_record_types = r7k_get_record_count(file_stats->records);
+            file_stats->num_record_types = navigation_get_record_count(pos_mode, file_stats->records);
         }
 
         file_stats->has_navigation = 1;
@@ -371,20 +371,6 @@ int main(int argc,char *argv[])
                 }
             }
 
-            switch (sensor_mode){
-                case sensor_mode_wbms: case sensor_mode_wbms_v5:
-                    break;
-                case sensor_mode_sim:
-                    break;
-                case sensor_mode_velodyne:
-                    break;
-                case sensor_mode_s7k:
-                    break;
-                case sensor_mode_3dss_stream:
-                    break;
-                default:
-                    break;
-            }
 
             ts_end = ts_sensor;
 
@@ -398,7 +384,7 @@ int main(int argc,char *argv[])
                 file_stats->sensor_type = "unknown";   
                 file_stats->num_record_types = sensor_get_record_count(sensor_mode,file_stats->records);
             }
-            file_stats->data_type = "mbes";     
+            file_stats->data_type = sensor_get_data_type(sensor_mode);     
             file_stats->has_sensor = 1;
             file_stats->datapoints = datapoints;
             file_stats->datasets = datasets;

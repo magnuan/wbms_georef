@@ -47,19 +47,19 @@ const char *pos_mode_names[] = {
     "Autodetect",
     "Unknown"
 };
-char *pos_mode_short_names[] = {
+const char *pos_mode_short_names[] = {
 	"posmv",
 	"csv",
 	"wbm_dump",
-    "SBET",
+    "sbet",
     "sim",
     "s7k",
-    "3DSS",
+    "3dss",
     "sbd",
     "nmea",
-    "SBET_CSV",
-    "Auto",
-    "Unknown"
+    "sbet_csv",
+    "auto",
+    "unknown"
 };
 
 uint8_t navigation_test_file(int fd, pos_mode_e mode){
@@ -146,4 +146,24 @@ int process_nav_data_packet(char* databuffer, uint32_t len, double ts_in, double
         navdata_count +=1;
     }
 	return ret;
+}
+
+int navigation_num_record_types(pos_mode_e mode){
+	switch (mode){
+		case pos_mode_s7k:	
+            return r7k_num_record_types();
+        default:
+			return 0;
+	}
+	return 0;
+}
+
+int navigation_get_record_count(pos_mode_e mode, record_count_t* records){
+	switch (mode){
+		case pos_mode_s7k:	
+            return r7k_get_record_count(records);
+        default:
+			return 0;
+	}
+	return 0;
 }

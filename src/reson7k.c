@@ -90,6 +90,18 @@ uint32_t r7k_get_record_count(record_count_t* records){
     return (uint32_t) ix;
 }
 
+const char * r7k_get_data_type(void){
+    for (uint32_t id=0;id<S7K_ID_MAX;id++){
+        if(s7k_stat_packet_count[id] > 0){
+            switch (id){
+                case 7006: return "mbes";
+                case 7027: return "mbes";
+                case 10018: return "sbp"; 
+            }
+        }
+    }
+    return "unknown";
+}
 
 void r7k_set_sensor_offset(offset_t* s){
     sensor_offset = s;

@@ -3,7 +3,7 @@
 #include "bathy_packet.h"
 #include "loki_packet.h"
 
-#define WBMS_ID_MAX 10000
+#define WBMS_ID_MAX 2000
 
 void wbms_init(void);
 void wbms_set_sensor_offset(offset_t* s);
@@ -22,4 +22,5 @@ uint32_t wbms_count_sbp_data(  sbp_data_packet_t* sbp_data,double *ts);
 
 uint32_t wbms_num_record_types(void);
 uint32_t wbms_get_record_count(record_count_t* records);
+const char * wbms_get_data_type(void);
 #endif
