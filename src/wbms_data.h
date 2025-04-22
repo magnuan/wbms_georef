@@ -3,6 +3,9 @@
 #include "bathy_packet.h"
 #include "loki_packet.h"
 
+#define WBMS_ID_MAX 10000
+
+void wbms_init(void);
 void wbms_set_sensor_offset(offset_t* s);
 uint8_t wbms_test_file(int fd,int* version);
 int wbms_seek_next_header(int fd);
@@ -17,4 +20,6 @@ uint32_t wbms_count_data( bath_data_packet_t* bath_in, int force_bath_version,do
 uint32_t wbms_count_snippet_data(  snippet_data_packet_t* snippet_in,double *ts);
 uint32_t wbms_count_sbp_data(  sbp_data_packet_t* sbp_data,double *ts);
 
+uint32_t wbms_num_record_types(void);
+uint32_t wbms_get_record_count(record_count_t* records);
 #endif

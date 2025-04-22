@@ -91,6 +91,7 @@ int main(int argc,char *argv[])
     static char * input_file_string = NULL;
     file_stats_t* file_stats= NULL;
 
+    wbms_init();
     r7k_init();
     posmv_init();
 
@@ -290,7 +291,7 @@ int main(int argc,char *argv[])
     if ( (pos_mode == pos_mode_unknown) || (pos_mode==pos_mode_s7k) || (pos_mode==pos_mode_3dss_stream)){ 
         switch(pos_mode){
             default:
-            case pos_mode_unknown;
+            case pos_mode_unknown:
                 sensor_mode = sensor_autodetect_file(input_fileptr);
                 break;
             case pos_mode_s7k:
@@ -382,20 +383,20 @@ int main(int argc,char *argv[])
                 case sensor_mode_3dss_stream:
                     break;
                 default:
-                    cnt = 0;
+                    break;
             }
 
             ts_end = ts_sensor;
 
             /* Write file stats */
             if (file_stats==NULL){ // If file stats is filled out for the first time, add these fields
-                uint32_t num_record_types = r7k_num_record_types();
+                uint32_t num_record_types = sensor_num_record_types(sensor_mode);
                 file_stats= calloc(1,sizeof(file_stats_t) + num_record_types*sizeof(record_count_t));
 
                 file_stats->file_type = sensor_mode_short_names[sensor_mode];     
                 file_stats->file_version = (version>0)?ver_string:NULL;  
                 file_stats->sensor_type = "unknown";   
-                file_stats->num_record_types = r7k_get_record_count(file_stats->records);
+                file_stats->num_record_types = sensor_get_record_count(sensor_mode,file_stats->records);
             }
             file_stats->data_type = "mbes";     
             file_stats->has_sensor = 1;

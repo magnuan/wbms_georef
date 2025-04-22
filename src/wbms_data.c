@@ -36,8 +36,16 @@ static uint8_t verbose = 1;
 
 static offset_t* sensor_offset;
 
+static uint32_t wbms_stat_packet_count[WBMS_ID_MAX+1];
+
 void wbms_set_sensor_offset(offset_t* s){
     sensor_offset = s;
+}
+
+void wbms_init(void){
+    for (uint32_t id=0;id<WBMS_ID_MAX;id++){
+        wbms_stat_packet_count[id]=0;
+    }
 }
 
 /* Read some data from file, and verify if it is a valid file type.
@@ -198,6 +206,10 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
 	//if (verbose) fprintf(stderr, "Received WBMS packet type %d size %d  CRC = 0x%08x\n",wbms_packet_header->type, wbms_packet_header->size, wbms_packet_header->crc);	
     rcnt++;
     
+    if(wbms_packet_header->type<WBMS_ID_MAX){
+        wbms_stat_packet_count[wbms_packet_header->type]++;
+    }
+
     //fprintf(stderr,"WBMS %d : type = %d ver=%d\n",rcnt,wbms_packet_header->type,wbms_packet_header->version);
 	switch (wbms_packet_header->type){
 		case PACKET_TYPE_BATH_DATA: 
@@ -1478,4 +1490,25 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
     free(xs);free(ys);free(zs);free(sig);free(temp_sig);
     outbuf->N = Nout;
 	return Nout;
+}
+
+
+uint32_t wbms_num_record_types(void){
+    uint32_t ret = 0;
+    for (uint32_t id=0;id<WBMS_ID_MAX;id++){
+        ret+= (wbms_stat_packet_count[id]>0);
+    }
+    return ret;
+}
+
+uint32_t wbms_get_record_count(record_count_t* records){
+    size_t ix = 0;
+    for (uint32_t id=0;id<WBMS_ID_MAX;id++){
+        if(wbms_stat_packet_count[id] > 0){
+            (records+ix)->type = id;
+            (records+ix)->count = wbms_stat_packet_count[id];
+            ix++;
+        }
+    }
+    return (uint32_t) ix;
 }

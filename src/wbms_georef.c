@@ -972,6 +972,7 @@ int main(int argc,char *argv[])
 	/*Default CSV format*/ 
 	output_format[0] = x; output_format[1] = y; output_format[2] = z; output_format[3] = val; output_format[4] = none;
     
+    wbms_init();
     r7k_init();
     posmv_init();
 	

@@ -147,3 +147,41 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
 	}
 	return 0;
 }
+
+int sensor_num_record_types(sensor_mode_e mode){
+	switch (mode){
+		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
+			return wbms_num_record_types();
+		case sensor_mode_velodyne:
+			return 0; //TODO
+		case sensor_mode_s7k:	
+            return r7k_num_record_types();
+		case sensor_mode_3dss_stream:	
+            return  0; //TODO
+		case  sensor_mode_sim:
+			return 0;
+		case sensor_mode_autodetect:
+		case sensor_mode_unknown:
+			return 0;
+	}
+	return 0;
+}
+
+int sensor_get_record_count(sensor_mode_e mode, record_count_t* records){
+	switch (mode){
+		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
+			return wbms_get_record_count(records);
+		case sensor_mode_velodyne:
+			return 0; //TODO
+		case sensor_mode_s7k:	
+            return r7k_get_record_count(records);
+		case sensor_mode_3dss_stream:	
+            return  0; //TODO
+		case  sensor_mode_sim:
+			return 0;
+		case sensor_mode_autodetect:
+		case sensor_mode_unknown:
+			return 0;
+	}
+	return 0;
+}
