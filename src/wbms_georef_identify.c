@@ -288,7 +288,18 @@ int main(int argc,char *argv[])
     /************ Parse file as sensor data file ******************/
     /* Only these formats allows sensor data merged with nav data */
     if ( (pos_mode == pos_mode_unknown) || (pos_mode==pos_mode_s7k) || (pos_mode==pos_mode_3dss_stream)){ 
-        sensor_mode = sensor_autodetect_file(input_fileptr);
+        switch(pos_mode){
+            default:
+            case pos_mode_unknown;
+                sensor_mode = sensor_autodetect_file(input_fileptr);
+                break;
+            case pos_mode_s7k:
+                sensor_mode = sensor_mode_s7k;
+                break;
+            case pos_mode_3dss_stream:
+                sensor_mode = sensor_mode_3dss_stream;
+                break;
+        }
 
         int version;
         sensor_test_file(input_fd,sensor_mode,&version);
@@ -302,7 +313,7 @@ int main(int argc,char *argv[])
             char sensor_data_buffer[MAX_SENSOR_PACKET_SIZE];
             double ts_start=0;
             double ts_end=0;
-            uint32_t cnt=0;
+            uint32_t datasets=0;
             double ts_pos = 0.; //For nav data sources that does not give full time, this might need to be popolated
             double ts_sensor;
             uint32_t datapoints = 0;
@@ -316,44 +327,64 @@ int main(int argc,char *argv[])
                 //fprintf(stderr,"new_sensor_data = %d\n",new_sensor_data);
 
                 if (new_sensor_data){ 
+                    uint32_t cnt=0;
                     switch (sensor_mode){
                         case sensor_mode_wbms: case sensor_mode_wbms_v5:
                             if (new_sensor_data == PACKET_TYPE_BATH_DATA){
-                                datapoints += wbms_count_data( (bath_data_packet_t*) sensor_data_buffer, force_bath_version,&ts_sensor);
+                                cnt = wbms_count_data( (bath_data_packet_t*) sensor_data_buffer, force_bath_version,&ts_sensor);
                             }
                             else if (new_sensor_data == PACKET_TYPE_SNIPPET_DATA){
-                                datapoints += wbms_count_snippet_data( (snippet_data_packet_t*) sensor_data_buffer, &ts_sensor);
+                                cnt = wbms_count_snippet_data( (snippet_data_packet_t*) sensor_data_buffer, &ts_sensor);
                             }
                             else if (new_sensor_data == PACKET_TYPE_SBP_DATA){
-                                datapoints += wbms_count_sbp_data( (sbp_data_packet_t*) sensor_data_buffer,&ts_sensor);
+                                cnt = wbms_count_sbp_data( (sbp_data_packet_t*) sensor_data_buffer,&ts_sensor);
                             }
                             else{
-                                datapoints += 0;
+                                cnt = 0;
                             }
                             break;
                         case sensor_mode_sim:
-                            datapoints = 0;
+                            cnt = 0;
                             break;
                         case sensor_mode_velodyne:
-                            //datapoints = velodyne_count_data( (uint16_t *) sensor_data_buffer,&ts_sensor);
+                            //cnt = velodyne_count_data( (uint16_t *) sensor_data_buffer,&ts_sensor);
                             break;
                         case sensor_mode_s7k:
-                            datapoints += s7k_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);
+                            cnt = s7k_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);
                             break;
                         case sensor_mode_3dss_stream:
-                            //datapoints = p3dss_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);
+                            //cnt = p3dss_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);
                             break;
                         default:
-                            datapoints = 0;
+                            cnt = 0;
                     }
-                    if(cnt==0){
+                    if(datasets==0){
                         ts_start = ts_sensor;
                     }
-                    cnt++;
+                    if(cnt){
+                        datasets++;
+                        datapoints += cnt;
+                    }
                     //fprintf(stderr, "Datapoints = %d\n",datapoints);
                     //fprintf(stderr,"(sensor_data_packet_counter=%d, sensor_params.data_skip=%d  sensor_params.data_length=%d\n",sensor_data_packet_counter,sensor_params.data_skip,sensor_params.data_length);
                 }
             }
+
+            switch (sensor_mode){
+                case sensor_mode_wbms: case sensor_mode_wbms_v5:
+                    break;
+                case sensor_mode_sim:
+                    break;
+                case sensor_mode_velodyne:
+                    break;
+                case sensor_mode_s7k:
+                    break;
+                case sensor_mode_3dss_stream:
+                    break;
+                default:
+                    cnt = 0;
+            }
+
             ts_end = ts_sensor;
 
             /* Write file stats */
@@ -369,7 +400,7 @@ int main(int argc,char *argv[])
             file_stats->data_type = "mbes";     
             file_stats->has_sensor = 1;
             file_stats->datapoints = datapoints;
-            file_stats->datasets = cnt;
+            file_stats->datasets = datasets;
 
             file_stats->start_time = ts_start;
             file_stats->duration = ts_end - ts_start;
