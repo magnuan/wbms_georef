@@ -205,3 +205,21 @@ const char *  sensor_get_data_type(sensor_mode_e mode){
 	}
 }
     
+sensor_count_stats_t* sensor_get_count_stats(sensor_mode_e mode){
+	switch (mode){
+		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
+			return wbms_get_count_stats();
+		case sensor_mode_velodyne:
+			return NULL;
+		case sensor_mode_s7k:	
+			return s7k_get_count_stats();
+		case sensor_mode_3dss_stream:	
+            return  NULL;
+		case  sensor_mode_sim:
+			return NULL;
+		case sensor_mode_autodetect:
+		case sensor_mode_unknown:
+        default:
+			return NULL;
+	}
+}

@@ -508,9 +508,30 @@ bath_data_packet_vX_t* bath_convert_to_universal(bath_data_packet_t* bath_in, ui
     return &bvX;
 }
 
+static sensor_count_stats_t wbms_count_stats;
+sensor_count_stats_t* wbms_get_count_stats(void){
+    return &wbms_count_stats;
+}
+
+static void count_stats_reg_freq_bw(float freq, float bw){
+    if (freq != 0){
+        if ( wbms_count_stats.freq==0 )
+            wbms_count_stats.freq=freq;
+        else if (wbms_count_stats.freq!=freq)
+            wbms_count_stats.freq=-1; //-1 indicates line with more than one freq setting
+
+        if ( wbms_count_stats.bw==0 )
+            wbms_count_stats.bw=bw;
+        else if (wbms_count_stats.bw!=bw)
+            wbms_count_stats.bw=-1; //-1 indicates line with more than one bw setting
+    }
+}
+
 uint32_t wbms_count_data( bath_data_packet_t* bath_in, int force_bath_version,double *ts){
     bath_data_packet_vX_t* bath_vX = bath_convert_to_universal(bath_in,force_bath_version);
     *ts = bath_vX->sub_header.time;
+    
+    count_stats_reg_freq_bw(bath_vX->sub_header.tx_freq, bath_vX->sub_header.tx_bw);
     return  bath_vX->sub_header.N;
 }
 
@@ -878,6 +899,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 
 uint32_t wbms_count_snippet_data(  snippet_data_packet_t* snippet_in,double *ts){
     *ts = snippet_in->sub_header.time;
+    
+    count_stats_reg_freq_bw(snippet_in->sub_header.tx_freq, snippet_in->sub_header.tx_bw);
     return  snippet_in->sub_header.N;
 }
     
@@ -1280,6 +1303,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
 
 uint32_t wbms_count_sbp_data(  sbp_data_packet_t* sbp_data,double *ts){
     *ts = sbp_data->sub_header.time;
+    count_stats_reg_freq_bw(sbp_data->sub_header.tx_sec_freq, sbp_data->sub_header.tx_sec_bw);
     return  sbp_data->sub_header.N;
 }
 

@@ -13,4 +13,5 @@ int sensor_num_record_types(sensor_mode_e mode);
 int sensor_get_record_count(sensor_mode_e mode, record_count_t* records);
 
 const char *  sensor_get_data_type(sensor_mode_e mode);
+sensor_count_stats_t* sensor_get_count_stats(sensor_mode_e mode);
 #endif

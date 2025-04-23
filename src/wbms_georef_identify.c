@@ -146,30 +146,37 @@ int main(int argc,char *argv[])
 
                 int new_nav_data = process_nav_data_packet(navigation_data_buffer,navigation_data_buffer_len,ts_sensor, &ts_pos,pos_mode,0);  
                 if( new_nav_data){
-                    double lat;
-                    double lon;
-                    //TODO this is not very clean code. When received data is Goegraphic only, and not projected , it arrives in the index following the last valid
-                    if( new_nav_data == NAV_DATA_GEO){
-                        lat = navdata[(navdata_ix+1)%NAVDATA_BUFFER_LEN].lat;
-                        lon = navdata[(navdata_ix+1)%NAVDATA_BUFFER_LEN].lon;
+                    if (proj_latlon_to_output_utm==NULL){
+                        double lat;
+                        double lon;
+                        //TODO this is not very clean code. When received data is Goegraphic only, and not projected , it arrives in the index following the last valid
+                        if( new_nav_data == NAV_DATA_GEO){
+                            lat = navdata[(navdata_ix+1)%NAVDATA_BUFFER_LEN].lat;
+                            lon = navdata[(navdata_ix+1)%NAVDATA_BUFFER_LEN].lon;
+                        }
+                        else{
+                            lat = navdata[navdata_ix].lat;
+                            lon = navdata[navdata_ix].lon;
+                        }
+                        fprintf(stderr,"First nav data lat = %8.5fdegN lon = %8.5fdegE\n",lat*180/M_PI,lon*180/M_PI);
+                        time_t raw_time = (time_t) ts_pos;
+                        fprintf(stderr,"First nav data time: ts=%0.3f %s  ",ts_pos,ctime(&raw_time));
+
+                        // Set UTM zone for calculating path length
+                        default_projection(output_projection_string,lat,lon);
+                        fprintf(stderr, "Using projection %s for calculating path length\n",output_projection_string);
+                        if(latlon_to_proj_from_string(output_projection_string,&proj_latlon_to_output_utm)<0){
+                            fprintf(stderr, "Error configuring georef parameters, exiting\n");
+                            return(-1);
+                        }
                     }
-                    else{
-                        lat = navdata[navdata_ix].lat;
-                        lon = navdata[navdata_ix].lon;
+                    if (ts_pos>(7*24*60*60)){
+                        break;
                     }
-                    fprintf(stderr,"First nav data lat = %8.5fdegN lon = %8.5fdegE\n",lat*180/M_PI,lon*180/M_PI);
-                    time_t raw_time = (time_t) ts_pos;
-                    fprintf(stderr,"First nav data time: ts=%0.3f %s  ",ts_pos,ctime(&raw_time));
-                    
-                    // Set UTM zone for calculating path length
-                    default_projection(output_projection_string,lat,lon);
-                    fprintf(stderr, "Using projection %s for calculating path length\n",output_projection_string);
-                    if(latlon_to_proj_from_string(output_projection_string,&proj_latlon_to_output_utm)<0){
-                        fprintf(stderr, "Error configuring georef parameters, exiting\n");
-                        return(-1);
-                    }
-                    break;
                 }
+            }
+            else{
+                break;
             }
         }
         if(proj_latlon_to_output_utm==NULL){
@@ -393,11 +400,18 @@ int main(int argc,char *argv[])
             file_stats->duration = ts_end - ts_start;
             /*file_stats->mean_depth;
               file_stats->coverage_area;*/
+            sensor_count_stats_t* count_stats = sensor_get_count_stats(sensor_mode);
+            fprintf(stderr, "Count stats freq=%f bw=%f\n", count_stats->freq, count_stats->bw);
+            if (count_stats){
+                file_stats->freq = count_stats->freq;
+                file_stats->bandwidth = count_stats->bw;
+            }
         }
     }
     #endif
 
 
+    fclose(input_fileptr);
     /************ Generate JSON  ******************/
     if (file_stats==NULL){
         fprintf(stderr,"Could not parse input file\n");
@@ -408,7 +422,6 @@ int main(int argc,char *argv[])
     write_stats_json_to_buffer(file_stats, /*OUTPUT*/json_buf);
     fprintf(stdout,"%s",json_buf);
 
-    fclose(input_fileptr);
     return(0);
 }
 

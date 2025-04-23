@@ -19,6 +19,7 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
 uint32_t wbms_count_data( bath_data_packet_t* bath_in, int force_bath_version,double *ts);
 uint32_t wbms_count_snippet_data(  snippet_data_packet_t* snippet_in,double *ts);
 uint32_t wbms_count_sbp_data(  sbp_data_packet_t* sbp_data,double *ts);
+sensor_count_stats_t* wbms_get_count_stats(void);
 
 uint32_t wbms_num_record_types(void);
 uint32_t wbms_get_record_count(record_count_t* records);

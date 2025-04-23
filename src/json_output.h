@@ -26,6 +26,8 @@ typedef struct{
     float line_length;
     float start_stop_distance;
     uint32_t num_record_types;
+    float freq;
+    float bandwidth;
     record_count_t records[];
 }file_stats_t;
 

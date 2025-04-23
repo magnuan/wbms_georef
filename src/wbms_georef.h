@@ -198,4 +198,8 @@ typedef struct{
     uint32_t count;
 }record_count_t;
 
+typedef struct{
+    float freq;
+    float bw;
+}sensor_count_stats_t;
 #endif

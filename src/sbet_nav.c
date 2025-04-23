@@ -114,6 +114,7 @@ int sbet_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out){
     if ((lon<-(2*M_PI)) ||(lon>(2*M_PI))) return 0;
     if ((alt<-(10000.f)) ||(alt>(10000.f))) return 0;
     if ((ABS(lat)<0.001f) || (ABS(lon)<0.001f)) return 0;   //Another rule to prevent false detection on all 0. 
+    if (isnan(ts) || isnan(lat) || isnan(lon) || isnan(alt) || isnan(yaw) || isnan(pitch) ||isnan(roll)) return 0;
     fprintf(stderr,"Good SBET\n");
     return 1;
 }

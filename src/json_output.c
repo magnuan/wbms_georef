@@ -56,6 +56,10 @@ int write_stats_json_to_buffer(file_stats_t* stats, /*OUTPUT*/char* outbuf){
     if(stats->latitude)     {    len += sprintf(&(outbuf[len]),"\t\"latitude\": %.6f,\n",            stats->latitude*180/M_PI);}
     if(stats->longitude)    {    len += sprintf(&(outbuf[len]),"\t\"longitude\": %.6f,\n",           stats->longitude*180/M_PI);}
     if(stats->altitude)     {    len += sprintf(&(outbuf[len]),"\t\"altitude\": %.3f,\n",            stats->altitude);}
+    
+    if(!(stats->freq==0))     {    len += sprintf(&(outbuf[len]),"\t\"frequency\": %.3f,\n",            stats->freq);}
+    if(!(stats->bandwidth==0))     {    len += sprintf(&(outbuf[len]),"\t\"bandwidth\": %.3f,\n",            stats->bandwidth);}
+
     if(stats->line_length)  {    len += sprintf(&(outbuf[len]),"\t\"line_length\": %.3f,\n",         stats->line_length);}
     if(stats->start_stop_distance){    len += sprintf(&(outbuf[len]),"\t\"start_stop_distance\": %.3f,\n", stats->start_stop_distance);}
     if(stats->num_record_types){

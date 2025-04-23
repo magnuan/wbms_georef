@@ -214,6 +214,7 @@ int r7k_fetch_next_packet(char * data, int fd){
 	dp = &(data[8]);                                //Read in 8 bytes allready 4-bytes before sync and 4 bytes sync
 	n = read(fd, dp,4);dp +=4;                        //Read in four more bytes, containing packet size
 	uint32_t s7k_size = ((uint32_t*) data)[2];
+    if (s7k_size>MAX_S7K_PACKET_SIZE) return 0;
 	
     
 	rem = s7k_size-12;                                //Remaining bytes - the 12 we allready have      
@@ -455,8 +456,11 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
     return NO_NAV_DATA;
 }
 
+static sensor_count_stats_t s7k_count_stats;
 
-
+sensor_count_stats_t* s7k_get_count_stats(void){
+    return &s7k_count_stats;
+}
 
 uint32_t s7k_count_data( char* databuffer,uint32_t databuffer_len, double* ts){
 	r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) databuffer;
@@ -467,6 +471,31 @@ uint32_t s7k_count_data( char* databuffer,uint32_t databuffer_len, double* ts){
 
 	union r7k_RecordTypeHeader rth;
 	rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (databuffer+4+(drf->offset));
+    
+    // --- Collect count stats
+    float freq=0;
+    float bw=0;
+    if (drf->record_id == 7000){
+        freq = rth.r7000->tx_freq ;
+        bw = rth.r7000->bw ;
+    }
+    else if (drf->record_id == 10000){
+        freq = rth.r10000->freq_center;
+        bw = rth.r10000->sweep_width;
+    }
+    if (freq != 0){
+        if ( s7k_count_stats.freq==0 )
+            s7k_count_stats.freq=freq;
+        else if (s7k_count_stats.freq!=freq)
+            s7k_count_stats.freq=-1.; //-1 indicates line with more than one freq setting
+
+        if ( s7k_count_stats.bw==0 )
+            s7k_count_stats.bw=bw;
+        else if (s7k_count_stats.bw!=bw)
+            s7k_count_stats.bw=-1; //-1 indicates line with more than one bw setting
+    }
+    // --- Collect count stat end
+
     // --- Process S7K 10018 record ----
 	if (drf->record_id == 10018){
         ping_number = rth.r10018->ping_nr;
@@ -484,6 +513,11 @@ uint32_t s7k_count_data( char* databuffer,uint32_t databuffer_len, double* ts){
     if (ping_number == prev_ping_number){ //Dont count same ping twice (e.g. 10018 and 10038)
         return 0;
     }
+
+
+
+
+
     prev_ping_number = ping_number;
     return samples;
 }
