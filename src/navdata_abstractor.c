@@ -152,6 +152,8 @@ int navigation_num_record_types(pos_mode_e mode){
 	switch (mode){
 		case pos_mode_s7k:	
             return r7k_num_record_types();
+		case pos_mode_posmv:	
+            return posmv_num_record_types();
         default:
 			return 0;
 	}
@@ -162,6 +164,8 @@ int navigation_get_record_count(pos_mode_e mode, record_count_t* records){
 	switch (mode){
 		case pos_mode_s7k:	
             return r7k_get_record_count(records);
+		case pos_mode_posmv:	
+            return posmv_get_record_count(records);
         default:
 			return 0;
 	}

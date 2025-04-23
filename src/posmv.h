@@ -52,4 +52,7 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
 void posmv_init(void);
 void posmv_print_stats(void);
 void set_posmv_alt_gps_epoch(double ts);
+
+uint32_t posmv_num_record_types(void);
+uint32_t posmv_get_record_count(record_count_t* records);
 #endif

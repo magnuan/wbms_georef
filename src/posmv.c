@@ -88,6 +88,30 @@ void posmv_print_stats(void){
     #endif
 }
 
+uint32_t posmv_num_record_types(void){
+    #ifdef COLLECT_POSMV_STATS
+    uint32_t ret = 0;
+    for (uint32_t id=0;id<POSMV_ID_MAX;id++){
+        ret+= (posmv_stat_packet_count[id]>0);
+    }
+    return ret;
+    #else
+    return 0;
+    #endif
+}
+
+uint32_t posmv_get_record_count(record_count_t* records){
+    size_t ix = 0;
+    for (uint32_t id=0;id<POSMV_ID_MAX;id++){
+        if(posmv_stat_packet_count[id] > 0){
+            (records+ix)->type = id;
+            (records+ix)->count = posmv_stat_packet_count[id];
+            ix++;
+        }
+    }
+    return (uint32_t) ix;
+}
+
 uint8_t posmv_test_file(int fd){
     uint8_t pass=0;
     char* data = malloc(MAX_POSMV_PACKET_SIZE);
