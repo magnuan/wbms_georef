@@ -5,12 +5,12 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdlib.h>
 #include <sys/types.h>
 #include <stdint.h>
 #include <math.h>
 #include "cmath.h"
 #include "non_posix.h"
+#include "svpdata.h"
 
 #if defined(_MSC_VER)
 #include <BaseTsd.h>
@@ -20,27 +20,12 @@ typedef SSIZE_T ssize_t;
 #define INTERPOL_COR_TABLE
 #define PYTHON_PRINTOUT
 
-// Sometimes the SV cast might not contain data deep enough to cover the entire depth of the data.
-// The workaround is to just extrapolate the sv profile to the maximum depth of the data 
-// Because we do not know the maximum data depth when the sv data is read in, we do not know exactly how deep we need to extrapolate.
-// Too short, and we might have to discard data due to lacking sv profile, too long means unneccessary run-time / memory use.
-// As a initial compromise we set it to 2, assuming the SV cast is at least half the maximum data depth
-#define EXTRAPOLATE_SV (2.0)
 
 
 static int ray_bend_valid=0;
 static int ray_bend_invalid=0;
 
-typedef struct{
-	float sv;
-	float depth;
-}sv_meas_t;
 
-int comp_sv_meas_on_depth_func(const void *a, const void *b){
-	sv_meas_t *x = (sv_meas_t *)a;
-	sv_meas_t *y = (sv_meas_t *)b;
-	return ((x->depth - y->depth)>0);
-}
 
 int get_ray_bend_valid(void){
     return ray_bend_valid;
@@ -49,217 +34,6 @@ int get_ray_bend_invalid(void){
     return ray_bend_invalid;
 }
 
-static int read_sv_from_file(char* fname, sv_meas_t* sv_meas_out, const size_t max_count){
-	FILE * fp = fopen(fname,"r");
-	char * line = NULL;
-	size_t len = 0;
-	ssize_t read;
-	char * c;
-	size_t count_in = 0;
-	float sv, depth;
-
-    
-	sv_meas_t* sv_meas_in;
-	sv_meas_in = malloc(max_count*sizeof(sv_meas_t));
-
-	if (fp==NULL){
-		fprintf(stderr,"Could not open file %s for reading sound velocity\n",fname);
-		return -1;
-	}
-
-	//Read in all SV measurement entries
-	fprintf(stderr,"Reading in SV measurements from file %s\n",fname);
-	while ((read = getline(&line, &len, fp)) != -1) {
-		if (read>0){
-			c = line;
-			while (*c==' ' || *c=='\t' || *c=='\n' || *c=='\r') c++; 	//Skip leading white spaces
-			if(*c==0) continue;											//End of line
-			if(*c=='#') continue;										//Comment
-            if (sscanf(c,"%f,%f",&sv, &depth)==2){
-                sv_meas_in[count_in].sv = sv;
-                sv_meas_in[count_in].depth = depth;
-                count_in++;
-            }
-            if (sscanf(c,"%f\t%f",&sv, &depth)==2){
-                sv_meas_in[count_in].sv = sv;
-                sv_meas_in[count_in].depth = depth;
-                count_in++;
-            }
-            if (sscanf(c,"%f %f",&sv, &depth)==2){
-                sv_meas_in[count_in].sv = sv;
-                sv_meas_in[count_in].depth = depth;
-                count_in++;
-            }
-		}
-        if( count_in >= max_count ) break;
-	}
-
-    //Swap sv and depth if this seems more likely
-    float min_sv=1e9;
-    float max_sv=-1e9;
-    float mean_sv=0;
-    float min_depth=1e9;
-    float max_depth=-1e9;
-    float mean_depth=0;
-    for (size_t ix=0;ix<count_in;ix++){
-        min_sv=MIN(min_sv,sv_meas_in[ix].sv);
-        max_sv=MAX(max_sv,sv_meas_in[ix].sv);
-        mean_sv += sv_meas_in[ix].sv;
-        min_depth=MIN(min_depth,sv_meas_in[ix].depth);
-        max_depth=MAX(max_depth,sv_meas_in[ix].depth);
-        mean_depth += sv_meas_in[ix].depth;
-    }
-    mean_sv = mean_sv / ((float)count_in);
-    mean_depth = mean_depth / ((float)count_in);
-    int sv_score = 0;
-    if ((min_sv>1400.f) && (min_sv<1600.f)) {sv_score+=1;} 
-    if ((max_sv>1400.f) && (max_sv<1600.f)) {sv_score+=1;} 
-    if ((mean_sv>1400.f) && (mean_sv<1600.f)) {sv_score+=1;} 
-    int depth_score = 0;
-    if ((min_depth>1400.f) && (min_depth<1600.f)) {depth_score+=1;} 
-    if ((max_depth>1400.f) && (max_depth<1600.f)) {depth_score+=1;} 
-    if ((mean_depth>1400.f) && (mean_depth<1600.f)) {depth_score+=1;} 
-    if (depth_score>sv_score){
-        fprintf(stderr, "Assuming SV file order: depth,sv\n");
-        for (size_t ix=0;ix<count_in;ix++){
-            float tmp = sv_meas_in[ix].sv;
-            sv_meas_in[ix].sv = sv_meas_in[ix].depth;
-            sv_meas_in[ix].depth = tmp;
-        }
-        float tmp1 = min_depth;
-        float tmp2 = max_depth;
-        float tmp3 = mean_depth;
-        min_depth = min_sv;
-        max_depth = max_sv;
-        mean_depth = mean_sv;
-        min_sv = tmp1;
-        max_sv = tmp2;
-        mean_sv = tmp3;
-    }
-    else{
-        fprintf(stderr, "Assuming SV file order: sv,depth\n");
-    }
-   
-    #ifdef EXTRAPOLATE_SV
-    fprintf(stderr,"SV profile %ld values from %f to %f m depth\n",count_in,min_depth,max_depth);
-        
-    float max_depth_sv = 0;
-    for (size_t ix=0;ix<count_in;ix++){
-        if (sv_meas_in[ix].depth == max_depth){
-            max_depth_sv = sv_meas_in[ix].sv;
-        }
-    }
-    size_t ix = count_in;
-    float d = max_depth*1.1;
-    for (; (d<max_depth*EXTRAPOLATE_SV) && (ix<max_count); d*=1.1){
-         sv_meas_in[ix].depth = d;
-         sv_meas_in[ix].sv = max_depth_sv + (0.017*(d-max_depth)); // Assume that SV only increases with pressure (0.17m/s per Bar)
-         ix++;
-    }
-    count_in = ix;
-    fprintf(stderr,"Extrapolated SV profile %ld values, extrapolate %f to %f m depth to %fm/s\n",count_in,max_depth,d,max_depth_sv);
-    max_depth = d;
-
-    #endif
-
-
-    // Resample SV data with this depth resolution (in meters)
-    const float d_depth = 1.;
-    // When resample use  a filter of this length (in meters) 
-    const float depth_avg = 3.;
-    
-    /*
-    fprintf(stderr,"d_in = np.array([");
-    for(size_t ix=0; ix < count_in;ix++) 
-		fprintf(stderr,"[%0.2f, %0.2f],",sv_meas_in[ix].depth, sv_meas_in[ix].sv);
-    fprintf(stderr,"])\n");
-    */
-	#ifdef PYTHON_PRINTOUT
-    if (1){
-        // Python print input sv table
-        FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","w");
-        fprintf(ppfd,"import numpy as np\n");
-        fprintf(ppfd,"import matplotlib.pyplot as plt\n");
-        fprintf(ppfd,"sv_raw=np.asarray([");
-        for(size_t ix=0;ix<count_in;ix++){
-            fprintf(ppfd,"[%6.2f, %7.2f],",sv_meas_in[ix].depth, sv_meas_in[ix].sv);
-        }
-        fprintf(ppfd,"])\n");
-        fclose(ppfd);
-    }
-	#endif
-	
-    fprintf(stderr,"# Sort measurements on depth\n");
-	qsort(sv_meas_in,count_in,sizeof(sv_meas_t),comp_sv_meas_on_depth_func);
-    fprintf(stderr,"# Count in = %d, max_depth = %0.2fm  sv=%7.2fm/s\n", (int) count_in, sv_meas_in[count_in-1].depth, sv_meas_in[count_in-1].sv);
-
-    // Re-arranging in data in to two separate arrays for filtering
-    float* d_in = malloc(count_in * sizeof(float));
-    float* s_in = malloc(count_in * sizeof(float));
-    for(size_t ii = 0; ii < count_in; ii++){
-        d_in[ii] = sv_meas_in[ii].depth;
-        s_in[ii] = sv_meas_in[ii].sv;
-    }
-    float* s_tmp = malloc(count_in * sizeof(float));
-    //Run median filter on sv_data
-    med_filter(s_in, s_tmp, 11, count_in);
-   
-    // Creating a uniformly sampled output arrays
-    size_t count_out = (size_t) (sv_meas_in[count_in-1].depth / d_depth);
-    float* d_out = malloc(count_out * sizeof(float));
-    float* s_out = malloc(count_out * sizeof(float));
-    for(size_t ii = 0; ii < count_out; ii++){
-        d_out[ii] = (float)ii * d_depth;
-    }
-    
-    //Run 1st order Savitzky–Golay like filter, with non-uniform input, and resampled output
-    non_uniform_1order_savgol(d_in, s_tmp, count_in, d_out, s_out, count_out, depth_avg);
-
-    // Write back to output data struct
-    for(size_t ii = 0; ii < count_out; ii++){
-        sv_meas_out[ii].depth = d_out[ii];
-        sv_meas_out[ii].sv = s_out[ii];
-    }
-	// ASCII plot filtered sv table
-	
-    /*
-    fprintf(stderr,"d_out = np.array([");
-    for(size_t ix=0; ix < count_out;ix++) 
-		fprintf(stderr,"[%0.2f, %0.2f],",sv_meas_out[ix].depth, sv_meas_out[ix].sv);
-    fprintf(stderr,"])\n");
-    */
-	#ifdef PYTHON_PRINTOUT
-    if(1){
-        // Python print input sv table
-        FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","a");
-        fprintf(ppfd,"sv_filt=np.asarray([");
-        for(size_t ix=0;ix<count_out;ix++){
-            fprintf(ppfd,"[%6.2f, %7.2f],",sv_meas_out[ix].depth, sv_meas_out[ix].sv);
-        }
-        fprintf(ppfd,"])\n");
-        fprintf(ppfd,"plt.figure('profile')\n");
-        fprintf(ppfd,"plt.plot(sv_raw[:,1],  -sv_raw[:,0]);plt.plot(sv_filt[:,1],  -sv_filt[:,0])\n");
-        fclose(ppfd);
-    }
-	#endif
-
-	for(size_t ix=0; ix < count_out;ix++){ 
-		fprintf(stderr,"%3d %6.2f %7.2f",(int) ix,sv_meas_out[ix].depth, sv_meas_out[ix].sv);
-		for (int ii=0;ii<(sv_meas_out[ix].sv-1400);ii++) fprintf(stderr,"*");
-		fprintf(stderr,"\n");
-	}
-
-	fprintf(stderr,"%d Sound velocity / depth pairs read from file, resampled to %d:\n",(int) count_in, (int) count_out );
-	fclose(fp);
-    free(sv_meas_in);
-    free(d_in);
-    free(s_in);
-    free(s_tmp);
-    free(d_out);
-    free(s_out);
-	if (line) free(line);
-	return (int) count_out;
-}
 
 static int calc_dr_dt_rev_hovem(double xi,double c0,double c1,double dz,float* dr, float* dt){
 	double si0,si1;
@@ -290,8 +64,6 @@ static int calc_dr_dt_rev_hovem(double xi,double c0,double c1,double dz,float* d
 	return 0;
 }
 
-//Max number of depth values to read from sv-file
-#define MAX_SV_MEAS  2048
 
 //Resolution and length of depth axis of correction table
 // TODO dynamically calculate DZ based on sv table range
@@ -368,17 +140,53 @@ static void dilate_invalid_table_for_interpolation(void){
 
 int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8_t generate_lut){
 	sv_meas_t* sv_meas;
+	sv_meas_t* sv_meas_filtered;
 	float depth,sv,ddepth,dsv;
 	int ix,ii;
 	int sv_meas_len;
 
 	sv_meas = malloc(MAX_SV_MEAS*sizeof(sv_meas_t));
-	sv_meas_len = read_sv_from_file(fname, sv_meas, MAX_SV_MEAS);
 	
-	if (sv_meas_len <=0){
-		free(sv_meas);
-		return -1;
-	}
+    sv_meas_len = svp_read_from_file(fname, sv_meas, MAX_SV_MEAS);
+    svp_auto_swap_sv_depth(sv_meas, sv_meas_len);
+	
+    #ifdef PYTHON_PRINTOUT
+    if (1){
+        // Python print input sv table
+        FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","w");
+        fprintf(ppfd,"import numpy as np\n");
+        fprintf(ppfd,"import matplotlib.pyplot as plt\n");
+        fprintf(ppfd,"sv_raw=np.asarray([");
+        for(size_t ix=0;ix<sv_meas_len;ix++){
+            fprintf(ppfd,"[%6.2f, %7.2f],",sv_meas[ix].depth, sv_meas[ix].sv);
+        }
+        fprintf(ppfd,"])\n");
+        fclose(ppfd);
+    }
+	#endif
+    
+    sv_meas_len = svp_extrapolate_sv_table(sv_meas, sv_meas_len, MAX_SV_MEAS);
+
+    sv_meas_len = svp_filter_and_resample(sv_meas, sv_meas_len, &sv_meas_filtered);
+    free(sv_meas);
+    sv_meas = sv_meas_filtered;
+    
+	
+    #ifdef PYTHON_PRINTOUT
+    if(1){
+        // Python print input sv table
+        FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","a");
+        fprintf(ppfd,"sv_filt=np.asarray([");
+        for(size_t ix=0;ix<sv_meas_len;ix++){
+            fprintf(ppfd,"[%6.2f, %7.2f],",sv_meas[ix].depth, sv_meas[ix].sv);
+        }
+        fprintf(ppfd,"])\n");
+        fprintf(ppfd,"plt.figure('profile')\n");
+        fprintf(ppfd,"plt.plot(sv_raw[:,1],  -sv_raw[:,0]);plt.plot(sv_filt[:,1],  -sv_filt[:,0])\n");
+        fclose(ppfd);
+    }
+	#endif
+	
 	fprintf(stderr, "Correcting SV data for sonar_depth = %fm\n", sonar_depth);
 	//Subtract sonar depth, to make SV measurements relative to sonar and not surface
 	for (ii = 0;ii<sv_meas_len;ii++){

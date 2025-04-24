@@ -41,6 +41,7 @@ list(APPEND wbms_georef_SOURCES
     misc.c
     navdata_abstractor.c
     sensordata_abstractor.c
+    svpdata.c
   )
 
 # wbms_georef_identify
@@ -75,6 +76,7 @@ list(APPEND wbms_georef_identify_SOURCES
     misc.c
     navdata_abstractor.c
     sensordata_abstractor.c
+    svpdata.c
   )
 if(WIN32 OR CYGWIN)
     list(APPEND wbms_georef_SOURCES
