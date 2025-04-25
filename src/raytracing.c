@@ -20,6 +20,12 @@ typedef SSIZE_T ssize_t;
 #define INTERPOL_COR_TABLE
 #define PYTHON_PRINTOUT
 
+// Sometimes the SV cast might not contain data deep enough to cover the entire depth of the data.
+// The workaround is to just extrapolate the sv profile to the maximum depth of the data 
+// Because we do not know the maximum data depth when the sv data is read in, we do not know exactly how deep we need to extrapolate.
+// Too short, and we might have to discard data due to lacking sv profile, too long means unneccessary run-time / memory use.
+// As a initial compromise we set it to 2, assuming the SV cast is at least half the maximum data depth
+#define EXTRAPOLATE_SV (2.0)
 
 
 static int ray_bend_valid=0;
@@ -151,7 +157,7 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
     svp_auto_swap_sv_depth(sv_meas, sv_meas_len);
 	
     #ifdef PYTHON_PRINTOUT
-    if (1){
+    {
         // Python print input sv table
         FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","w");
         fprintf(ppfd,"import numpy as np\n");
@@ -164,16 +170,16 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
         fclose(ppfd);
     }
 	#endif
-    
-    sv_meas_len = svp_extrapolate_sv_table(sv_meas, sv_meas_len, MAX_SV_MEAS);
 
+    sv_meas_len = svp_discard_insane(sv_meas, sv_meas_len);
+    sv_meas_len = svp_extrapolate_sv_table(sv_meas,EXTRAPOLATE_SV,sv_meas_len, MAX_SV_MEAS);
     sv_meas_len = svp_filter_and_resample(sv_meas, sv_meas_len, &sv_meas_filtered);
     free(sv_meas);
     sv_meas = sv_meas_filtered;
     
 	
     #ifdef PYTHON_PRINTOUT
-    if(1){
+    {
         // Python print input sv table
         FILE *ppfd = fopen("/tmp/wbms_georef_raytrace_read_debug.dump","a");
         fprintf(ppfd,"sv_filt=np.asarray([");

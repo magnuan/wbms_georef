@@ -11,15 +11,10 @@ typedef SSIZE_T ssize_t;
 #include "svpdata.h"
 
 
-// Sometimes the SV cast might not contain data deep enough to cover the entire depth of the data.
-// The workaround is to just extrapolate the sv profile to the maximum depth of the data 
-// Because we do not know the maximum data depth when the sv data is read in, we do not know exactly how deep we need to extrapolate.
-// Too short, and we might have to discard data due to lacking sv profile, too long means unneccessary run-time / memory use.
-// As a initial compromise we set it to 2, assuming the SV cast is at least half the maximum data depth
-#define EXTRAPOLATE_SV (2.0)
-#define PYTHON_PRINTOUT
-
-
+#define MIN_SANE_SV 1350.f
+#define MAX_SANE_SV 1650.f
+#define MIN_SANE_DEPTH 0.f
+#define MAX_SANE_DEPTH 1000.f
 
 static int comp_sv_meas_on_depth_func(const void *a, const void *b){
 	sv_meas_t *x = (sv_meas_t *)a;
@@ -27,14 +22,31 @@ static int comp_sv_meas_on_depth_func(const void *a, const void *b){
 	return ((x->depth - y->depth)>0);
 }
 
+size_t svp_discard_insane(sv_meas_t* sv_meas_in, size_t count_in){
+    size_t ix_out = 0;
+    for (size_t ix_in=0;ix_in<count_in;ix_in++){
+        uint8_t sane = ((sv_meas_in[ix_in].sv>MIN_SANE_SV) && (sv_meas_in[ix_in].sv<MAX_SANE_SV));
+        sane        &= ((sv_meas_in[ix_in].depth>MIN_SANE_DEPTH) && (sv_meas_in[ix_in].depth<MAX_SANE_DEPTH));
+        if (sane){
+            sv_meas_in[ix_out].sv = sv_meas_in[ix_in].sv;
+            sv_meas_in[ix_out].depth = sv_meas_in[ix_in].depth;
+            ix_out++;
+        }
+    }
+    return ix_out;
+}
+
+
+
+
 uint8_t svp_auto_swap_sv_depth(sv_meas_t* sv_meas_in, size_t count_in){
     //Swap sv and depth if this seems more likely
     int sv_score = 0;
     int depth_score = 0;
     //Count which column has most values within sane sv range
     for (size_t ix=0;ix<count_in;ix++){
-        if ((sv_meas_in[ix].sv>1400.f) && (sv_meas_in[ix].sv<1600.f)) {sv_score+=1;} 
-        if ((sv_meas_in[ix].depth>1400.f) && (sv_meas_in[ix].depth<1600.f)) {depth_score+=1;} 
+        if ((sv_meas_in[ix].sv>MIN_SANE_SV) && (sv_meas_in[ix].sv<MAX_SANE_SV)) {sv_score+=1;} 
+        if ((sv_meas_in[ix].depth>MIN_SANE_SV) && (sv_meas_in[ix].depth<MAX_SANE_SV)) {depth_score+=1;} 
     }
     uint8_t swap = (depth_score>sv_score);
     if (swap){
@@ -51,7 +63,7 @@ uint8_t svp_auto_swap_sv_depth(sv_meas_t* sv_meas_in, size_t count_in){
     return swap;
 }
 
-size_t  svp_extrapolate_sv_table(sv_meas_t* sv_meas_in, size_t count_in, const size_t max_count){
+size_t  svp_extrapolate_sv_table(sv_meas_t* sv_meas_in, float extrapolate, size_t count_in, const size_t max_count){
     
     float min_depth = 1e9;
     float max_depth = -1e9;
@@ -69,7 +81,7 @@ size_t  svp_extrapolate_sv_table(sv_meas_t* sv_meas_in, size_t count_in, const s
     }
     size_t ix = count_in;
     float d = max_depth*1.1;
-    for (; (d<max_depth*EXTRAPOLATE_SV) && (ix<max_count); d*=1.1){
+    for (; (d<max_depth*extrapolate) && (ix<max_count); d*=1.1){
          sv_meas_in[ix].depth = d;
          sv_meas_in[ix].sv = max_depth_sv + (0.017*(d-max_depth)); // Assume that SV only increases with pressure (0.17m/s per Bar)
          ix++;
