@@ -154,6 +154,7 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
 	sv_meas = malloc(MAX_SV_MEAS*sizeof(sv_meas_t));
 	
     sv_meas_len = svp_read_from_file(fname, sv_meas, MAX_SV_MEAS);
+    if (sv_meas_len<1) return -1;
     svp_auto_swap_sv_depth(sv_meas, sv_meas_len);
 	
     #ifdef PYTHON_PRINTOUT

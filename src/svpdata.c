@@ -3,11 +3,13 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <math.h>
+#include <string.h>
 #include "cmath.h"
 #if defined(_MSC_VER)
 #include <BaseTsd.h>
 typedef SSIZE_T ssize_t;
 #endif
+#include "time_functions.h"
 #include "svpdata.h"
 
 
@@ -93,8 +95,88 @@ size_t  svp_extrapolate_sv_table(sv_meas_t* sv_meas_in, float extrapolate, size_
     return count_in;
 }
 
+svp_mode_e svp_test_file(char* fname, double* ts){
+	FILE * fp = fopen(fname,"r");
+	char * line = NULL;
+	size_t len = 0;
+	ssize_t read;
+	char * c;
+	size_t tuple_count = 0;
+	float a, b;
+    uint8_t caris_svp_v2 = 0;
+
+    int year,doy,HH,MM,SS;
+    int bogus_count = 0;
+    
+    const int max_bogus = 10;
+
+	if (fp==NULL){
+		return svp_mode_error;
+	}
+
+	while ((read = getline(&line, &len, fp)) != -1) {
+		if (read>0){
+			c = line;
+			while (*c==' ' || *c=='\t' || *c=='\n' || *c=='\r') c++; 	//Skip leading white spaces
+			if(*c==0) continue;											//End of line
+			if(*c=='#') continue;										//Comment
+           
+            if (caris_svp_v2==1){ //Try to read out Caris SVP Section header
+                if (sscanf(c,"Section, %d-%d, %d:%d:%d",&year,&doy,&HH,&MM,&SS)==5){
+                    caris_svp_v2=2;
+                    continue;
+                }
+            }
+
+            if ( strncmp(c,"[SVP_VERSION_2]",14)==0) {caris_svp_v2 = 1;continue;};
+            if (sscanf(c,"%f,%f",&a, &b)==2) {tuple_count++;continue;};
+            if (sscanf(c,"%f\t%f",&a, &b)==2) {tuple_count++;continue;};
+            if (sscanf(c,"%f %f",&a, &b)==2) {tuple_count++;continue;};
+            bogus_count ++;
+		}
+        if (bogus_count > max_bogus) break;
+	}
+
+	if (line) free(line);
+	fclose(fp);
+
+    if (bogus_count > max_bogus){
+        fprintf(stderr, "SVP test file: Bogus file\n");
+        return svp_mode_none;
+    }
+
+    *ts = 0;
+    if ((caris_svp_v2) && (tuple_count>0)){
+        *ts = irigb_to_gm(year,doy,HH,MM,SS);
+        
+        fprintf(stderr, "SVP test file: Carris SVP version 2: ts=%f year=%d, doy=%d, %02d:%02d:%02d\n", *ts,year,doy,HH,MM,SS);
+        return svp_mode_caris_v2;
+    }
+    else if (tuple_count>0){                  
+        fprintf(stderr, "SVP test file: ASCII tuple file\n");
+        return svp_mode_ascii_tuple;
+    }
+    
+    fprintf(stderr, "SVP test file: Unknown file\n");
+    return svp_mode_none;
+}
+
+
 
 int svp_read_from_file(char* fname, sv_meas_t* sv_meas, const size_t max_count){
+    double ts;
+    switch(svp_test_file(fname,&ts)){
+        case svp_mode_caris_v2: 
+        case svp_mode_ascii_tuple:
+            return svp_read_from_ascii_tuplet_file(fname, sv_meas, max_count);
+        case svp_mode_none:
+        case svp_mode_error:
+            return 0;
+    }
+    return 0;
+}
+
+int svp_read_from_ascii_tuplet_file(char* fname, sv_meas_t* sv_meas, const size_t max_count){
 	FILE * fp = fopen(fname,"r");
 	char * line = NULL;
 	size_t len = 0;
