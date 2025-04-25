@@ -34,6 +34,7 @@
 #include "misc.h"
 #include "navdata_abstractor.h"
 #include "sensordata_abstractor.h"
+#include "svpdata.h"
 
 #if defined(_MSC_VER)
 #include "non_posix.h"
@@ -118,6 +119,54 @@ int main(int argc,char *argv[])
         } else {
 		    input_file_string = argv[optind++];
         }
+    }
+
+
+    double ts_svp;
+    size_t svp_datapoints;
+    svp_mode_e svp_mode = svp_test_file(input_file_string, &ts_svp, &svp_datapoints);
+	
+    #if 1 //Additional Check for data sanity
+    sv_meas_t* sv_meas = malloc(MAX_SV_MEAS*sizeof(sv_meas_t));
+    int sv_meas_len = svp_read_from_file(input_file_string, sv_meas, MAX_SV_MEAS);
+    if (svp_mode==svp_mode_ascii_tuple) svp_auto_swap_sv_depth(sv_meas, sv_meas_len);
+    sv_meas_len = svp_discard_insane(sv_meas, sv_meas_len);
+    if (sv_meas_len <1){
+        svp_mode = 0;
+    }
+    free(sv_meas);
+    #endif
+
+
+    if (svp_mode>0){    //File recognized as SVP data
+        int version = 0;
+        if (svp_mode == svp_mode_caris_v2) version = 2;
+        char ver_string[32];
+        snprintf(ver_string,32,"%d",version);
+        /* Write file stats */
+        file_stats= calloc(1,sizeof(file_stats_t));
+
+        file_stats->file_type = svp_mode_short_names[svp_mode];     
+        file_stats->file_version = (version>0)?ver_string:NULL;  
+        file_stats->data_type = "svp";     
+        file_stats->sensor_type = "unknown";   
+        file_stats->num_record_types = 0;
+        file_stats->has_svp = 1;
+        file_stats->datapoints = svp_datapoints;
+        file_stats->datasets = 1;
+
+        file_stats->start_time = ts_svp;
+        file_stats->duration = 0;
+
+        /************ Generate JSON  ******************/
+
+        char* json_buf = malloc(2048);
+        write_stats_json_to_buffer(file_stats, /*OUTPUT*/json_buf);
+        fprintf(stdout,"%s",json_buf);
+        free(file_stats);
+        free(json_buf);
+
+        return(0);
     }
 
     fprintf(stderr,"Reading sensor data from FILE: %s\n",input_file_string);
@@ -421,6 +470,9 @@ int main(int argc,char *argv[])
     char* json_buf = malloc(2048);
     write_stats_json_to_buffer(file_stats, /*OUTPUT*/json_buf);
     fprintf(stdout,"%s",json_buf);
+    
+    if(file_stats) free(file_stats);
+    free(json_buf);
 
     return(0);
 }

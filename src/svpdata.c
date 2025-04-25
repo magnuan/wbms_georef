@@ -18,6 +18,15 @@ typedef SSIZE_T ssize_t;
 #define MIN_SANE_DEPTH 0.f
 #define MAX_SANE_DEPTH 1000.f
 
+char *svp_mode_short_names[] = {
+	"-",
+	"caris v2",
+	"ascii tuple",
+    "swift_svp",
+    "unknown"
+};
+
+
 static int comp_sv_meas_on_depth_func(const void *a, const void *b){
 	sv_meas_t *x = (sv_meas_t *)a;
 	sv_meas_t *y = (sv_meas_t *)b;
@@ -52,7 +61,7 @@ uint8_t svp_auto_swap_sv_depth(sv_meas_t* sv_meas_in, size_t count_in){
     }
     uint8_t swap = (depth_score>sv_score);
     if (swap){
-        fprintf(stderr, "Assuming SV file order: depth,sv\n");
+        fprintf(stderr, "Assuming SV file order: sv,depth\n");
         for (size_t ix=0;ix<count_in;ix++){
             float tmp = sv_meas_in[ix].sv;
             sv_meas_in[ix].sv = sv_meas_in[ix].depth;
@@ -60,7 +69,7 @@ uint8_t svp_auto_swap_sv_depth(sv_meas_t* sv_meas_in, size_t count_in){
         }
     }
     else{
-        fprintf(stderr, "Assuming SV file order: sv,depth\n");
+        fprintf(stderr, "Assuming SV file order: depth,sv\n");
     }
     return swap;
 }
@@ -95,23 +104,31 @@ size_t  svp_extrapolate_sv_table(sv_meas_t* sv_meas_in, float extrapolate, size_
     return count_in;
 }
 
-svp_mode_e svp_test_file(char* fname, double* ts){
+svp_mode_e svp_test_file(char* fname, double* ts, size_t* cnt){
 	FILE * fp = fopen(fname,"r");
 	char * line = NULL;
 	size_t len = 0;
 	ssize_t read;
 	char * c;
-	size_t tuple_count = 0;
-	float a, b;
+	size_t data_count = 0;
+	float x,y,z;
     uint8_t caris_svp_v2 = 0;
+    uint8_t swift_svp = 0;
 
-    int year,doy,HH,MM,SS;
+    //Start time
+    int year,month,day,doy,HH,MM,SS;
+    float fSS;
+    //End time
+    int year1,month1,day1,HH1,MM1;
+    float fSS1;
+
+
     int bogus_count = 0;
     
     const int max_bogus = 10;
 
 	if (fp==NULL){
-		return svp_mode_error;
+		return svp_mode_none;
 	}
 
 	while ((read = getline(&line, &len, fp)) != -1) {
@@ -126,16 +143,32 @@ svp_mode_e svp_test_file(char* fname, double* ts){
                     caris_svp_v2=2;
                     continue;
                 }
+                if (sscanf(c,"Section %d-%d %d:%d:%d",&year,&doy,&HH,&MM,&SS)==5){
+                    caris_svp_v2=2;
+                    continue;
+                }
             }
 
             if ( strncmp(c,"[SVP_VERSION_2]",14)==0) {caris_svp_v2 = 1;continue;};
-            if (sscanf(c,"%f,%f",&a, &b)==2) {tuple_count++;continue;};
-            if (sscanf(c,"%f\t%f",&a, &b)==2) {tuple_count++;continue;};
-            if (sscanf(c,"%f %f",&a, &b)==2) {tuple_count++;continue;};
+            if ( strncmp(c,"SWIFT SVP",9)==0) {swift_svp = 1;continue;};
+            if (swift_svp){
+                if (data_count==0){
+                    if (sscanf(c,"%d/%d/%d %d:%d:%f ,%f,%f,%f",&year,&month,&day,&HH,&MM,&fSS, &x, &y, &z)==9) {data_count++;continue;};
+                }
+                else{
+                    if (sscanf(c,"%d/%d/%d %d:%d:%f ,%f,%f,%f",&year1,&month1,&day1,&HH1,&MM1,&fSS1, &x, &y, &z)==9) {data_count++;continue;};
+                }
+            }
+            else{
+                if (sscanf(c,"%f,%f",&x, &y)==2) {data_count++;continue;};
+                if (sscanf(c,"%f\t%f",&x, &y)==2) {data_count++;continue;};
+                if (sscanf(c,"%f %f",&x, &y)==2) {data_count++;continue;};
+            }
             bogus_count ++;
 		}
         if (bogus_count > max_bogus) break;
 	}
+    *cnt = data_count;
 
 	if (line) free(line);
 	fclose(fp);
@@ -146,31 +179,38 @@ svp_mode_e svp_test_file(char* fname, double* ts){
     }
 
     *ts = 0;
-    if ((caris_svp_v2) && (tuple_count>0)){
+    if (data_count ==0){
+        //fprintf(stderr, "SVP test file: Unknown file\n");
+        return svp_mode_none;
+    }
+    if (swift_svp){
+        *ts = irigb_to_gm(year,date_to_doy(year,month,day),HH,MM,fSS);
+        //fprintf(stderr, "SVP test file: Swift SVP: ts=%f %d-%02d-%02d, %02d:%02d:%05.2f\n", *ts,year,month,day,HH,MM,fSS);
+        return svp_mode_swift_svp;
+    }
+    if (caris_svp_v2==2){
         *ts = irigb_to_gm(year,doy,HH,MM,SS);
-        
-        fprintf(stderr, "SVP test file: Carris SVP version 2: ts=%f year=%d, doy=%d, %02d:%02d:%02d\n", *ts,year,doy,HH,MM,SS);
+        //fprintf(stderr, "SVP test file: Carris SVP version 2: ts=%f year=%d, doy=%d, %02d:%02d:%02d\n", *ts,year,doy,HH,MM,SS);
         return svp_mode_caris_v2;
     }
-    else if (tuple_count>0){                  
-        fprintf(stderr, "SVP test file: ASCII tuple file\n");
-        return svp_mode_ascii_tuple;
-    }
     
-    fprintf(stderr, "SVP test file: Unknown file\n");
-    return svp_mode_none;
+    //fprintf(stderr, "SVP test file: ASCII tuple file\n");
+    return svp_mode_ascii_tuple;
+    
 }
 
 
 
 int svp_read_from_file(char* fname, sv_meas_t* sv_meas, const size_t max_count){
     double ts;
-    switch(svp_test_file(fname,&ts)){
+    size_t cnt;
+    switch(svp_test_file(fname,&ts,&cnt)){
         case svp_mode_caris_v2: 
         case svp_mode_ascii_tuple:
             return svp_read_from_ascii_tuplet_file(fname, sv_meas, max_count);
+        case svp_mode_swift_svp: 
+            return svp_read_from_swift_svp_file(fname, sv_meas, max_count);
         case svp_mode_none:
-        case svp_mode_error:
             return 0;
     }
     return 0;
@@ -199,17 +239,56 @@ int svp_read_from_ascii_tuplet_file(char* fname, sv_meas_t* sv_meas, const size_
 			while (*c==' ' || *c=='\t' || *c=='\n' || *c=='\r') c++; 	//Skip leading white spaces
 			if(*c==0) continue;											//End of line
 			if(*c=='#') continue;										//Comment
-            if (sscanf(c,"%f,%f",&sv, &depth)==2){
+            if (sscanf(c,"%f,%f",&depth, &sv)==2){
                 sv_meas[count_in].sv = sv;
                 sv_meas[count_in].depth = depth;
                 count_in++;
             }
-            if (sscanf(c,"%f\t%f",&sv, &depth)==2){
+            if (sscanf(c,"%f\t%f",&depth, &sv)==2){
                 sv_meas[count_in].sv = sv;
                 sv_meas[count_in].depth = depth;
                 count_in++;
             }
-            if (sscanf(c,"%f %f",&sv, &depth)==2){
+            if (sscanf(c,"%f %f",&depth, &sv)==2){
+                sv_meas[count_in].sv = sv;
+                sv_meas[count_in].depth = depth;
+                count_in++;
+            }
+		}
+        if( count_in >= max_count ) break;
+	}
+	if (line) free(line);
+	fclose(fp);
+
+    return count_in;
+}
+
+int svp_read_from_swift_svp_file(char* fname, sv_meas_t* sv_meas, const size_t max_count){
+	FILE * fp = fopen(fname,"r");
+	char * line = NULL;
+	size_t len = 0;
+	ssize_t read;
+	char * c;
+	size_t count_in = 0;
+	float sv, depth,temp;
+    int year,month,day,HH,MM;
+    float fSS;
+
+
+	if (fp==NULL){
+		fprintf(stderr,"Could not open file %s for reading sound velocity\n",fname);
+		return -1;
+	}
+
+	//Read in all SV measurement entries
+	fprintf(stderr,"Reading in SV measurements from file %s\n",fname);
+	while ((read = getline(&line, &len, fp)) != -1) {
+		if (read>0){
+			c = line;
+			while (*c==' ' || *c=='\t' || *c=='\n' || *c=='\r') c++; 	//Skip leading white spaces
+			if(*c==0) continue;											//End of line
+			if(*c=='#') continue;										//Comment
+            if (sscanf(c,"%d/%d/%d %d:%d:%f ,%f,%f,%f",&year,&month,&day,&HH,&MM,&fSS, &depth, &temp, &sv)==9) {
                 sv_meas[count_in].sv = sv;
                 sv_meas[count_in].depth = depth;
                 count_in++;

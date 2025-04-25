@@ -14,7 +14,7 @@ typedef struct{
     const char* sensor_type;      //i77h, etc
     uint8_t  has_navigation;
     uint8_t  has_sensor;
-    uint8_t  has_aux;          //SV-profile, etc
+    uint8_t  has_svp;          //SV-profile, etc
     uint32_t datapoints;
     uint32_t datasets;
     uint32_t navigation_points;
