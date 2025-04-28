@@ -14,7 +14,7 @@
 #include "time_functions.h"
 
 static uint8_t verbose = 0;
-static float time_diff_limit = 0.1f;
+static float time_diff_limit = 0.2f;
 static uint8_t use_sonar_sv_for_initial_ray_parameter = 1;
 
 void set_time_diff_limit(float t){

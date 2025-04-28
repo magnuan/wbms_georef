@@ -329,7 +329,7 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"#### RAY TRACING PARAMETERS ####\n");
 	fprintf(fp,"# Ray tracing is always using sonar measured SV as inital SV\n");
 	fprintf(fp,"# Ray tracing mode and Mounting depth used for SV-prfile correction (raytracing).\n");
-	fprintf(fp,"#  Ray tracing mode 0: Fixed depth, LUT.\n"); 
+	fprintf(fp,"#  Ray tracing mode 0: None\n"); 
 	fprintf(fp,"#  Ray tracing mode 1: Fixed depth, LUT.    Using a look up table for ray tracing adjustments. Assuming sensor at fixed depth (sonar_mounting_depth) wrt SV-profile 0\n");
 	fprintf(fp,"#  Ray tracing mode 2: Fixed depth, Direct. Using  direct ray tracing. Assuming sensor at fixed depth (sonar_mounting_depth) wrt SV-profile 0\n");
 	fprintf(fp,"#  Ray tracing mode 3: Variable depth, Direct. Using  direct ray tracing. Assuming sensor at variable depth based on navigation (nav+offset+sonar_mounting_depth) wrt SV-profile 0\n");
@@ -403,7 +403,7 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"vert_offset 0\n");
 	fprintf(fp,"input_timezone 0\n");
 	fprintf(fp,"# Maximum allowed time difference between sensor and navigation data\n");
-	fprintf(fp,"time_diff_limit 0.1\n");
+	fprintf(fp,"time_diff_limit 0.2\n");
 	fprintf(fp,"# Only for navigation data in projected coordinates, specify navigation data projection parameters\n");
 	fprintf(fp,"# projection_input +proj=utm +zone=33 +ellps=WGS84\n\n\n");
 	
