@@ -78,6 +78,16 @@ list(APPEND wbms_georef_identify_SOURCES
     sensordata_abstractor.c
     svpdata.c
   )
+
+# wbms_georef_identify
+list(APPEND wbms_georef_sv2csv_SOURCES
+    wbms_georef_sv2csv.c
+    cmath.c
+    time_functions.c
+    misc.c
+    svpdata.c
+  )
+
 if(WIN32 OR CYGWIN)
     list(APPEND wbms_georef_SOURCES
       non_posix.c
@@ -96,6 +106,10 @@ add_executable(wbms_georef_identify
   ${wbms_georef_identify_SOURCES}
   )
 
+add_executable(wbms_georef_sv2csv
+  ${wbms_georef_sv2csv_SOURCES}
+  )
+
 if(WIN32 OR CYGWIN)
   target_link_libraries(wbms_georef
     ${GEOTRANZ_LIBRARIES}
@@ -107,6 +121,10 @@ if(WIN32 OR CYGWIN)
     ${PROJ_LIBRARY}
     ${XGETOPT_LIBRARIES}
     )
+  target_link_libraries(wbms_georef_sv2csv
+    ${GEOTRANZ_LIBRARIES}
+    ${XGETOPT_LIBRARIES}
+    )
 else()
   target_link_libraries(wbms_georef
     ${GEOTRANZ_LIBRARIES}
@@ -115,6 +133,9 @@ else()
   target_link_libraries(wbms_georef_identify
     ${GEOTRANZ_LIBRARIES}
     ${PROJ_LIBRARY}
+    )
+  target_link_libraries(wbms_georef_sv2csv
+    ${GEOTRANZ_LIBRARIES}
     )
 endif()
 
@@ -128,3 +149,4 @@ endif()
 
 install(TARGETS wbms_georef DESTINATION ${INSTALL_BIN_DIR})
 install(TARGETS wbms_georef_identify DESTINATION ${INSTALL_BIN_DIR})
+install(TARGETS wbms_georef_sv2csv DESTINATION ${INSTALL_BIN_DIR})
