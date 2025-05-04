@@ -601,7 +601,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
     // --- Process S7K 7000 record ----
     if (drf->record_id == 7000){
 
-       #define PRINT_S7K_7000_CHANGES
+       //#define PRINT_S7K_7000_CHANGES
        #ifdef PRINT_S7K_7000_CHANGES
        uint8_t new_param = mbes_tx_freq != rth.r7000->tx_freq ||\
                            mbes_tx_bw != rth.r7000->bw ||\
