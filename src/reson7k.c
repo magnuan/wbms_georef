@@ -26,6 +26,7 @@ typedef SSIZE_T ssize_t;
 #endif
 
 static uint8_t verbose = 0;
+//#define SLOPPY_NAV
 
 static offset_t* sensor_offset;
 
@@ -299,7 +300,11 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 
     // The data collector needs to collect one set of posision and one set of attitude data with same timestamp
     // to generate a navigation out entry. 
+    #ifdef SLOPPY_NAV
+    if (ABS(ts- navdata_collector.ts)>0.1){ 	// If this data has a new timestamp
+    #else
     if (ts != navdata_collector.ts){ 	// If this data has a new timestamp
+    #endif
         navdata_collector.ts = ts;
         //New entry, still no navigation data 
 	    if ((have_pos != have_attitude) || (have_pos != have_heading)){

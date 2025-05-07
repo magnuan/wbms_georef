@@ -25,7 +25,7 @@ typedef SSIZE_T ssize_t;
 // Because we do not know the maximum data depth when the sv data is read in, we do not know exactly how deep we need to extrapolate.
 // Too short, and we might have to discard data due to lacking sv profile, too long means unneccessary run-time / memory use.
 // As a initial compromise we set it to 2, assuming the SV cast is at least half the maximum data depth
-#define EXTRAPOLATE_SV (2.0)
+#define EXTRAPOLATE_SV (4.0)
 
 
 static int ray_bend_valid=0;
