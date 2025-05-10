@@ -244,12 +244,12 @@ int svp_read_from_ascii_tuplet_file(char* fname, sv_meas_t* sv_meas, const size_
                 sv_meas[count_in].depth = depth;
                 count_in++;
             }
-            if (sscanf(c,"%f\t%f",&depth, &sv)==2){
+            else if (sscanf(c,"%f\t%f",&depth, &sv)==2){
                 sv_meas[count_in].sv = sv;
                 sv_meas[count_in].depth = depth;
                 count_in++;
             }
-            if (sscanf(c,"%f %f",&depth, &sv)==2){
+            else if (sscanf(c,"%f %f",&depth, &sv)==2){
                 sv_meas[count_in].sv = sv;
                 sv_meas[count_in].depth = depth;
                 count_in++;

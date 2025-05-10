@@ -2,7 +2,7 @@
 #define __SVPDATA_H__
 
 //Max number of depth values to read from sv-file
-#define MAX_SV_MEAS  2048
+#define MAX_SV_MEAS  8192
 
 typedef enum{svp_mode_none = 0, svp_mode_caris_v2=1, svp_mode_ascii_tuple=2, svp_mode_swift_svp=3} svp_mode_e;
 typedef struct{

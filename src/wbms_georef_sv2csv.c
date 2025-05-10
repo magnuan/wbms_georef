@@ -96,6 +96,7 @@ int main(int argc,char *argv[])
     for (size_t ix=0; ix <sv_meas_len; ix++){
         fprintf(stdout,"%0.3f,\t %0.3f\n",sv_meas[ix].depth, sv_meas[ix].sv);
     }
+    //fprintf(stderr, "svp_mode=%d, svp_datapoints=%d\n",svp_mode,svp_datapoints);
     free(sv_meas);
 }
 
