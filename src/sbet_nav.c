@@ -33,6 +33,7 @@ double calc_sbet_epoch(double ts){
     t -= seconds_since_sunday;
     //TODO should GPS UTC leap seconds differnce be added here?
     // Tested, but it seems very wrong when I do. Perhaps this is added somewhere else
+    fprintf(stderr,"calc_sbet_epoch(%f) => seconds_since_sunday = %ld\n",ts,seconds_since_sunday);
     return (double) t;
 }
 
@@ -101,7 +102,7 @@ int sbet_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out){
     double pitch = *(((double*)(dp)));dp+=8;
     double yaw = *(((double*)(dp)));dp+=8;
     double course = *(((double*)(dp)));dp+=8;
-    #if 0
+    #if 1 
     fprintf(stderr, "SBET indentify ts=%f,lat=%f,lon=%f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,course=%5.2f\n",
             ts, lat*180/M_PI,lon*180/M_PI,alt,roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI,course*180/M_PI);
     #endif
@@ -125,6 +126,7 @@ int sbet_process_packet(char* databuffer, uint32_t len, double* ts_out, double z
         return NO_NAV_DATA;
     char* dp = databuffer;
     double ts = *(((double*)(dp)));dp+=8;
+    //fprintf(stderr, "SBET ts=%f  epoch=%f\n",ts,sbet_epoch);
     ts += sbet_epoch;
     *ts_out = ts;
 	

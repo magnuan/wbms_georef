@@ -186,14 +186,20 @@ int main(int argc,char *argv[])
         double ts_sensor = 0.; //For nav data sources that does not give full time, thios might need to be popolated
         double ts_pos;
         char navigation_data_buffer[MAX_NAVIGATION_PACKET_SIZE];
-        
+       
+        //We just need to set some epoch for navigation files that dont contain full timestamps
+        const double ts0 = 60*60*24*7;
+        set_sbet_epoch(ts0);
+        set_posmv_alt_gps_epoch(ts0);
         
         // Read out first position to derive UTM zone for data
         while (1){
             uint32_t navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_fd,pos_mode);
+            //fprintf(stderr,"navigation_data_buffer_len = %d\n",navigation_data_buffer_len);
             if(navigation_data_buffer_len>0){
 
                 int new_nav_data = process_nav_data_packet(navigation_data_buffer,navigation_data_buffer_len,ts_sensor, &ts_pos,pos_mode,0);  
+                //fprintf(stderr,"new_nav_data=%d\n",new_nav_data);
                 if( new_nav_data){
                     if (proj_latlon_to_output_utm==NULL){
                         double lat;

@@ -648,7 +648,7 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"sensor_sv_offset",16)==0)  sensor_params.sv_offset = (float)atof(c+16);
 			if (strncmp(c,"sensor_force_sv",15)==0)  sensor_params.force_sv = (float)atof(c+15);
 			if (strncmp(c,"alt_mode",8)==0) navdata_alt_mode = atoi(c+8);	
-			if (strncmp(c,"vert_offset",11)==0) z_off = (float)atof(c+11);
+			if (strncmp(c,"vert_offset",11)==0) z_off = -(float)atof(c+11); //We read in vertical offset as positive upwards, while the code in general assumes z downwards
 			
             if (strncmp(c,"sbp_motion_stab",15)==0) sensor_params.sbp_motion_stab = atoi(c+15);	
             if (strncmp(c,"sbp_raw_data",12)==0) sensor_params.sbp_raw_data = atoi(c+12);	
@@ -967,7 +967,7 @@ int main(int argc,char *argv[])
 
 	double ts_pos = 0.;
     double ts_pos_lookahead = POS_PREFETCH_SEC;      //The lookahead defines how many sec of data pos should be ahead of other sources when reading in data. We want to be a bit in the future to be able to interpolate. With 1 sec lookahead, and 128 point buffer, we have data for about +/- 1 sec at 50Hz
-	double ts_sensor = 0.;
+	double ts_sensor = 0;
 	double ts_min = 0;
 	/*Default CSV format*/ 
 	output_format[0] = x; output_format[1] = y; output_format[2] = z; output_format[3] = val; output_format[4] = none;
@@ -1117,7 +1117,7 @@ int main(int argc,char *argv[])
 	fprintf(stderr,"Output mode: %s \n", output_mode_name[output_mode]);
 	fprintf(stderr,"Nav input mode:  %d %s\n",pos_mode, pos_mode_names[pos_mode]);
 	fprintf(stderr,"Sensor input mode:  %d %s\n",sensor_mode, sensor_mode_names[sensor_mode]);
-	fprintf(stderr,"Pos vertical offset: %0.3f\n",z_off);
+	fprintf(stderr,"Pos vertical offset: %0.3f\n",-z_off);
 	fprintf(stderr,"Input timezone:  %f\n",input_timezone);
 	//fprintf(stderr,"Time diff limit:  %f\n",time_diff_limit);
 
@@ -1503,8 +1503,9 @@ int main(int argc,char *argv[])
     }
     if ((input_sensor_source == i_sim) && (!force_nav_epoch)){
         fprintf(stderr,"Simulated sensor data, just setting epoch to Unix epoch for nav data without full timestamp\n");
-        set_sbet_epoch(0.);
-        set_posmv_alt_gps_epoch(0);
+        const double ts0 = 60*60*24*7;
+        set_sbet_epoch(ts0);
+        set_posmv_alt_gps_epoch(ts0);
     }
 
     if (output_mode==output_s7k){
