@@ -102,7 +102,7 @@ int sbet_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out){
     double pitch = *(((double*)(dp)));dp+=8;
     double yaw = *(((double*)(dp)));dp+=8;
     double course = *(((double*)(dp)));dp+=8;
-    #if 1 
+    #if 0 
     fprintf(stderr, "SBET indentify ts=%f,lat=%f,lon=%f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,course=%5.2f\n",
             ts, lat*180/M_PI,lon*180/M_PI,alt,roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI,course*180/M_PI);
     #endif
