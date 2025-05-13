@@ -349,6 +349,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
                 latlon_to_kart(navdata_collector.lon, navdata_collector.lat , alt, proj, /*output*/ &(navdata_collector.x), &(navdata_collector.y) , &z);
 				if (alt_mode ==1){ 
 					navdata_collector.z = z; 
+                    navdata_collector.z += z_offset;
 				}
 			}
 			have_pos = 1;
@@ -375,6 +376,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
             last_heave = navdata_collector.heave;
 			if (alt_mode ==2){ 
 				navdata_collector.z = -navdata_collector.heave;  //heave from posmv is positive up ( Without RTK it is usually better to use heave + tide  (TODO add some ay to input tide files)) 
+                navdata_collector.z += z_offset;
 			}
 			have_attitude = 1;
 			break;
@@ -420,6 +422,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
                 latlon_to_kart(navdata_collector.lon, navdata_collector.lat , alt, proj, /*output*/ &(navdata_collector.x), &(navdata_collector.y) , &z);
 				if (alt_mode ==1){ 
 					navdata_collector.z = z; 
+                    navdata_collector.z += z_offset;
 				}
 			}
 			have_pos = 1;
@@ -440,6 +443,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 			
 			if (alt_mode ==2){ 
 				navdata_collector.z = -navdata_collector.heave;  //heave from posmv is positive up ( Without RTK it is usually better to use heave + tide  (TODO add some ay to input tide files)) 
+                navdata_collector.z += z_offset;
 			}
 
 			if (proj){
