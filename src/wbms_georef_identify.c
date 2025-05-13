@@ -176,7 +176,21 @@ int main(int argc,char *argv[])
         exit(-1);
     }
 	int input_fd = fileno(input_fileptr);
-    
+   
+    //Try to derive a time from the filename, this will be used to set the epoch week, for SBET and POSMV data which does not contatin full timestamps
+    double ts0 = parse_timestamp_from_filename(input_file_string);
+    if (ts0){
+        char timestring[256];
+        sprintf_unix_time(timestring,ts0);
+        fprintf(stderr,"Time from filename: %s\n",timestring);
+    }
+    else{
+        fprintf(stderr,"Could not parse time from filename\n");
+        ts0 = 60*60*24*7;   //Setting one week into 1970, to avoid negative epoch
+    }
+    set_sbet_epoch(ts0);
+    set_posmv_alt_gps_epoch(ts0);
+
 
     #if 1
     /************ Parse file as navigation data file ******************/
@@ -188,9 +202,6 @@ int main(int argc,char *argv[])
         char navigation_data_buffer[MAX_NAVIGATION_PACKET_SIZE];
        
         //We just need to set some epoch for navigation files that dont contain full timestamps
-        const double ts0 = 60*60*24*7;
-        set_sbet_epoch(ts0);
-        set_posmv_alt_gps_epoch(ts0);
         
         // Read out first position to derive UTM zone for data
         while (1){

@@ -193,6 +193,7 @@ static const char *alt_mode_names[] = {
 };
 
 uint8_t force_nav_epoch = 0;
+uint8_t nav_epoch_set = 0;
 double nav_epoch_week_ts = 0;
 
 
@@ -1473,10 +1474,22 @@ int main(int argc,char *argv[])
 		fprintf(stderr,"Posmv source = %d: %s, Sensor source = %d: %s \n",input_navigation_source, input_source_names[input_navigation_source],input_sensor_source,  input_source_names[input_sensor_source]);
 	}
 
-    //When using navigation data without full timestamp, force epoch based on timestamp in config file 
+    //When using navigation data without full timestamp we need to set an epoch fort the reported time, 
     if (force_nav_epoch){
+        //force epoch based on timestamp in config file 
         set_sbet_epoch(nav_epoch_week_ts);
         set_posmv_alt_gps_epoch(nav_epoch_week_ts);
+        nav_epoch_set = 1;
+    }
+    if (!nav_epoch_set && (input_navigation_source==i_file)) {
+        //Try to set epoch from navigation file filename
+        double ts_filename = parse_timestamp_from_filename(input_navigation_source_string);
+        if (ts_filename){
+            fprintf(stderr,"Using time from filename for NAV epoch\n");
+            set_sbet_epoch(ts_filename);
+            set_posmv_alt_gps_epoch(ts_filename);
+            nav_epoch_set = 1;
+        }
     }
     //If bathy data is available fetch and process a bathy data packet to get time  (TODO for velodyne we need navigation time before sensor data is processed, as it does not send full time)
     if (input_sensor_source != i_none  && input_sensor_source != i_sim){ 
@@ -1492,9 +1505,10 @@ int main(int argc,char *argv[])
                 time_t raw_time = (time_t) ts_sensor;
                 fprintf(stderr,"First sensor data time: ts=%0.3f %s  ",ts_sensor,ctime(&raw_time));
                 //When using navigation data without full timestamp, we need to set an epoch, base this on first sensor timestamp 
-                if (!force_nav_epoch){
+                if (!nav_epoch_set){
                     set_sbet_epoch(ts_sensor);
                     set_posmv_alt_gps_epoch(ts_sensor);
+                    nav_epoch_set = 1;
                 }
                 break;
             }
@@ -1502,10 +1516,13 @@ int main(int argc,char *argv[])
         if (input_sensor_source==i_file) fseek(input_sensor_fileptr, 0, SEEK_SET); //Rewind
     }
     if ((input_sensor_source == i_sim) && (!force_nav_epoch)){
-        fprintf(stderr,"Simulated sensor data, just setting epoch to Unix epoch for nav data without full timestamp\n");
-        const double ts0 = 60*60*24*7;
-        set_sbet_epoch(ts0);
-        set_posmv_alt_gps_epoch(ts0);
+        if (!nav_epoch_set){
+            fprintf(stderr,"Simulated sensor data, just setting epoch to Unix epoch for nav data without full timestamp\n");
+            const double ts0 = 60*60*24*7;
+            set_sbet_epoch(ts0);
+            set_posmv_alt_gps_epoch(ts0);
+            nav_epoch_set = 1;
+         }
     }
 
     if (output_mode==output_s7k){

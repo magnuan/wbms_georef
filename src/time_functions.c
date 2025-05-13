@@ -21,6 +21,9 @@
 } timeval;
 */
 
+
+
+
 int gettimeofday(struct timeval* tp, struct timezone* tzp)
 {
     // Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
@@ -138,6 +141,32 @@ int sprintf_unix_time(char * str, double ts){
 	uint16_t t_year; uint16_t t_doy; uint8_t t_hour; uint8_t t_min; float t_sec;
 	gm_to_irigb(ts, &t_year, &t_doy, &t_hour, &t_min, &t_sec);
 	return sprintf(str,"Year = %d doy= %d %02d:%02d:%06.3f Unix_ts=%9.2f",t_year,t_doy,t_hour,t_min,t_sec,ts); 
+}
+
+double parse_timestamp_from_filename(const char *filename) {
+    // Zero the output
+    struct tm tm_time;
+    // Common patterns
+    const char *patterns[] = {
+        "%Y%m%d-%H%M%S",
+        "%Y%m%d_%H%M%S",
+        "%Y-%m-%d_%H-%M-%S",
+        "%Y%m%d%H%M%S",
+        "%Y-%m-%dT%H:%M:%S"
+    };
+    int slen = strlen(filename) - 14;
+    //fprintf(stderr,"parse_timestamp_from_filename(%s) slen=%d\n",filename,slen);
+    // Try each pattern against all substrings
+    if (slen>0){
+        for (int p = 0; p < 5; p++) {
+            for (int ii = 0; ii < slen; ii++) {
+                if (strptime(filename+ii, patterns[p], &tm_time)) {
+                    return  (double) mktime(&tm_time);
+                }
+            }
+        }
+    }
+    return 0; // no match
 }
 	
 
