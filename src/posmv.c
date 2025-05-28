@@ -400,11 +400,9 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
                 navdata->yaw = *(((double*)(dp)));dp+=8;
                 double wander_angle = *(((double*)(dp)));dp+=8;
                 navdata->course = navdata->yaw + wander_angle;
-                
                 /*navdata->track_angle = *(((float*)(dp)));*/dp+=4;
-               
-
-                dp+=28;  //Skip time derivates
+                navdata->speed = *(((float*)(dp)));dp+=4;
+                dp+=24;  //Skip time derivates
                 dp+=1;   //Skip status flag
                 /*pad = *(((uint16_t*)(dp)));*/ dp+=1;
                 cs = *(((uint16_t*)(dp)));dp+=2;
@@ -417,7 +415,11 @@ int posmv_process_packet(char* databuffer, uint32_t len, double* ts_out, double 
                 navdata->lat = *(((double*)(dp)));dp+=8;
                 navdata->lon = *(((double*)(dp)));dp+=8;
                 navdata->alt = *(((double*)(dp)));dp+=8;
-                dp+=12;  //Skip time derivates (Along track, across track, down)
+                float v_fwd = *(((float*)(dp)));dp+=4;
+                float v_lat = *(((float*)(dp)));dp+=4;
+                navdata->speed = sqrtf(v_fwd*v_fwd + v_lat*v_lat);
+                
+                dp+=8;  //Skip time derivates (Along track, across track, down)
                 navdata->roll = *(((double*)(dp)));dp+=8;
                 navdata->pitch = *(((double*)(dp)));dp+=8;
                 navdata->yaw = *(((double*)(dp)));dp+=8;

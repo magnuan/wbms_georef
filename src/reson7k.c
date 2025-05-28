@@ -360,6 +360,11 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
             navdata_collector.altimeter = rth.r1006->distance;
             //fprintf(stderr, "Altimeter = %f\n",rth.r1006->distance);
 			break;
+        // TODO implement support for speed from packet 1007    
+       /*case 1007: //Motion over ground
+            navdata_collector.speed =
+            break;
+        */
 		case 1008: // Depth
             have_depth=1;
             navdata_collector.depth = rth.r1008->depth;
@@ -410,6 +415,7 @@ int s7k_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
                 navdata_collector.yaw = rth.r1015->heading;
 			    have_heading = 1;
             }
+            navdata_collector.speed = rth.r1015->speed_over_ground;
 
 			if (proj){
                 double alt;

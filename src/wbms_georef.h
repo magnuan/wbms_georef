@@ -58,6 +58,7 @@ typedef struct{
 	float heave;
     float depth;
     float altimeter;
+    float speed;
 }navdata_t;
 
 

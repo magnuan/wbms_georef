@@ -1828,6 +1828,7 @@ int main(int argc,char *argv[])
 					sensor_total_data += sensor_data_buffer_len;
                     double new_ts_sensor;
 					new_sensor_data = sensor_identify_packet(sensor_data_buffer,sensor_data_buffer_len,ts_pos, &new_ts_sensor, sensor_mode);
+
 					//ts_sensor += sensor_offset.time_offset;
 				    //if(new_sensor_data) fprintf(stderr,"new_sensor_data = %d Ts_sensor = %f  Ts_pos =%f navdata_count=%d\n", new_sensor_data, ts_sensor, ts_pos,navdata_count);
                     //fprintf(stderr,"Ts_sensor = %f, Ts_pos =%f navdata_count=%d\n",ts_sensor, ts_pos,navdata_count);
@@ -1868,6 +1869,25 @@ int main(int argc,char *argv[])
                                 default:
                                     datapoints = 0;
                             }
+                            #define LIMIT_OUTPUT_WHEN_STATIONARY_IN_SIMULATED_SENSOR_MODE
+                            #ifdef LIMIT_OUTPUT_WHEN_STATIONARY_IN_SIMULATED_SENSOR_MODE
+
+                            static double last_stationary_ts=0;
+                            if (input_sensor_source==i_sim){
+                                // If vessel is stationary
+                                //fprintf(stderr, "Speed = %f, ts=%f last_stationary_ts=%f\n", navdata[navdata_ix].speed, ts_pos, last_stationary_ts);
+                                if (navdata[navdata_ix].speed < 0.10){
+                                    //Every 30 sec we pass data through anyways
+                                    if (ABS(last_stationary_ts - ts_pos) > 30.){
+                                        last_stationary_ts = ts_pos;
+                                    }
+                                    //Otherwise we just skip it
+                                    else{
+                                        datapoints = 0;
+                                    }
+                                }
+                            }
+                            #endif
                             //fprintf(stderr, "Datapoints = %d\n",datapoints);
 					        if(datapoints) sensor_data_packet_counter++;
                             //fprintf(stderr,"(sensor_data_packet_counter=%d, sensor_params.data_skip=%d  sensor_params.data_length=%d\n",sensor_data_packet_counter,sensor_params.data_skip,sensor_params.data_length);
