@@ -118,7 +118,7 @@ uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types){
     for(int test=0;test<1000;test++){     //Test the first 1000 packets, if none of them contains requested data it is pobably not a valid data file
         int len; 
         len = r7k_fetch_next_packet(data, fd);
-        //printf("r7k_test_file, %d len=%d test_cnt=%d\n",req_types[0],len,test);
+        printf("r7k_test_file, %d len=%d test_cnt=%d\n",req_types[0],len,test);
         if (len > 0 ){
             double ts;
             int type = r7k_identify_sensor_packet(data, len, &ts);
@@ -141,7 +141,7 @@ uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types){
 
 uint8_t r7k_test_nav_file(int fd){
     int req_types[] = {1003,1012,1013,1015,1016};
-    return r7k_test_file(fd,req_types,2);
+    return r7k_test_file(fd,req_types,5);
 }
 uint8_t r7k_test_bathy_file(int fd){
     int req_types[] = {7027,10018};
@@ -197,7 +197,7 @@ int r7k_seek_next_header(int fd, /*out*/ uint8_t* pre_sync){
 						pre_sync[ii] = pre_sync_buffer[(psb_ix++)%8];
 					}
 				}
-				if(dump>2) fprintf(stderr,"S7K seek dump %d bytes\n",dump);
+				//if(dump>2) fprintf(stderr,"S7K seek dump %d bytes\n",dump);
 				return 0;	
 			}
 		}
@@ -226,17 +226,25 @@ int r7k_fetch_next_packet(char * data, int fd){
         rem -= n; dp+=n;
 
 	}
-    #ifdef COLLECT_S7K_STATS
+    const uint32_t recognized_ids[] = S7K_RECOGNIZED_IDS;
     uint32_t s7k_record_id = ((uint32_t*) data)[8];
+    
+    uint8_t recognized=0;
+    for(size_t ix=0; ix < (sizeof(recognized_ids)/sizeof(recognized_ids[0]));ix++){
+        //fprintf(stderr, "%d, %d\n",s7k_record_id,recognized_ids[ix]);
+        if (s7k_record_id==recognized_ids[ix]) recognized=1;
+    }
+    if (recognized==0) return 0;
+    
+    #ifdef COLLECT_S7K_STATS
     if(s7k_record_id<S7K_ID_MAX){
         s7k_stat_packet_count[s7k_record_id]++;
     }
     #endif
 
-    #if 0
+    #if 1
     uint16_t s7k_version = ((uint16_t*) data)[0];
 	uint16_t s7k_offset = ((uint16_t*) data)[1];
-    uint32_t s7k_record_id = ((uint32_t*) data)[8];
 	fprintf(stderr, "FETCH: S7K ver = %d, S7K off = %d,  size = %d recordID = %d\n",s7k_version,s7k_offset, s7k_size, s7k_record_id);
     #endif
 	

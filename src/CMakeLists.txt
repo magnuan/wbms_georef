@@ -42,6 +42,14 @@ list(APPEND wbms_georef_SOURCES
     navdata_abstractor.c
     sensordata_abstractor.c
     svpdata.c
+    gsf_wrapper.c
+    gsf.c  
+    gsf_compress.c  
+    gsf_dec.c  
+    gsf_enc.c  
+    gsf_geo.c  
+    gsf_indx.c  
+    gsf_info.c
   )
 
 # wbms_georef_identify
@@ -77,9 +85,17 @@ list(APPEND wbms_georef_identify_SOURCES
     navdata_abstractor.c
     sensordata_abstractor.c
     svpdata.c
+    gsf_wrapper.c
+    gsf.c  
+    gsf_compress.c  
+    gsf_dec.c  
+    gsf_enc.c  
+    gsf_geo.c  
+    gsf_indx.c  
+    gsf_info.c
   )
 
-# wbms_georef_identify
+# sv2csv
 list(APPEND wbms_georef_sv2csv_SOURCES
     wbms_georef_sv2csv.c
     cmath.c

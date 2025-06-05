@@ -20,6 +20,7 @@
 #include "wbms_data.h"
 #include "3dss_dx.h"
 #include "reson7k.h"
+#include "gsf_wrapper.h"
 #include "velodyne.h"
 #include "misc.h"
 #include "sensordata_abstractor.h"
@@ -32,6 +33,16 @@ const char *sensor_mode_names[] = {
     "Simulator",
     "s7k",
     "PingDSP 3DSS stream",
+    "gsf",
+    "-",
+    "-",
+    "-",
+    "-",
+    "-",
+    "-",
+    "-",
+    "-",
+    "-",
     "-",
     "-",
     "-",
@@ -47,6 +58,16 @@ char *sensor_mode_short_names[] = {
     "sim",
     "s7k",
     "3dss",
+    "gsf",
+    "-",
+    "-",
+    "-",
+    "-",
+    "-",
+    "-",
+    "-",
+    "-",
+    "-",
     "-",
     "-",
     "-",
@@ -67,6 +88,8 @@ uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version){
             return velodyne_test_file(fd);
         case sensor_mode_s7k:	
             return r7k_test_bathy_file(fd);
+        case sensor_mode_gsf:	
+            return gsf_test_bathy_file(fd);
         case sensor_mode_3dss_stream:	
             return p3dss_test_bathy_file(fd);
         default:
@@ -82,8 +105,8 @@ sensor_mode_e sensor_autodetect_file(FILE* fp){
     int version;
     sensor_mode_e ret = sensor_mode_unknown;
 
-    for (sensor_mode_e mode=sensor_mode_wbms; mode<=sensor_mode_3dss_stream;mode++){
-        //fprintf(stderr,"Testing sensor file in mode %s\n", sensor_mode_names[mode]);
+    for (sensor_mode_e mode=sensor_mode_wbms; mode<sensor_mode_end;mode++){
+        fprintf(stderr,"Testing sensor file in mode %s\n", sensor_mode_names[mode]);
         if(mode==sensor_mode_sim) continue;
         if (sensor_test_file(fd,mode,&version)){
             ret = mode;
@@ -111,11 +134,14 @@ int sensor_fetch_next_packet(char * data, int fd, sensor_mode_e mode){
 			len = velodyne_fetch_next_packet(data, fd);break;
 		case sensor_mode_s7k:	
 			len = r7k_fetch_next_packet(data, fd);break;
+		case sensor_mode_gsf:	
+			len = gsf_fetch_next_packet(data, fd);break;
 		case sensor_mode_3dss_stream:	
 			len = p3dss_fetch_next_packet(data, fd);break;
 		case  sensor_mode_sim:
 			len = sim_fetch_next_packet(data, fd);break;
 		case sensor_mode_autodetect: //TODO fix this
+        default:
 		case sensor_mode_unknown:
 			len = 0;break;
 	}
@@ -137,11 +163,15 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
             id = r7k_identify_sensor_packet(databuffer, len, ts_out);
 	        //So far we only process s7k record 7027 and 10018 for sensor  bathy data and 7610 for SV data
             return ((id==7027) ||(id==7028) ||(id==7058)|| (id==7610) || (id==7000) ||(id==10000)||(id==10018))?id:0;
+		case sensor_mode_gsf:	
+            id = gsf_identify_sensor_packet(databuffer, len, ts_out);
+            return id;
 		case sensor_mode_3dss_stream:	
             return  p3dss_identify_sensor_packet(databuffer, len, ts_out);
 		case  sensor_mode_sim:
 			return sim_identify_packet(databuffer, len, ts_out, ts_in);
 		case sensor_mode_autodetect: //TODO fix this
+        default:
 		case sensor_mode_unknown:
 			return 0;
 	}
@@ -156,10 +186,13 @@ int sensor_num_record_types(sensor_mode_e mode){
 			return 0; //TODO
 		case sensor_mode_s7k:	
             return r7k_num_record_types();
+		case sensor_mode_gsf:	
+            return gsf_num_record_types();
 		case sensor_mode_3dss_stream:	
             return  0; //TODO
 		case  sensor_mode_sim:
 			return 0;
+        default:
 		case sensor_mode_autodetect:
 		case sensor_mode_unknown:
 			return 0;
@@ -175,10 +208,13 @@ int sensor_get_record_count(sensor_mode_e mode, record_count_t* records){
 			return 0; //TODO
 		case sensor_mode_s7k:	
             return r7k_get_record_count(records);
+		case sensor_mode_gsf:	
+            return gsf_get_record_count(records);
 		case sensor_mode_3dss_stream:	
             return  0; //TODO
 		case  sensor_mode_sim:
 			return 0;
+        default:
 		case sensor_mode_autodetect:
 		case sensor_mode_unknown:
 			return 0;
@@ -194,6 +230,8 @@ const char *  sensor_get_data_type(sensor_mode_e mode){
 			return "lidar";
 		case sensor_mode_s7k:	
             return r7k_get_data_type();
+		case sensor_mode_gsf:	
+            return gsf_get_data_type();
 		case sensor_mode_3dss_stream:	
             return  "mbes";
 		case  sensor_mode_sim:
@@ -213,6 +251,8 @@ sensor_count_stats_t* sensor_get_count_stats(sensor_mode_e mode){
 			return NULL;
 		case sensor_mode_s7k:	
 			return s7k_get_count_stats();
+		case sensor_mode_gsf:	
+			return gsf_get_count_stats();
 		case sensor_mode_3dss_stream:	
             return  NULL;
 		case  sensor_mode_sim:

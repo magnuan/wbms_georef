@@ -732,6 +732,7 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
         sensor_strength = (float)(bath_vX->dp[ix_in].strength);
         sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
         sensor_az  = bath_vX->dp[ix_in].angle;
+
         sensor_elec_steer = bath_vX->dp[ix_in].steer_angle;
         sensor_quality_flags = bath_vX->dp[ix_in].quality_flags;
         flags = bath_vX->dp[ix_in].flags;

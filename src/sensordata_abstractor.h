@@ -1,7 +1,7 @@
 #ifndef _SENSORDATA_ABSTRACTOR_H_
 #define _SENSORDATA_ABSTRACTOR_H_
 
-typedef enum  {sensor_mode_wbms=1,sensor_mode_wbms_v5=2, sensor_mode_velodyne=3, sensor_mode_sim=4, sensor_mode_s7k=5, sensor_mode_3dss_stream=6, sensor_mode_autodetect=10,sensor_mode_unknown=11} sensor_mode_e; 
+typedef enum  {sensor_mode_wbms=1,sensor_mode_wbms_v5=2, sensor_mode_velodyne=3, sensor_mode_sim=4, sensor_mode_s7k=5, sensor_mode_3dss_stream=6, sensor_mode_gsf=7,sensor_mode_end=8, sensor_mode_autodetect=20,sensor_mode_unknown=21} sensor_mode_e; 
 extern const char *sensor_mode_names[];
 extern char *sensor_mode_short_names[];
 uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version);

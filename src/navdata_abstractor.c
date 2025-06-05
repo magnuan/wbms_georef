@@ -17,6 +17,7 @@
 #include "time_functions.h"
 #include "3dss_dx.h"
 #include "reson7k.h"
+#include "gsf_wrapper.h"
 #include "posmv.h"
 #include "xtf_nav.h"
 #include "sim_nav.h"
@@ -41,9 +42,19 @@ const char *pos_mode_names[] = {
     "Simulator",
     "s7k",
     "PingDSP 3DSS stream",
-    "eelume sbd",
+    "gsf",
     "nmea",
     "SBET CSV",
+    "eelume sbd",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
     "Autodetect",
     "Unknown"
 };
@@ -55,9 +66,19 @@ const char *pos_mode_short_names[] = {
     "sim",
     "s7k",
     "3dss",
-    "sbd",
+    "gsf",
     "nmea",
     "sbet_csv",
+    "sbd",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
     "auto",
     "unknown"
 };
@@ -71,6 +92,7 @@ uint8_t navigation_test_file(int fd, pos_mode_e mode){
         case pos_mode_wbm_tool: return  wbm_tool_nav_test_file(fd);
         case pos_mode_sim:      return 1;
         case pos_mode_s7k:      return  r7k_test_nav_file(fd);
+        case pos_mode_gsf:      return  gsf_test_nav_file(fd);
         case pos_mode_3dss_stream:      return  p3dss_test_nav_file(fd);
         case pos_mode_nmea:      return  nmea_nav_test_file(fd);
         case pos_mode_eelume:      return  eelume_sbd_nav_test_file(fd);
@@ -83,7 +105,7 @@ pos_mode_e navigation_autodetect_file(FILE* fp){
     int fd = fileno(fp);
     pos_mode_e ret = pos_mode_unknown;
 
-    for (pos_mode_e mode=pos_mode_posmv; mode<=pos_mode_sbet_csv;mode++){
+    for (pos_mode_e mode=pos_mode_posmv; mode<=pos_mode_end;mode++){
         if(mode==pos_mode_sim) continue;
         fprintf(stderr,"Testing nav file in mode %s\n", pos_mode_names[mode]);
         if (navigation_test_file(fd,mode)){
@@ -110,10 +132,11 @@ int navigation_fetch_next_packet(char * data, int fd, pos_mode_e mode){
         case pos_mode_wbm_tool: len= wbm_tool_nav_fetch_next_packet(data,fd);break;
         case pos_mode_sim:      len= sim_nav_fetch_next_packet(data,fd);break;
         case pos_mode_s7k:      len= r7k_fetch_next_packet(data,fd);break;
+        case pos_mode_gsf:      len= gsf_fetch_next_packet(data,fd);break;
         case pos_mode_3dss_stream:      len= p3dss_fetch_next_packet(data,fd);break;
         case pos_mode_eelume:    len= eelume_sbd_nav_fetch_next_packet(data,fd);break;
         case pos_mode_nmea:      len= nmea_nav_fetch_next_packet(data,fd);break;
-        case pos_mode_autodetect: case pos_mode_unknown: return -1;
+        default: case pos_mode_autodetect: case pos_mode_unknown: return -1;
     }
     //fprintf(stderr,"navigation_fetch_next_packet = %d\n",len);
     if (len>MAX_NAVIGATION_PACKET_SIZE){
@@ -136,10 +159,11 @@ int process_nav_data_packet(char* databuffer, uint32_t len, double ts_in, double
         case pos_mode_wbm_tool: ret= wbm_tool_process_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_sim:      ret = sim_nav_process_packet(ts_in,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_s7k:      ret = s7k_process_nav_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
+        case pos_mode_gsf:      ret = gsf_process_nav_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_3dss_stream:      ret = p3dss_process_nav_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_eelume:    ret = eelume_sbd_nav_process_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_nmea:      ret = nmea_nav_process_nav_packet(databuffer,len,0,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_autodetect: case pos_mode_unknown: return 0;
+        default: case pos_mode_autodetect: case pos_mode_unknown: return 0;
     }
     if (ret == NAV_DATA_PROJECTED){  //Only count when projected coordinates are returned
         navdata_ix = next_navdata_ix;  //navdata_ix now points to the last updated nav data set
@@ -152,6 +176,8 @@ int navigation_num_record_types(pos_mode_e mode){
 	switch (mode){
 		case pos_mode_s7k:	
             return r7k_num_record_types();
+		case pos_mode_gsf:	
+            return gsf_num_record_types();
 		case pos_mode_posmv:	
             return posmv_num_record_types();
         default:
@@ -164,6 +190,8 @@ int navigation_get_record_count(pos_mode_e mode, record_count_t* records){
 	switch (mode){
 		case pos_mode_s7k:	
             return r7k_get_record_count(records);
+		case pos_mode_gsf:	
+            return gsf_get_record_count(records);
 		case pos_mode_posmv:	
             return posmv_get_record_count(records);
         default:

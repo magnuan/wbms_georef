@@ -34,6 +34,7 @@
 #include "3dss_dx.h"
 #include "reson7k.h"
 #include "velodyne.h"
+#include "gsf_wrapper.h"
 #include "posmv.h"
 #include "xtf_nav.h"
 #include "sim_nav.h"
@@ -975,12 +976,14 @@ int main(int argc,char *argv[])
     
     wbms_init();
     r7k_init();
+    gsf_init();
     posmv_init();
 	
     sensor_params_default(&sensor_params);
     
     wbms_set_sensor_offset(&sensor_offset);
     r7k_set_sensor_offset(&sensor_offset);
+    gsf_set_sensor_offset(&sensor_offset);
     p3dss_set_sensor_offset(&sensor_offset);
     velodyne_set_sensor_offset(&sensor_offset);
 
@@ -1249,6 +1252,7 @@ int main(int argc,char *argv[])
 		}
 #endif
 		else{					// Otherwise we assume it is a FILE
+
 			fprintf(stderr,"Reading pos data from FILE: %s\n",input_navigation_source_string);
 			input_navigation_source = i_file;
 			input_navigation_fileptr = fopen(input_navigation_source_string,"rb");
@@ -1256,6 +1260,9 @@ int main(int argc,char *argv[])
                 fprintf(stderr,"Could not open navigation data file%s\n",input_navigation_source_string);
                 exit(-1);
             }
+            
+            //The GSF library needs to access the file by filename, so we need to tell it that.
+            gsf_set_nav_filename(input_navigation_source_string);
             //Try to autodetect file format
             if (pos_mode==pos_mode_autodetect){
                 pos_mode = navigation_autodetect_file(input_navigation_fileptr);
@@ -1352,6 +1359,8 @@ int main(int argc,char *argv[])
                 fprintf(stderr,"Could not open sensor data file%s\n",input_sensor_source_string);
                 exit(-1);
             }
+            //The GSF library needs to access the file by filename, so we need to tell it that.
+            gsf_set_sensor_filename(input_sensor_source_string);
             //Try to autodetect file format
             if (sensor_mode==sensor_mode_autodetect){
                 sensor_mode = sensor_autodetect_file(input_sensor_fileptr);
@@ -1863,6 +1872,9 @@ int main(int argc,char *argv[])
                                 case sensor_mode_s7k:
                                     datapoints = s7k_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
                                     break;
+                                case sensor_mode_gsf:
+                                    datapoints = gsf_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
+                                    break;
                                 case sensor_mode_3dss_stream:
                                     datapoints = p3dss_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
                                     break;
@@ -1975,6 +1987,7 @@ int main(int argc,char *argv[])
         fprintf(stderr, "S7K snippets saturation %d out of %d,  %.2f%%\n",s7k_snp_satcount,s7k_snp_count, (100.0*s7k_snp_satcount)/(1.0*s7k_snp_count));
     }
     #endif
+    gsf_print_stats();
     r7k_print_stats();
     posmv_print_stats();
 

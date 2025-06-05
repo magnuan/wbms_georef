@@ -95,6 +95,7 @@ int main(int argc,char *argv[])
     wbms_init();
     r7k_init();
     posmv_init();
+    gsf_init();
 
     static offset_t sensor_offset;
     wbms_set_sensor_offset(&sensor_offset);
@@ -175,6 +176,9 @@ int main(int argc,char *argv[])
         fprintf(stderr,"Could not open sensor data file%s\n",input_file_string);
         exit(-1);
     }
+    //The GSF library needs to access the file by filename, so we need to tell it that.
+    gsf_set_sensor_filename(input_file_string);
+    gsf_set_nav_filename(input_file_string);
 	int input_fd = fileno(input_fileptr);
    
     //Try to derive a time from the filename, this will be used to set the epoch week, for SBET and POSMV data which does not contatin full timestamps
@@ -361,7 +365,7 @@ int main(int argc,char *argv[])
 
     /************ Parse file as sensor data file ******************/
     /* Only these formats allows sensor data merged with nav data */
-    if ( (pos_mode == pos_mode_unknown) || (pos_mode==pos_mode_s7k) || (pos_mode==pos_mode_3dss_stream)){ 
+    if ( (pos_mode == pos_mode_unknown) || (pos_mode==pos_mode_s7k) || (pos_mode==pos_mode_gsf) || (pos_mode==pos_mode_3dss_stream)){ 
         switch(pos_mode){
             default:
             case pos_mode_unknown:
@@ -369,6 +373,9 @@ int main(int argc,char *argv[])
                 break;
             case pos_mode_s7k:
                 sensor_mode = sensor_mode_s7k;
+                break;
+            case pos_mode_gsf:
+                sensor_mode = sensor_mode_gsf;
                 break;
             case pos_mode_3dss_stream:
                 sensor_mode = sensor_mode_3dss_stream;
@@ -425,6 +432,9 @@ int main(int argc,char *argv[])
                             break;
                         case sensor_mode_s7k:
                             cnt = s7k_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);
+                            break;
+                        case sensor_mode_gsf:
+                            cnt = gsf_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);
                             break;
                         case sensor_mode_3dss_stream:
                             //cnt = p3dss_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);
