@@ -1901,7 +1901,7 @@ int main(int argc,char *argv[])
                                 #define LIMIT_OUTPUT_WHEN_STATIONARY_IN_SIMULATED_SENSOR_MODE
                                 #ifdef LIMIT_OUTPUT_WHEN_STATIONARY_IN_SIMULATED_SENSOR_MODE
                                 static double last_stationary_ts=0;
-                                if (input_sensor_source==i_sim){
+                                if ((input_sensor_source==i_sim) && (input_navigation_source!=i_file)){
                                     // If vessel is stationary
                                     //fprintf(stderr, "Speed = %f, ts=%f last_stationary_ts=%f\n", navdata[navdata_ix].speed, ts_pos, last_stationary_ts);
                                     if (navdata[navdata_ix].speed < 0.10){
