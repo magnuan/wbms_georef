@@ -198,7 +198,7 @@ int gsf_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
     return (proj?NAV_DATA_PROJECTED:NAV_DATA_GEO);
 }
 
-uint32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, /*OUTPUT*/ output_data_t* outbuf){
+int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, uint16_t sector, /*OUTPUT*/ output_data_t* outbuf){
     double* x = &(outbuf->x[0]);
     double* y = &(outbuf->y[0]);
     double* z = &(outbuf->z[0]);
@@ -247,8 +247,9 @@ uint32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
 	float c;
 	uint16_t Nin;
     uint32_t ping_number;
+    static uint32_t prev_ping_number = 0;
     uint16_t multiping_index;
-    uint16_t multifreq_index;
+    uint16_t multifreq_index = sector;
 	uint16_t Nout;
 	uint16_t ix_in,ix_out;
     const uint16_t ix_in_stride = MAX(1,sensor_params->beam_decimate); 
@@ -272,29 +273,52 @@ uint32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
     
     static uint32_t pingcounter=0;
     
-    if (pingcounter++<10){
+    if (pingcounter++<1){
         fprintf(stderr,"Sonar type %s  id=%d \n", gsfGetSonarTextName(&(sensor_records->mb_ping)), sensor_records->mb_ping.sensor_id );
 
     }
 
+    uint16_t num_sectors = 1; //By default we only assume one sector of data
+
     switch(sensor_records->mb_ping.sensor_id){
-        case 156: // Kongsberg EM712
+        case 156: // Kongsberg EM712  TODO probably a lot more Kongsberg systems should use this
+            num_sectors = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.numTxSectors;
+            // Extract tx information from the specific sector
+            tx_freq = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].centreFreq_Hz; 
+            tx_bw = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].signalBandWidth_Hz;
+            tx_plen = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].totalSignalLength_sec;
+            tx_angle = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].tiltAngleReTx_deg*M_PI/180;
+            ts += sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].sectorTransmitDelay_sec;
+            //tx_voltage = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].txNominalSourceLevel_dB; // TODO this is dB not V
+            tx_voltage = powf(10,sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].highVoltageLevel_dB / 20);
+            multiping_index = 0;
+            ping_number = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.pingCnt;
+            if (ping_number < prev_ping_number) ping_number += 65536;                                           //Unwrap since it is only a short in kmall
+            ping_rate = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.pingRate_Hz;
+            Fs = 0;
+            break;
         default:
-            //TX parameters, 
-            //TODO fint these values in some meta data
+            //Some default parameters for unrecognized systems, 
             tx_freq = 400e3;
             tx_bw = 80e3; 
             tx_plen = 100e-6;
-            tx_angle = 0 ; //TODO This needs to be resolved for STX systems, is it based on the nav_records->mb_ping.sector_number array
+            tx_angle = 0 ; 
             tx_voltage = 0;
+            ping_number = pingcounter;              // This nowhere in data ?
+            multiping_index =  0;                   //TODO
+            ping_rate =  1./(ts-prev_ts);
+            ping_rate = LIMIT(ping_rate,0.1,100);
+            Fs = 0; 
             break;
         
     }
+    //fprintf(stderr, "Sector = %d of %d\n", sector, num_sectors);
+    if (sector >= num_sectors) return -1;   //Indicate that there is no more sectors in this dataset
 
-    //TODO Check out this one:
-    // sensor_records->mb_ping.incident_beam_adj vector
+    prev_ts = ts;
+    prev_ping_number = ping_number;
+
     
-    Fs = 0; //TODO do we need this?
 
 
     c = sensor_records->svp.sound_speed[0];             //TODO Here we just assume that the first entry is the surface SV 
@@ -315,16 +339,8 @@ uint32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
     }
     Nin = sensor_records->mb_ping.number_beams;
 
-    multifreq_index = 0;                    //TODO
-    ping_number = pingcounter;              // This nowhere in data ?
-    multiping_index =  0;                   //TODO
-    ping_rate =  1./(ts-prev_ts);
-    ping_rate = LIMIT(ping_rate,0.1,100);
-    prev_ts = ts;
 
     *sv_out = c; 
-    
-
     *multiping_index_out = multiping_index;
     *multifreq_index_out = multifreq_index;
     *tx_freq_out = tx_freq;
@@ -345,7 +361,6 @@ uint32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         ){
         return(0);
     }
-
 
     
     //Find nav data for tx instant
@@ -385,10 +400,11 @@ uint32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
     //printf("Nin=%d\n",Nin);
 
 	for (ix_in=0;ix_in<Nin;ix_in+=ix_in_stride){
+        if (sensor_records->mb_ping.sector_number[ix_in] != sector) continue;      // Only process one sector at a time
     
-        sensor_t =  *(sensor_records->mb_ping.travel_time +ix_in);		//Calculate tx to rx time for each point 
-        sensor_r   = (sensor_t*c)/2;	                            //Calculate range to each point en meters
-        sensor_az  = *(sensor_records->mb_ping.beam_angle+ ix_in) * -M_PI/180.;
+        sensor_t =  *(sensor_records->mb_ping.travel_time +ix_in);		            //Calculate tx to rx time for each point 
+        sensor_r   = (sensor_t*c)/2;	                                            //Calculate range to each point en meters
+        sensor_az  = *(sensor_records->mb_ping.beam_angle+ ix_in) * -M_PI/180.;     //Beam angle in GSF seems to be deifned in degrees from startboard-port
         sensor_elec_steer = sensor_az;
         if(sensor_records->mb_ping.quality_flags){
             sensor_quality_flags = *(sensor_records->mb_ping.quality_flags +ix_in);
@@ -427,7 +443,6 @@ uint32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
             *tx_angle_out = sensor_el;
 			
             intensity[ix_out] = sensor_records->mb_ping.mr_amplitude[ix_in];
-            intensity[ix_out] = sensor_records->mb_ping.sector_number[ix_in];
 
 			#if 1       //TODO select cone-cone / cone-plane based on system
 			xs[ix_out] = sensor_r * sin(sensor_el);

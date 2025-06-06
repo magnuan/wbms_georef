@@ -965,7 +965,7 @@ int main(int argc,char *argv[])
 	uint32_t prev_sensor_total_data = 0;
 	uint32_t prev_output_total_data = 0;
 
-	uint32_t datapoints;
+	int32_t datapoints;
 
 	double ts_pos = 0.;
     double ts_pos_lookahead = POS_PREFETCH_SEC;      //The lookahead defines how many sec of data pos should be ahead of other sources when reading in data. We want to be a bit in the future to be able to interpolate. With 1 sec lookahead, and 128 point buffer, we have data for about +/- 1 sec at 50Hz
@@ -1848,85 +1848,102 @@ int main(int argc,char *argv[])
 					if (new_sensor_data){ 
                         ts_sensor = new_ts_sensor;
                         if((navdata_count > NAVDATA_BUFFER_LEN/4) || (pos_mode == pos_mode_sim)){ //Need a quarter buffer before we can start doing georeferencing
-                            switch (sensor_mode){
-                                case sensor_mode_wbms: case sensor_mode_wbms_v5:
-                                    if (new_sensor_data == PACKET_TYPE_BATH_DATA){
-                                        datapoints = wbms_georef_data( (bath_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf, force_bath_version);
-                                    }
-                                    else if (new_sensor_data == PACKET_TYPE_SNIPPET_DATA){
-                                        datapoints = wbms_georef_snippet_data( (snippet_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf, force_bath_version);
-                                    }
-                                    else if (new_sensor_data == PACKET_TYPE_SBP_DATA){
-                                        datapoints = wbms_georef_sbp_data( (sbp_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf);
-                                    }
-                                    else{
+                            uint8_t more_data_to_process = 1;
+                            uint16_t sector = 0;                                          // GSF data contains data from multiple sectors (multifreq) in one dataset and needs multiple passes to process and output one sector at a time
+                            while(more_data_to_process){
+                            
+                                switch (sensor_mode){
+                                    case sensor_mode_wbms: case sensor_mode_wbms_v5:
+                                        if (new_sensor_data == PACKET_TYPE_BATH_DATA){
+                                            datapoints = wbms_georef_data( (bath_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf, force_bath_version);
+                                        }
+                                        else if (new_sensor_data == PACKET_TYPE_SNIPPET_DATA){
+                                            datapoints = wbms_georef_snippet_data( (snippet_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf, force_bath_version);
+                                        }
+                                        else if (new_sensor_data == PACKET_TYPE_SBP_DATA){
+                                            datapoints = wbms_georef_sbp_data( (sbp_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf);
+                                        }
+                                        else{
+                                            datapoints = 0;
+                                        }
+                                        more_data_to_process = 0;
+                                        break;
+                                    case sensor_mode_sim:
+                                        datapoints = sim_georef_data( navdata, navdata_ix,  &sensor_params, outbuf);
+                                        more_data_to_process = 0;
+                                        break;
+                                    case sensor_mode_velodyne:
+                                        datapoints = velodyne_georef_data( (uint16_t *) sensor_data_buffer, navdata, navdata_ix, &sensor_params,         outbuf);
+                                        more_data_to_process = 0;
+                                        break;
+                                    case sensor_mode_s7k:
+                                        datapoints = s7k_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
+                                        more_data_to_process = 0;
+                                        break;
+                                    case sensor_mode_gsf:
+                                        datapoints = gsf_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,sector,                     outbuf);
+                                        sector += 1;
+                                        if (datapoints == -1){
+                                            datapoints = 0;
+                                            more_data_to_process = 0;
+                                        }
+                                        break;
+                                    case sensor_mode_3dss_stream:
+                                        datapoints = p3dss_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
+                                        more_data_to_process = 0;
+                                        break;
+                                    default:
                                         datapoints = 0;
-                                    }
-                                    break;
-                                case sensor_mode_sim:
-                                    datapoints = sim_georef_data( navdata, navdata_ix,  &sensor_params, outbuf);
-                                    break;
-                                case sensor_mode_velodyne:
-                                    datapoints = velodyne_georef_data( (uint16_t *) sensor_data_buffer, navdata, navdata_ix, &sensor_params,         outbuf);
-                                    break;
-                                case sensor_mode_s7k:
-                                    datapoints = s7k_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
-                                    break;
-                                case sensor_mode_gsf:
-                                    datapoints = gsf_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
-                                    break;
-                                case sensor_mode_3dss_stream:
-                                    datapoints = p3dss_georef_data( sensor_data_buffer,sensor_data_buffer_len, navdata, navdata_ix, &sensor_params,                          outbuf);
-                                    break;
-                                default:
-                                    datapoints = 0;
-                            }
-                            #define LIMIT_OUTPUT_WHEN_STATIONARY_IN_SIMULATED_SENSOR_MODE
-                            #ifdef LIMIT_OUTPUT_WHEN_STATIONARY_IN_SIMULATED_SENSOR_MODE
+                                        more_data_to_process = 0;
+                                }
 
-                            static double last_stationary_ts=0;
-                            if (input_sensor_source==i_sim){
-                                // If vessel is stationary
-                                //fprintf(stderr, "Speed = %f, ts=%f last_stationary_ts=%f\n", navdata[navdata_ix].speed, ts_pos, last_stationary_ts);
-                                if (navdata[navdata_ix].speed < 0.10){
-                                    //Every 30 sec we pass data through anyways
-                                    if (ABS(last_stationary_ts - ts_pos) > 30.){
-                                        last_stationary_ts = ts_pos;
-                                    }
-                                    //Otherwise we just skip it
-                                    else{
-                                        datapoints = 0;
+
+                                #define LIMIT_OUTPUT_WHEN_STATIONARY_IN_SIMULATED_SENSOR_MODE
+                                #ifdef LIMIT_OUTPUT_WHEN_STATIONARY_IN_SIMULATED_SENSOR_MODE
+                                static double last_stationary_ts=0;
+                                if (input_sensor_source==i_sim){
+                                    // If vessel is stationary
+                                    //fprintf(stderr, "Speed = %f, ts=%f last_stationary_ts=%f\n", navdata[navdata_ix].speed, ts_pos, last_stationary_ts);
+                                    if (navdata[navdata_ix].speed < 0.10){
+                                        //Every 30 sec we pass data through anyways
+                                        if (ABS(last_stationary_ts - ts_pos) > 30.){
+                                            last_stationary_ts = ts_pos;
+                                        }
+                                        //Otherwise we just skip it
+                                        else{
+                                            datapoints = 0;
+                                        }
                                     }
                                 }
-                            }
-                            #endif
-                            //fprintf(stderr, "Datapoints = %d\n",datapoints);
-					        if(datapoints) sensor_data_packet_counter++;
-                            //fprintf(stderr,"(sensor_data_packet_counter=%d, sensor_params.data_skip=%d  sensor_params.data_length=%d\n",sensor_data_packet_counter,sensor_params.data_skip,sensor_params.data_length);
-                            if (sensor_data_packet_counter<sensor_params.data_skip){}
-                            else if (sensor_data_packet_counter && (sensor_data_packet_counter == sensor_params.data_skip)){
-                                time_t int_ts = (time_t) ts_sensor; 
-                                fprintf(stderr, "Skipping sensor packets up to packet %d  at time %s",sensor_data_packet_counter,ctime(&int_ts));
-                            }
-                            else if (sensor_params.data_length && (sensor_data_packet_counter==(sensor_params.data_skip+sensor_params.data_length))){
-                                time_t int_ts = (time_t) ts_sensor; 
-                                fprintf(stderr, "Skipping sensor packets from packet %d  at time %s",sensor_data_packet_counter,ctime(&int_ts));
-                            }
-                            else if (sensor_params.data_length && (sensor_data_packet_counter>=(sensor_params.data_skip+sensor_params.data_length))){}
-                            else if (datapoints)
-                            { 
-                                if (output_mode == output_binary)           len = write_bin_to_buffer(outbuf, datapoints, &(output_databuffer[output_databuffer_len]));
-					            else if (output_mode == output_csv)			len = write_csv_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata,  output_format, &(output_databuffer[output_databuffer_len]));
-					            else if (output_mode == output_sbf)			len = write_sbf_to_buffer(x_offset,y_offset,z_offset,ts_offset,ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata,  output_format, &(output_databuffer[output_databuffer_len]));
-					            else if (output_mode == output_nmea)		len = write_nmea_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata, &(output_databuffer[output_databuffer_len]));
-					            else if (output_mode == output_json)		len = write_json_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata,  output_format, &(output_databuffer[output_databuffer_len]));
-					            else if (output_mode == output_s7k)			len = write_r7k_bathy_to_buffer(ts_sensor, outbuf, datapoints, &(output_databuffer[output_databuffer_len]));
-                                else len = 0;
-                                output_total_data += len;
-                                output_databuffer_len += len;
-                                time_t int_ts = (time_t) ts_sensor; 
-                                if (sensor_total_datapoints==0) fprintf(stderr, "Generating first %d datapoints from  packet %d  at time %s",datapoints,sensor_data_packet_counter,ctime(&int_ts));
-                                sensor_total_datapoints += datapoints;
+                                #endif
+                                //fprintf(stderr, "Datapoints = %d\n",datapoints);
+                                if(datapoints) sensor_data_packet_counter++;
+                                //fprintf(stderr,"(sensor_data_packet_counter=%d, sensor_params.data_skip=%d  sensor_params.data_length=%d\n",sensor_data_packet_counter,sensor_params.data_skip,sensor_params.data_length);
+                                if (sensor_data_packet_counter<sensor_params.data_skip){}
+                                else if (sensor_data_packet_counter && (sensor_data_packet_counter == sensor_params.data_skip)){
+                                    time_t int_ts = (time_t) ts_sensor; 
+                                    fprintf(stderr, "Skipping sensor packets up to packet %d  at time %s",sensor_data_packet_counter,ctime(&int_ts));
+                                }
+                                else if (sensor_params.data_length && (sensor_data_packet_counter==(sensor_params.data_skip+sensor_params.data_length))){
+                                    time_t int_ts = (time_t) ts_sensor; 
+                                    fprintf(stderr, "Skipping sensor packets from packet %d  at time %s",sensor_data_packet_counter,ctime(&int_ts));
+                                }
+                                else if (sensor_params.data_length && (sensor_data_packet_counter>=(sensor_params.data_skip+sensor_params.data_length))){}
+                                else if (datapoints)
+                                { 
+                                    if (output_mode == output_binary)           len = write_bin_to_buffer(outbuf, datapoints, &(output_databuffer[output_databuffer_len]));
+                                    else if (output_mode == output_csv)			len = write_csv_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata,  output_format, &(output_databuffer[output_databuffer_len]));
+                                    else if (output_mode == output_sbf)			len = write_sbf_to_buffer(x_offset,y_offset,z_offset,ts_offset,ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata,  output_format, &(output_databuffer[output_databuffer_len]));
+                                    else if (output_mode == output_nmea)		len = write_nmea_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata, &(output_databuffer[output_databuffer_len]));
+                                    else if (output_mode == output_json)		len = write_json_to_buffer(ts_sensor, outbuf, datapoints,navdata, navdata_ix, &aux_navdata,  output_format, &(output_databuffer[output_databuffer_len]));
+                                    else if (output_mode == output_s7k)			len = write_r7k_bathy_to_buffer(ts_sensor, outbuf, datapoints, &(output_databuffer[output_databuffer_len]));
+                                    else len = 0;
+                                    output_total_data += len;
+                                    output_databuffer_len += len;
+                                    time_t int_ts = (time_t) ts_sensor; 
+                                    if (sensor_total_datapoints==0) fprintf(stderr, "Generating first %d datapoints from  packet %d  at time %s",datapoints,sensor_data_packet_counter,ctime(&int_ts));
+                                    sensor_total_datapoints += datapoints;
+                                }
                             }
                         }
                     new_sensor_data = 0;

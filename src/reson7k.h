@@ -568,10 +568,6 @@ union r7k_RecordTypeHeader{
 };
 
 
-//First record in the datastream must be one of theses for the data to be recgnized as s7k
-#define S7K_RECOGNIZED_IDS {7030,7000,7001,7004,7006,7027,7028,7058,7610,10000,10018,1003,1006,1008,1012,1013,1015,1016}
-
-
 #pragma pack()
 
 void r7k_init(void);
