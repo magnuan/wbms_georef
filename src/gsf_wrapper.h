@@ -18,6 +18,8 @@ sensor_count_stats_t* gsf_get_count_stats(void);
 uint32_t gsf_num_record_types(void);
 uint32_t gsf_get_record_count(record_count_t* records);
 const char * gsf_get_data_type(void);
+uint8_t gsf_rewind(int fd);
+uint8_t gsf_close(int fd);
             
 void gsf_set_sensor_filename(const char* fname);
 void gsf_set_nav_filename(const char* fname);

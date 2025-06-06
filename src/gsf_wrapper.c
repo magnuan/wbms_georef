@@ -24,8 +24,8 @@ static const char* nav_fname = NULL;
 static int sensor_handle;
 static int nav_handle;
 
-static int sensor_fd;
-static int nav_fd;
+static int sensor_fd = -1;
+static int nav_fd = -1;
 
 gsfDataID *nav_dataID;
 gsfRecords *nav_records;
@@ -104,10 +104,32 @@ void gsf_set_nav_filename(const char* fname){
     nav_fname = fname;
 }
 
+uint8_t gsf_rewind(int fd){
+    if (fd == nav_fd) gsfSeek(nav_handle, GSF_REWIND);
+    if (fd == sensor_fd)  gsfSeek(sensor_handle, GSF_REWIND); 
+}
+
+uint8_t gsf_close(int fd){
+    fprintf(stderr,"close nav_fd=%d, sensor_fd=%d fd=%d\n",nav_fd,sensor_fd,fd);
+    if (fd == nav_fd){
+        gsfClose(nav_handle);
+        nav_handle = NULL;
+        nav_fd = -1;
+    }
+    if (fd == sensor_fd){
+        gsfClose(sensor_handle);
+        sensor_handle = NULL;
+        sensor_fd = -1;
+    }
+}
 
 uint8_t gsf_test_nav_file(int fd){
     if (nav_fname==NULL) return 0;
-    fprintf(stderr, "Testing file %s as GSF navigation file",nav_fname);
+    if (nav_handle){
+        gsfClose(nav_handle);
+        nav_handle = NULL;
+    }
+    fprintf(stderr, "Test and open file %s as GSF navigation file",nav_fname);
     int ret = gsfOpen(nav_fname, GSF_READONLY, &nav_handle);
     fprintf(stderr, " %s, ret=%d\n",(ret==0)?"SUCCESS":"FAIL", ret);
     if (ret) return 0;
@@ -117,7 +139,11 @@ uint8_t gsf_test_nav_file(int fd){
 
 uint8_t gsf_test_bathy_file(int fd){
     if (sensor_fname==NULL) return 0;
-    fprintf(stderr, "Testing file %s as GSF sensor file",sensor_fname);
+    if (sensor_handle){
+        gsfClose(sensor_handle);
+        sensor_handle = NULL;
+    }
+    fprintf(stderr, "Test and open file %s as GSF sensor file fd=%d  ",sensor_fname,fd);
     int ret = gsfOpen(sensor_fname, GSF_READONLY, &sensor_handle);
     fprintf(stderr, " %s, ret=%d\n",(ret==0)?"SUCCESS":"FAIL", ret);
     if (ret) return 0;
@@ -126,6 +152,7 @@ uint8_t gsf_test_bathy_file(int fd){
 }
 
 int gsf_fetch_next_packet(char * data, int fd){
+    //fprintf(stderr,"fetch nav_fd=%d, sensor_fd=%d fd=%d\n",nav_fd,sensor_fd,fd);
     int ret;
     if (fd == nav_fd){
         ret =  gsfRead(nav_handle, GSF_NEXT_RECORD, nav_dataID, nav_records,NULL,0);
@@ -533,7 +560,11 @@ sensor_count_stats_t* gsf_get_count_stats(void){
 }
 
 uint32_t gsf_count_data( char* databuffer,uint32_t databuffer_len, double* ts){
-	return 0;
+    int data_type = sensor_dataID->recordID & 0x0FFF;
+    if      (data_type == GSF_RECORD_SWATH_BATHYMETRY_PING) {}  // So far GSF_RECORD_SWATH_BATHYMETRY_PING is the only record we process
+    else return 0; 
+	
+    return sensor_records->mb_ping.number_beams;
 }
 
 

@@ -254,7 +254,12 @@ int main(int argc,char *argv[])
             return(-1);
         }
 
-        fseek(input_fileptr, 0, SEEK_SET); //Rewind
+        if (pos_mode == pos_mode_gsf){
+            gsf_rewind(fileno(input_fileptr)); 
+        }
+        else{
+            fseek(input_fileptr, 0, SEEK_SET); //Rewind
+        }
         //Running through the entire file, to find centroid, path length and lat/lon bounding box
         double lat_min=M_PI/2; 
         double lat_max=-M_PI/2;
@@ -356,7 +361,12 @@ int main(int argc,char *argv[])
     } 
 
     // Check for sensor data in file
-    fseek(input_fileptr,0,SEEK_SET);
+    if (pos_mode == pos_mode_gsf){
+        gsf_close(fileno(input_fileptr)); 
+    }
+    else{
+        fseek(input_fileptr, 0, SEEK_SET); //Rewind
+    }
     #else
     pos_mode = pos_mode_unknown;
     #endif
@@ -384,7 +394,12 @@ int main(int argc,char *argv[])
 
         int version;
         sensor_test_file(input_fd,sensor_mode,&version);
-        fseek(input_fileptr,0,SEEK_SET);
+        if (sensor_mode == sensor_mode_gsf){
+            gsf_rewind(fileno(input_fileptr)); 
+        }
+        else{
+            fseek(input_fileptr, 0, SEEK_SET); //Rewind
+        }
         char ver_string[32];
         snprintf(ver_string,32,"%d",version);
 
@@ -450,7 +465,6 @@ int main(int argc,char *argv[])
                         datapoints += cnt;
                     }
                     //fprintf(stderr, "Datapoints = %d\n",datapoints);
-                    //fprintf(stderr,"(sensor_data_packet_counter=%d, sensor_params.data_skip=%d  sensor_params.data_length=%d\n",sensor_data_packet_counter,sensor_params.data_skip,sensor_params.data_length);
                 }
             }
 
