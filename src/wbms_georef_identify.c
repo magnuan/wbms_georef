@@ -23,6 +23,7 @@
 #include "3dss_dx.h"
 #include "reson7k.h"
 #include "velodyne.h"
+#include "gsf_wrapper.h"
 #include "posmv.h"
 #include "xtf_nav.h"
 #include "sim_nav.h"
@@ -404,6 +405,7 @@ int main(int argc,char *argv[])
         snprintf(ver_string,32,"%d",version);
 
 
+
         if (sensor_mode != sensor_mode_unknown){
             //TODO Code to parse sensor data here
             char sensor_data_buffer[MAX_SENSOR_PACKET_SIZE];
@@ -443,7 +445,7 @@ int main(int argc,char *argv[])
                             cnt = 0;
                             break;
                         case sensor_mode_velodyne:
-                            //cnt = velodyne_count_data( (uint16_t *) sensor_data_buffer,&ts_sensor);
+                            cnt = velodyne_count_data( (uint16_t *) sensor_data_buffer,&ts_sensor);
                             break;
                         case sensor_mode_s7k:
                             cnt = s7k_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);
@@ -491,8 +493,8 @@ int main(int argc,char *argv[])
             /*file_stats->mean_depth;
               file_stats->coverage_area;*/
             sensor_count_stats_t* count_stats = sensor_get_count_stats(sensor_mode);
-            fprintf(stderr, "Count stats freq=%f bw=%f\n", count_stats->freq, count_stats->bw);
             if (count_stats){
+                fprintf(stderr, "Count stats freq=%f bw=%f\n", count_stats->freq, count_stats->bw);
                 file_stats->freq = count_stats->freq;
                 file_stats->bandwidth = count_stats->bw;
             }

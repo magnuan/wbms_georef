@@ -120,6 +120,11 @@ int velodyne_identify_packet(char* databuffer, uint32_t len, double* ts_out, dou
 
 
 #define LIDAR_DP (16*2*12)
+
+uint32_t  velodyne_count_data( uint16_t * data,double *ts){
+	*ts = 1e-6*(((uint32_t*)data)[25*12]); /* Time in seconds since last hour mark */
+    return LIDAR_DP; 
+}
 uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, /*OUTPUT*/  output_data_t* outbuf){
      double* x = &(outbuf->x[0]);
      double* y = &(outbuf->y[0]);
@@ -153,7 +158,6 @@ uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
     lidar_ts += sensor_offset->time_offset;
     
     if (calc_interpolated_nav_data( posdata, pos_ix, lidar_ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt )) return 0;
-	
     if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
         return 0;
     }
