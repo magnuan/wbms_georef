@@ -123,16 +123,42 @@ int velodyne_identify_packet(char* databuffer, uint32_t len, double* ts_out, dou
 
 uint32_t  velodyne_count_data( uint16_t * data,double *ts){
 	*ts = 1e-6*(((uint32_t*)data)[25*12]); /* Time in seconds since last hour mark */
-    return LIDAR_DP; 
+    
+    uint8_t* dp;
+	uint16_t block,ch,set;
+	uint32_t ix_out = 0;
+	for (block=0;block<12;block++){
+		dp = (uint8_t*)(&(data[block*50+2]));
+		for (set = 0;set<2;set++){
+			for (ch = 0; ch<16;ch++){
+				float sensor_r = (float)(((uint16_t)dp[0])+((uint16_t)dp[1])*256)*2e-3f;	//Velodyne measures distance in units of 2mm 
+                if (sensor_r>0){       
+                    ix_out++;
+				}
+				dp+=3;
+			}
+		}
+	}
+	return ix_out;
 }
+
 uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, /*OUTPUT*/  output_data_t* outbuf){
-     double* x = &(outbuf->x[0]);
-     double* y = &(outbuf->y[0]);
-     double* z = &(outbuf->z[0]);
-     float* intensity = &(outbuf->i[0]);
-     float* range = &(outbuf->range[0]);
-     float* az_out = &(outbuf->teta[0]);
-     float* el_out = &(outbuf->steer[0]);
+    double* x = &(outbuf->x[0]);
+    double* y = &(outbuf->y[0]);
+    double* z = &(outbuf->z[0]);
+    float* intensity = &(outbuf->i[0]);
+    float* range = &(outbuf->range[0]);
+    float* az_out = &(outbuf->teta[0]);
+    float* el_out = &(outbuf->steer[0]);
+    
+    static uint32_t ping_number = 0;
+
+    uint16_t ix_in_stride = MAX(1,sensor_params->beam_decimate); 
+    const uint32_t ping_number_stride = sensor_params->ping_decimate; 
+
+    ping_number++;
+    
+    if ((ping_number%ping_number_stride) != 0) return 0;
 
 	float sensor_r,sensor_az,sensor_el;
 	float xs[LIDAR_DP];
@@ -171,6 +197,7 @@ uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
 		d_azimuth = ((float)(data[51]-data[1]))*(M_PI/(2*100*180)); // Convert to radians from centidegrees
 
 	ix_out = 0;
+    uint32_t ix_in = 0;
 	// Populate r,az,el with data from lidar
 	for (block=0;block<12;block++){
 		azimuth = (float)data[block*50+1]*(M_PI/(100*180)); //0 to 2pi
@@ -182,20 +209,23 @@ uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
 				sensor_r = (float)(((uint16_t)dp[0])+((uint16_t)dp[1])*256)*2e-3f;	//Velodyne measures distance in units of 2mm 
 				sensor_az = azimuth;
 				sensor_el = eltable[ch];
-				//fprintf(stderr,"r=%6.2f az=%6.2f el=%6.2f\n",sensor_r, sensor_az*180/M_PI, sensor_el*180/M_PI);
 				if (sensor_r>sensor_params->min_range && sensor_r<sensor_params->max_range){
 					if ( (sensor_az>sensor_params->min_azimuth && sensor_az<sensor_params->max_azimuth )){
-						/***** Converting sensor data from spherical to kartesian coordinates *********/
-						// Standard lidar mounting, Lidar top pointing forward, Mounting bracket pointing downwards, (VLP-16 manual cable pointing up)
-						//az=0 el=0 => Up(0,0,-1), az=90 el=0 => Port(0,-1,0), az=0 el=90 => Forward(1,0,0) 
-						xs[ix_out] = sensor_r * sinf(sensor_el);
-						ys[ix_out] = -sensor_r * sinf(sensor_az)*cosf(sensor_el); //Sign flipped compared to standard right hand system
-						zs[ix_out] = -sensor_r * cosf(sensor_az)*cosf(sensor_el);
-						intensity[ix_out] = dp[2];
-                        range[ix_out] = sensor_r;
-                        az_out[ix_out] = sensor_az;
-                        el_out[ix_out] = sensor_el;
-						ix_out++;
+                        ix_in++;
+                        if ((ix_in % ix_in_stride)==0){
+                            /***** Converting sensor data from spherical to kartesian coordinates *********/
+                            // Standard lidar mounting, Lidar top pointing forward, Mounting bracket pointing downwards, (VLP-16 manual cable pointing up)
+                            //az=0 el=0 => Up(0,0,-1), az=90 el=0 => Port(0,-1,0), az=0 el=90 => Forward(1,0,0) 
+                            //fprintf(stderr,"r=%6.2f az=%6.2f el=%6.2f\n",sensor_r, sensor_az*180/M_PI, sensor_el*180/M_PI);
+                            xs[ix_out] = sensor_r * sinf(sensor_el);
+                            ys[ix_out] = -sensor_r * sinf(sensor_az)*cosf(sensor_el); //Sign flipped compared to standard right hand system
+                            zs[ix_out] = -sensor_r * cosf(sensor_az)*cosf(sensor_el);
+                            intensity[ix_out] = dp[2];
+                            range[ix_out] = sensor_r;
+                            az_out[ix_out] = sensor_az;
+                            el_out[ix_out] = sensor_el;
+                            ix_out++;
+                        }
 					}
 				}
 				dp+=3;
