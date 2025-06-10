@@ -122,6 +122,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case steer: len += sprintf(&(outbuf[len]),"%11.3f",steer_val[ii]*180/M_PI);break;
                 case el: len += sprintf(&(outbuf[len]),"%11.3f",(*tx_angle)*180/M_PI);break;
                 case val: len += sprintf(&(outbuf[len]),"%17.8f",intensity_val[ii]);break;
+                case val_dB: len += sprintf(&(outbuf[len]),"%17.8f",20*log10f(intensity_val[ii]));break;
                 case quality: len += sprintf(&(outbuf[len]),"%11.3f",quality_val[ii]);break;
                 case classification: len += sprintf(&(outbuf[len]),"%11d",classification_val[ii]);break;
                 case priority: len += sprintf(&(outbuf[len]),"%11.3f",priority_val[ii]);break;

@@ -475,6 +475,7 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  detection beam angle (electronic steering part):      steer\n");
     fprintf(fp,"#  detection beam tx angle:    el\n");
     fprintf(fp,"#  detection intensity value: val\n");
+    fprintf(fp,"#  detection intensity value (dB): val_dB\n");
     fprintf(fp,"#  detection swath y offset:  swath_y\n");
     fprintf(fp,"#  detection angle of incidence:  aoi\n");
     fprintf(fp,"#  detection quality:         quality\n");

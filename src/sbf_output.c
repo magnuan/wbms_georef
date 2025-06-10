@@ -207,6 +207,7 @@ int write_sbf_to_buffer(double x_offset, double y_offset, double z_offset,double
                 case beam: write_f32_unaligned_bswap((uint8_t*)dp,(float)(beam_number[ii])); dp+=4;break;
                 case range: write_f32_unaligned_bswap((uint8_t*)dp,(float)(range_val[ii])); dp+=4;break;
                 case val: write_f32_unaligned_bswap((uint8_t*)dp,(float)(intensity_val[ii])); dp+=4;break;
+                case val_dB: write_f32_unaligned_bswap((uint8_t*)dp,(float)(20*log10f(intensity_val[ii]))); dp+=4;break;
                 case swath_y: write_f32_unaligned_bswap((uint8_t*)dp,(float)(swath_y_val[ii])); dp+=4;break;
                 case quality: write_f32_unaligned_bswap((uint8_t*)dp,(float)(quality_val[ii])); dp+=4;break;
                 case priority: write_f32_unaligned_bswap((uint8_t*)dp,(float)(priority_val[ii])); dp+=4;break;
