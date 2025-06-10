@@ -1270,6 +1270,43 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                         inten = sqrtf(acum_pow);
                         snippet_len=len;
                         break;
+                    
+                    case snippet_10dB_footprint_sum_pow:
+                        {
+                            // Crop snippet to maximum the 10dB time domain footprint (Assuming a bell shaped responce, 10dB is 1.82x 3dB)
+                            int32_t snippet_10dB_length=roundf(1.82f*outbuf->footprint_time[ix_bath]*Fs);
+                            snippet_10dB_length=MAX(snippet_10dB_length,1);
+                            int32_t ix0 = detection_offset-snippet_10dB_length/2;
+                            int32_t ix1 = ix0+snippet_10dB_length;
+                            ix0=MAX(0,ix0);
+                            ix1=MIN(ix1,len);
+                            acum_pow = 0;
+                            
+                            if(sample_size==4){
+                                for (size_t ix = ix0; ix<ix1;ix++){
+                                    float val = *( ((uint32_t*)snp_data_ptr) + ix);
+                                    acum_pow += powf(val,2);
+                                }
+                            }
+                            else{
+                                for (size_t ix = ix0; ix<ix1;ix++){
+                                    float val = *( ((uint16_t*)snp_data_ptr) + ix);
+                                    #ifdef COUNT_S7K_SNIPPET_SATURATION
+                                    if(val>=65530){ 
+                                        //fprintf(stderr,"WARNING, Saturation in s7k snippet\n");
+                                        s7k_snp_satcount++;
+                                    }
+                                    s7k_snp_count++;
+                                    #endif
+                                    acum_pow += powf(val,2);
+                                }
+                            }
+                            
+                            inten = sqrtf(acum_pow);
+                            snippet_len=ix1-ix0;    
+                        }
+                        break;
+                    
                     case snippet_3dB_footprint_mean_pow:
                         {
                             // Crop snippet to maximum the 3dB time domain footprint
@@ -1316,7 +1353,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 }
                 //Then we apply our own TVG
                 float eff_plen = mbes_eff_plen;
-                if (sensor_params->snippet_processing_mode == snippet_sum_pow){
+                if ((sensor_params->snippet_processing_mode == snippet_sum_pow) || (sensor_params->snippet_processing_mode == snippet_10dB_footprint_sum_pow)){
                     // When calculating total snippet energy, the footprint is based on the entire footprint of the snippet, not a sample footprint
                     eff_plen += len*div_Fs;
                 }
