@@ -34,6 +34,7 @@
 #include "3dss_dx.h"
 #include "reson7k.h"
 #include "velodyne.h"
+#include "lakibeam.h"
 #include "gsf_wrapper.h"
 #include "posmv.h"
 #include "xtf_nav.h"
@@ -987,6 +988,7 @@ int main(int argc,char *argv[])
     gsf_set_sensor_offset(&sensor_offset);
     p3dss_set_sensor_offset(&sensor_offset);
     velodyne_set_sensor_offset(&sensor_offset);
+    lakibeam_set_sensor_offset(&sensor_offset);
 
 	/**** PARSING COMMAND LINE OPTIONS ****/
         while ((c = getopt (argc, argv, "c:i:s:p:P:S:F:w:y:o:?hVxC75")) != -1) {
@@ -1501,7 +1503,7 @@ int main(int argc,char *argv[])
             nav_epoch_set = 1;
         }
     }
-    //If bathy data is available fetch and process a bathy data packet to get time  (TODO for velodyne we need navigation time before sensor data is processed, as it does not send full time)
+    //If bathy data is available fetch and process a bathy data packet to get time  (TODO for lidar (valodyne and lakkibeam)  we need navigation time before sensor data is processed, as it does not send full time)
     if (input_sensor_source != i_none  && input_sensor_source != i_sim){ 
         //Find first usable packet in stream
         while (1){
@@ -1565,6 +1567,12 @@ int main(int argc,char *argv[])
                 fprintf(stderr,"First nav data lat = %8.5fdegN lon = %8.5fdegE\n",first_lat*180/M_PI,first_lon*180/M_PI);
                 time_t raw_time = (time_t) ts_pos;
                 fprintf(stderr,"First nav data time: ts=%0.3f %s  ",ts_pos,ctime(&raw_time));
+
+                //Lakibeam sensor does not have global time, only time since bootup
+                // As a quickfix (hack) we assume that the navigation stream and sensor stream starts at the same instant, and set the difference as the lakibeam epoch
+                if(sensor_mode_lakibeam){
+                    lakibeam_set_epoch(ts_pos - ts_sensor);
+                }
                 break;
             }
         }
@@ -1875,6 +1883,10 @@ int main(int argc,char *argv[])
                                         break;
                                     case sensor_mode_velodyne:
                                         datapoints = velodyne_georef_data( (uint16_t *) sensor_data_buffer, navdata, navdata_ix, &sensor_params,         outbuf);
+                                        more_data_to_process = 0;
+                                        break;
+                                    case sensor_mode_lakibeam:
+                                        datapoints = lakibeam_georef_data( (uint16_t *) sensor_data_buffer, navdata, navdata_ix, &sensor_params,         outbuf);
                                         more_data_to_process = 0;
                                         break;
                                     case sensor_mode_s7k:

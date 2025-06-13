@@ -103,6 +103,7 @@ int main(int argc,char *argv[])
     r7k_set_sensor_offset(&sensor_offset);
     p3dss_set_sensor_offset(&sensor_offset);
     velodyne_set_sensor_offset(&sensor_offset);
+    lakibeam_set_sensor_offset(&sensor_offset);
 	/**** PARSING COMMAND LINE OPTIONS ****/
 
 
@@ -446,6 +447,9 @@ int main(int argc,char *argv[])
                             break;
                         case sensor_mode_velodyne:
                             cnt = velodyne_count_data( (uint16_t *) sensor_data_buffer,&ts_sensor);
+                            break;
+                        case sensor_mode_lakibeam:
+                            cnt = lakibeam_count_data( (uint16_t *) sensor_data_buffer,&ts_sensor);
                             break;
                         case sensor_mode_s7k:
                             cnt = s7k_count_data( sensor_data_buffer,sensor_data_buffer_len,&ts_sensor);

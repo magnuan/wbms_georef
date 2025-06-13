@@ -63,12 +63,14 @@ int velodyne_seek_next_header(int fd){
 		if(n>0){
 			dump += 1;
 			switch (state){
-				case 0: state = (v==0xFF)?1:0;break;
-				case 1: state = (v==0xEE)?2:0;break;
+				case 0: state = (v==0x37)||(v==0x38)||(v==0x39)?1:0;break;    // Factory byte1 0x37(strongest) 0x38(last), 0x39(dual)
+				case 1: state = (v==0x22)?2:0;break;                          // Factory byte 2 0x22 (VLP-16 / Puck LITE)
+				case 2: state = (v==0xFF)?3:0;break;
+				case 3: state = (v==0xEE)?4:0;break;
 			}
-			if (state==2){
-				dump-=2;
-				if(dump) fprintf(stderr,"Lidar seek dump %d bytes\n",dump);
+			if (state==4){
+				dump-=4;
+				if(dump) fprintf(stderr,"Velodyne seek dump %d bytes\n",dump);
 				return 0;	
 			}
 		}
@@ -83,7 +85,7 @@ int velodyne_fetch_next_packet(char * data, int fd){
 	//Find $GRP preamble
 	if(velodyne_seek_next_header(fd)) return 0;
 	data[0] = 0xFF;data[1] = 0xEE;
-	rem = 1206-2; //Fetch packet header (minus the preamble we allready have)
+	rem = 1206-2-2; //Fetch packet header (minus the preamble we allready have and the 2 factory bytes
 	dp = &(data[2]);
 	//while (rem>0){ n= read(fd,dp,rem);rem -= n; dp+=n;}
 	while (rem>0){ n= read(fd,dp,rem);if (n<=0) return 0;rem -= n; dp+=n;} //Read neccessary data, abort if no data or failure occurs TODO: verify that this works with all stream types 
@@ -192,7 +194,7 @@ uint32_t velodyne_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
 	float azimuth;
 	float d_azimuth;
 	if (data[51] < data[1])
-		d_azimuth = ((float)(36000+data[51]-data[1]))*(100*M_PI/(2*100*180)); // Convert to radians from centidegrees
+		d_azimuth = ((float)(36000+data[51]-data[1]))*(M_PI/(2*100*180)); // Convert to radians from centidegrees
 	else
 		d_azimuth = ((float)(data[51]-data[1]))*(M_PI/(2*100*180)); // Convert to radians from centidegrees
 

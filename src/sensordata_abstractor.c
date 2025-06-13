@@ -22,6 +22,7 @@
 #include "reson7k.h"
 #include "gsf_wrapper.h"
 #include "velodyne.h"
+#include "lakibeam.h"
 #include "misc.h"
 #include "sensordata_abstractor.h"
 
@@ -34,7 +35,7 @@ const char *sensor_mode_names[] = {
     "s7k",
     "PingDSP 3DSS stream",
     "gsf",
-    "-",
+    "Lakibeam",
     "-",
     "-",
     "-",
@@ -59,7 +60,7 @@ char *sensor_mode_short_names[] = {
     "s7k",
     "3dss",
     "gsf",
-    "-",
+    "lakibeam",
     "-",
     "-",
     "-",
@@ -84,6 +85,8 @@ uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version){
             return wbms_test_file(fd,version);
         case  sensor_mode_sim:
             return 1;
+        case sensor_mode_lakibeam:
+            return lakibeam_test_file(fd);
         case sensor_mode_velodyne:
             return velodyne_test_file(fd);
         case sensor_mode_s7k:	
@@ -132,6 +135,8 @@ int sensor_fetch_next_packet(char * data, int fd, sensor_mode_e mode){
 			len = wbms_fetch_next_packet(data, fd);break;
 		case sensor_mode_velodyne:
 			len = velodyne_fetch_next_packet(data, fd);break;
+		case sensor_mode_lakibeam:
+			len = lakibeam_fetch_next_packet(data, fd);break;
 		case sensor_mode_s7k:	
 			len = r7k_fetch_next_packet(data, fd);break;
 		case sensor_mode_gsf:	
@@ -159,6 +164,8 @@ int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double*
 			return wbms_identify_packet(databuffer, len, ts_out, NULL);
 		case sensor_mode_velodyne:
 			return velodyne_identify_packet(databuffer, len, ts_out, ts_in);
+		case sensor_mode_lakibeam:
+			return lakibeam_identify_packet(databuffer, len, ts_out, ts_in);
 		case sensor_mode_s7k:	
             id = r7k_identify_sensor_packet(databuffer, len, ts_out);
 	        //So far we only process s7k record 7027 and 10018 for sensor  bathy data and 7610 for SV data
@@ -184,6 +191,8 @@ int sensor_num_record_types(sensor_mode_e mode){
 			return wbms_num_record_types();
 		case sensor_mode_velodyne:
 			return 0; //TODO
+		case sensor_mode_lakibeam:
+			return 0; //TODO
 		case sensor_mode_s7k:	
             return r7k_num_record_types();
 		case sensor_mode_gsf:	
@@ -206,6 +215,8 @@ int sensor_get_record_count(sensor_mode_e mode, record_count_t* records){
 			return wbms_get_record_count(records);
 		case sensor_mode_velodyne:
 			return 0; //TODO
+		case sensor_mode_lakibeam:
+			return 0; //TODO
 		case sensor_mode_s7k:	
             return r7k_get_record_count(records);
 		case sensor_mode_gsf:	
@@ -227,6 +238,7 @@ const char *  sensor_get_data_type(sensor_mode_e mode){
 		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
 			return wbms_get_data_type();
 		case sensor_mode_velodyne:
+		case sensor_mode_lakibeam:
 			return "lidar";
 		case sensor_mode_s7k:	
             return r7k_get_data_type();
@@ -248,6 +260,7 @@ sensor_count_stats_t* sensor_get_count_stats(sensor_mode_e mode){
 		case  sensor_mode_wbms: case sensor_mode_wbms_v5:
 			return wbms_get_count_stats();
 		case sensor_mode_velodyne:
+		case sensor_mode_lakibeam:
 			return NULL;
 		case sensor_mode_s7k:	
 			return s7k_get_count_stats();

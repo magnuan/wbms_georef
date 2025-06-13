@@ -20,6 +20,7 @@ list(APPEND wbms_georef_SOURCES
     3dss_dx.c
     sim_data.c
     velodyne.c
+    lakibeam.c
     time_functions.c
     linalg.c
     raytracing.c
@@ -63,6 +64,7 @@ list(APPEND wbms_georef_identify_SOURCES
     3dss_dx.c
     sim_data.c
     velodyne.c
+    lakibeam.c
     time_functions.c
     linalg.c
     raytracing.c

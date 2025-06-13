@@ -613,13 +613,18 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
        sv = rth.r7610->sv ;
        sv = sv + sensor_params->sv_offset;
        //fprintf(stderr, "Read in sound velocity from S7K 7610  sv=%f\n", sv);
+       if (sensor_params->force_sv==0) {
+           if (sv != sv){
+               fprintf(stderr, "NaN sound velocity encountered in s7k 7610 data\n");
+           }
+           else if (sv == 0){
+               fprintf(stderr, "0 sound velocity encountered in S7K 7610 data\n");
+           }
+       }
        return 0;
     }
     if (sensor_params->force_sv > 0){
         sv = sensor_params->force_sv;
-    }
-    if (sv != sv){
-        fprintf(stderr, "NaN sound velocity encountered in data");
     }
 
     *sv_out = sv;
@@ -863,8 +868,9 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         float attenuation = calc_attenuation(mbes_tx_freq, sensor_params);
         //fprintf(stderr, "GEOREF: Serial=%ld ping_nr=%d Nin=%d dfs=%d\n",rth.r7027->serial, rth.r7027->ping_nr,Nin,dfs);
 
-        if (sv==0){
-            fprintf(stderr,"WARNING: Received 7027 record before SV has been set/received. Unable to process bathy data\n");
+        if ((sv==0) || (sv != sv)){
+            fprintf(stderr,"WARNING: Received s7k 7027 with no valid SV data. Unable to process bathy data\n");
+            return 0;
         }
         //fprintf(stderr,"S7k time = %f\t\tping=%d\n",ts,ping_number);
 
