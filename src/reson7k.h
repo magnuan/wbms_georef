@@ -37,7 +37,7 @@ typedef struct{
 }r7k_Record;
 */
 
-#define MAX_S7K_PACKET_SIZE (4*1024*1024)
+#define MAX_S7K_PACKET_SIZE (8*1024*1024)
 #define S7K_ID_MAX 65535
 
 #pragma pack(1)

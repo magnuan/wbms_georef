@@ -144,7 +144,7 @@ uint8_t r7k_test_nav_file(int fd){
     return r7k_test_file(fd,req_types,5);
 }
 uint8_t r7k_test_bathy_file(int fd){
-    int req_types[] = {7027,10018};
+    int req_types[] = {7027,7028,10018};
     return r7k_test_file(fd,req_types,2);
 }
 
@@ -215,6 +215,7 @@ int r7k_fetch_next_packet(char * data, int fd){
 	dp = &(data[8]);                                //Read in 8 bytes allready 4-bytes before sync and 4 bytes sync
 	n = read(fd, dp,4);dp +=4;                        //Read in four more bytes, containing packet size
 	uint32_t s7k_size = ((uint32_t*) data)[2];
+    //fprintf(stderr, "s7k_size = %d \n",s7k_size);
     if (s7k_size>MAX_S7K_PACKET_SIZE) return 0;
 	
     
@@ -227,6 +228,8 @@ int r7k_fetch_next_packet(char * data, int fd){
 
 	}
     uint32_t s7k_record_id = ((uint32_t*) data)[8];
+    
+    //fprintf(stderr, "s7k_record_id = %d, size = %d \n",s7k_record_id,s7k_size);
     
     uint8_t recognized=0;
     // These series of IDs are recognized    

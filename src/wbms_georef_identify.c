@@ -205,7 +205,8 @@ int main(int argc,char *argv[])
     if (pos_mode != pos_mode_unknown){
         double ts_sensor = 0.; //For nav data sources that does not give full time, thios might need to be popolated
         double ts_pos;
-        char navigation_data_buffer[MAX_NAVIGATION_PACKET_SIZE];
+        fprintf(stderr,"Allocating memory for navigation data buffer\n");
+        char * navigation_data_buffer = malloc(MAX_NAVIGATION_PACKET_SIZE);
        
         //We just need to set some epoch for navigation files that dont contain full timestamps
         
@@ -290,8 +291,10 @@ int main(int argc,char *argv[])
         double y=0;
         double z=0;
 
+        fprintf(stderr,"Reading out navigation records\n");
         while(1){
             uint32_t navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_fd,pos_mode);
+            //fprintf(stderr,"navigation_data_buffer_len = %d\n",navigation_data_buffer_len);
             if (navigation_data_buffer_len==0) break;
             if(process_nav_data_packet(navigation_data_buffer,navigation_data_buffer_len,ts_sensor, &ts_pos,pos_mode,0)){
                 lat = navdata[navdata_ix].lat;
@@ -322,6 +325,7 @@ int main(int argc,char *argv[])
                 prev_y = y;
             }
         }
+        fprintf(stderr,"Done reading nav records %d records read\n",cnt);
 
         x_end = x;
         y_end = y;
@@ -339,6 +343,7 @@ int main(int argc,char *argv[])
         fprintf(stderr, "acum dist       %f\n", acum_dist);
         fprintf(stderr, "count           %d\n", cnt);
         
+        free(navigation_data_buffer);
         /* Write file stats */
         if (file_stats==NULL){ // If file stats is filled out for the first time, add these fields
             uint32_t num_record_types = navigation_num_record_types(pos_mode);
@@ -409,7 +414,8 @@ int main(int argc,char *argv[])
 
         if (sensor_mode != sensor_mode_unknown){
             //TODO Code to parse sensor data here
-            char sensor_data_buffer[MAX_SENSOR_PACKET_SIZE];
+            fprintf(stderr,"Allocating memory for sensor data buffer\n");
+            char * sensor_data_buffer = malloc(MAX_SENSOR_PACKET_SIZE);
             double ts_start=0;
             double ts_end=0;
             uint32_t datasets=0;
@@ -477,6 +483,7 @@ int main(int argc,char *argv[])
 
             ts_end = ts_sensor;
 
+            free(sensor_data_buffer);
             /* Write file stats */
             if (file_stats==NULL){ // If file stats is filled out for the first time, add these fields
                 uint32_t num_record_types = sensor_num_record_types(sensor_mode);
