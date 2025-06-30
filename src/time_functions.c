@@ -161,7 +161,11 @@ double parse_timestamp_from_filename(const char *filename) {
         for (int p = 0; p < 5; p++) {
             for (int ii = 0; ii < slen; ii++) {
                 if (strptime(filename+ii, patterns[p], &tm_time)) {
-                    return  (double) mktime(&tm_time);
+                    double ts = (double) mktime(&tm_time);
+                    //Sanity check, ts must be in the 21st century
+                    if ( (ts>946681200) && (ts<4102441200)){
+                        return ts; 
+                    }
                 }
             }
         }
