@@ -1839,7 +1839,7 @@ int main(int argc,char *argv[])
                                 navigation_total_packets++;
                             }
                         }
-                        else if((navigation_data_buffer_len==0))  {
+                        else if((navigation_data_buffer_len==0) && (input_navigation_source!=i_udp))  {
                             input_navigation_source = i_none;
                         }
                     }
