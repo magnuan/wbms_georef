@@ -1808,17 +1808,17 @@ int main(int argc,char *argv[])
                             socklen_t addr_len = sizeof(udp_source_addr);
                             ssize_t n = recvfrom(input_navigation_fd, navigation_data_buffer, MAX_NAVIGATION_PACKET_SIZE, 0, (struct sockaddr *)&udp_source_addr, &addr_len);
                             if (n < 0) {
-                                fprintf(stderr,"Nav data recvfrom failed");
+                                //fprintf(stderr,"Nav data recvfrom failed");
                                 navigation_data_buffer_len = 0;
                             }
                             else{
                                 // Compare sender IP with the allowed one
                                 if ((input_navigation_filter_udp_source == 0) || (udp_source_addr.sin_addr.s_addr == input_navigation_allowed_addr.s_addr)) {
-                                    printf("Nav data received from %s\n", inet_ntoa(udp_source_addr.sin_addr));
+                                    //printf("Nav data received from %s\n", inet_ntoa(udp_source_addr.sin_addr));
                                     navigation_data_buffer_len = n;
                                 } 
                                 else {
-                                    printf("Nav data ignored packet from %s\n", inet_ntoa(udp_source_addr.sin_addr));
+                                    //printf("Nav data ignored packet from %s\n", inet_ntoa(udp_source_addr.sin_addr));
                                     navigation_data_buffer_len = 0;
                                 }
                             }
