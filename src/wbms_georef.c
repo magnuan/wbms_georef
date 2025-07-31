@@ -1190,11 +1190,10 @@ int main(int argc,char *argv[])
             bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
 			input_navigation_serv_addr.sin_family = AF_INET;
 			input_navigation_serv_addr.sin_port = htons(input_navigation_portno);
-			#define UDP_BROADCAST
-			#ifdef UDP_BROADCAST
-			input_navigation_serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-			#else
-			if(input_navigation_ip_addr == (unsigned long)INADDR_NONE){
+            if (is_broadcast_address(input_navigation_ip_addr)){
+			    input_navigation_serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+			}
+			else if(input_navigation_ip_addr == (unsigned long)INADDR_NONE){
 				//Hostname lookup
 				fprintf(stderr,"Lookup %s\n",str_addr);
 				input_navigation_server = gethostbyname(str_addr);
@@ -1205,7 +1204,6 @@ int main(int argc,char *argv[])
 				//Addr given	
 				input_navigation_serv_addr.sin_addr.s_addr = input_navigation_ip_addr;
 			}
-			#endif
 
 			fprintf(stderr,"Ip addr = %d.%d.%d.%d  Port = %d \n",input_navigation_ip_addr%256,(input_navigation_ip_addr>>8)%256,(input_navigation_ip_addr>>16)%256,(input_navigation_ip_addr>>24)%256, input_navigation_portno);
 			
