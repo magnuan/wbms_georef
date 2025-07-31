@@ -918,6 +918,8 @@ int main(int argc,char *argv[])
 	struct sockaddr_in input_navigation_serv_addr;
 	struct hostent *input_navigation_server;
 	uint32_t input_navigation_ip_addr;
+    char input_navigation_filter_udp_source = 0;
+    struct in_addr input_navigation_allowed_addr;
 	//Output TCP-server stuff
 	int output_port = 2222;
 	struct sockaddr_in output_my_addr;
@@ -1190,22 +1192,21 @@ int main(int argc,char *argv[])
             bzero((char *) &input_navigation_serv_addr, sizeof(input_navigation_serv_addr));
 			input_navigation_serv_addr.sin_family = AF_INET;
 			input_navigation_serv_addr.sin_port = htons(input_navigation_portno);
+			input_navigation_serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);         //Receive broadcast
+
+
+
             if (is_broadcast_address(input_navigation_ip_addr)){
-			    input_navigation_serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-			}
-			else if(input_navigation_ip_addr == (unsigned long)INADDR_NONE){
-				//Hostname lookup
-				fprintf(stderr,"Lookup %s\n",str_addr);
-				input_navigation_server = gethostbyname(str_addr);
-				bcopy((char *)input_navigation_server->h_addr,  (char *)&input_navigation_serv_addr.sin_addr.s_addr, input_navigation_server->h_length);
-				input_navigation_ip_addr = input_navigation_serv_addr.sin_addr.s_addr;
+                input_navigation_filter_udp_source = 0; //Setting to 0 means no filtering on UDP sources
+			    fprintf(stderr,"Receiving navigation on UDP Broadcast Port = %d \n", input_navigation_portno);
 			}
 			else{
 				//Addr given	
-				input_navigation_serv_addr.sin_addr.s_addr = input_navigation_ip_addr;
+                input_navigation_filter_udp_source = 1; //Setting to 1 means filter on UDP sources
+                inet_aton(str_addr, &input_navigation_allowed_addr);
+			    fprintf(stderr,"Receiving navigation on UDP from Ip addr = %d.%d.%d.%d  Port = %d \n",input_navigation_ip_addr%256,(input_navigation_ip_addr>>8)%256,(input_navigation_ip_addr>>16)%256,(input_navigation_ip_addr>>24)%256, input_navigation_portno);
 			}
 
-			fprintf(stderr,"Ip addr = %d.%d.%d.%d  Port = %d \n",input_navigation_ip_addr%256,(input_navigation_ip_addr>>8)%256,(input_navigation_ip_addr>>16)%256,(input_navigation_ip_addr>>24)%256, input_navigation_portno);
 			
 			if (bind(input_navigation_fd,(struct sockaddr *) &input_navigation_serv_addr,sizeof(input_navigation_serv_addr)) < 0) 
 				error("ERROR POSV UDP connecting");
@@ -1799,9 +1800,37 @@ int main(int argc,char *argv[])
                     else if (input_navigation_source==i_file) runnavigation=1;
                     else if (FD_ISSET(input_navigation_fd,&read_fds)) runnavigation=1;
                     if (runnavigation){
-                        if(input_navigation_source==i_udp) navigation_data_buffer_len = read(input_navigation_fd,navigation_data_buffer,MAX_NAVIGATION_PACKET_SIZE);
-                        else if(input_navigation_source==i_sim) navigation_data_buffer_len = 1; //Just mark that we have data
-                        else navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_navigation_fd,pos_mode);
+                        if(input_navigation_source==i_udp) {
+                            #if 0
+                            navigation_data_buffer_len = read(input_navigation_fd,navigation_data_buffer,MAX_NAVIGATION_PACKET_SIZE);
+                            #else
+                            struct sockaddr_in udp_source_addr;
+                            socklen_t addr_len = sizeof(udp_source_addr);
+                            ssize_t n = recvfrom(input_navigation_fd, navigation_data_buffer, MAX_NAVIGATION_PACKET_SIZE, 0, (struct sockaddr *)&udp_source_addr, &addr_len);
+                            if (n < 0) {
+                                fprintf(stderr,"Nav data recvfrom failed");
+                                navigation_data_buffer_len = 0;
+                            }
+                            else{
+                                // Compare sender IP with the allowed one
+                                if ((input_navigation_filter_udp_source == 0) || (udp_source_addr.sin_addr.s_addr == input_navigation_allowed_addr.s_addr)) {
+                                    printf("Nav data received from %s\n", inet_ntoa(udp_source_addr.sin_addr));
+                                    navigation_data_buffer_len = n;
+                                } 
+                                else {
+                                    printf("Nav data ignored packet from %s\n", inet_ntoa(udp_source_addr.sin_addr));
+                                    navigation_data_buffer_len = 0;
+                                }
+                            }
+                            #endif
+
+                        }
+                        else if(input_navigation_source==i_sim){
+                            navigation_data_buffer_len = 1; //Just mark that we have data
+                        }
+                        else {
+                            navigation_data_buffer_len = navigation_fetch_next_packet(navigation_data_buffer, input_navigation_fd,pos_mode);
+                        }
 
                         if (navigation_data_buffer_len>0){
                             navigation_total_data += navigation_data_buffer_len;
