@@ -23,6 +23,7 @@
 #include "3dss_dx.h"
 #include "reson7k.h"
 #include "velodyne.h"
+#include "lakibeam.h"
 #include "gsf_wrapper.h"
 #include "posmv.h"
 #include "xtf_nav.h"
