@@ -113,21 +113,21 @@ uint8_t gsf_close(int fd){
     fprintf(stderr,"close nav_fd=%d, sensor_fd=%d fd=%d\n",nav_fd,sensor_fd,fd);
     if (fd == nav_fd){
         gsfClose(nav_handle);
-        nav_handle = NULL;
+        nav_handle = 0;
         nav_fd = -1;
     }
     if (fd == sensor_fd){
         gsfClose(sensor_handle);
-        sensor_handle = NULL;
+        sensor_handle = 0;
         sensor_fd = -1;
     }
 }
 
 uint8_t gsf_test_nav_file(int fd){
-    if (nav_fname==NULL) return 0;
+    if (nav_fname==0) return 0;
     if (nav_handle){
         gsfClose(nav_handle);
-        nav_handle = NULL;
+        nav_handle = 0;
     }
     fprintf(stderr, "Test and open file %s as GSF navigation file",nav_fname);
     int ret = gsfOpen(nav_fname, GSF_READONLY, &nav_handle);
@@ -138,10 +138,10 @@ uint8_t gsf_test_nav_file(int fd){
 }
 
 uint8_t gsf_test_bathy_file(int fd){
-    if (sensor_fname==NULL) return 0;
+    if (sensor_fname==0) return 0;
     if (sensor_handle){
         gsfClose(sensor_handle);
-        sensor_handle = NULL;
+        sensor_handle = 0;
     }
     fprintf(stderr, "Test and open file %s as GSF sensor file fd=%d  ",sensor_fname,fd);
     int ret = gsfOpen(sensor_fname, GSF_READONLY, &sensor_handle);
