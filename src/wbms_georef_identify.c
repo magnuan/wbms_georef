@@ -509,6 +509,7 @@ int main(int argc,char *argv[])
                 fprintf(stderr, "Count stats freq=%f bw=%f\n", count_stats->freq, count_stats->bw);
                 file_stats->freq = count_stats->freq;
                 file_stats->bandwidth = count_stats->bw;
+                file_stats->serial = count_stats->serial;
             }
         }
     }

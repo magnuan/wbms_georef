@@ -504,9 +504,11 @@ uint32_t s7k_count_data( char* databuffer,uint32_t databuffer_len, double* ts){
     // --- Collect count stats
     float freq=0;
     float bw=0;
+    uint64_t serial=0;
     if (drf->record_id == 7000){
         freq = rth.r7000->tx_freq ;
         bw = rth.r7000->bw ;
+        s7k_count_stats.serial = rth.r7000->serial;
     }
     else if (drf->record_id == 10000){
         freq = rth.r10000->freq_center;

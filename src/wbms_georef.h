@@ -202,5 +202,6 @@ typedef struct{
 typedef struct{
     float freq;
     float bw;
+    uint64_t serial;
 }sensor_count_stats_t;
 #endif

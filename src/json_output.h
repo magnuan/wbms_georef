@@ -28,6 +28,7 @@ typedef struct{
     uint32_t num_record_types;
     float freq;
     float bandwidth;
+    uint64_t serial;
     record_count_t records[];
 }file_stats_t;
 

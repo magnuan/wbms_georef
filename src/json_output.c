@@ -48,6 +48,7 @@ int write_stats_json_to_buffer(file_stats_t* stats, /*OUTPUT*/char* outbuf){
                             {    len += sprintf(&(outbuf[len]),"\t\"has_navigation\": %s,\n",        stats->has_navigation?"true":"false");}
                             {    len += sprintf(&(outbuf[len]),"\t\"has_sensor\": %s,\n",            stats->has_sensor?"true":"false");}
                             {    len += sprintf(&(outbuf[len]),"\t\"has_svp\": %s,\n",               stats->has_svp?"true":"false");}
+    if(stats->serial)       {    len += sprintf(&(outbuf[len]),"\t\"serial_number\": %ld,\n",        stats->serial);}
     if(stats->datapoints)   {    len += sprintf(&(outbuf[len]),"\t\"datapoints\": %d,\n",            stats->datapoints);}
     if(stats->datasets)     {    len += sprintf(&(outbuf[len]),"\t\"datasets\": %d,\n",              stats->datasets);}
     if(stats->navigation_points)   {    len += sprintf(&(outbuf[len]),"\t\"navigation_points\": %d,\n",            stats->navigation_points);}
