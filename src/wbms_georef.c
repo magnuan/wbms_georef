@@ -240,6 +240,7 @@ void showUsage(char *pgmname)
 			"\t-S mode\t Sensor mode: 1=WBMS 2=WBMS_V5 3=Velodyne 4=SIM 5=S7K 10=Autodetect (default) \n"
 			"\t-p source\t Pos data source (PosMv:5602)\n"
 			"\t-P mode\t Pos mode: 0=POSMV 1=XTF_NAV 2=WBM_TOOL 3=SBET 4=SIM 5=S7K 10=Autodetect (default)\n"
+			"\t-r roll\t Roll offset in degrees(additional to config file offset)\n"
 			"\t-w source\t Sound velocity input file, for raybending correcting\n"
 			"\t-y source\t Angle intensity correction table\n"
 			"\t-5 \t Force wbms bathy format version 5\n"
@@ -248,7 +249,7 @@ void showUsage(char *pgmname)
 			"\t-7 \t Output in s7k format\n"
 			"\t-V \t Verbose mode\n"
 			"\t-x \t Generate template config file, wbms_georef.conf.template\n"
-			"\t-c config-file \t Read in configuration from file\n"
+			"\t-c config_file \t Read in configuration from file\n"
 			"\t-F freq_index \t Index of multifreq set to use (-1 for all, default)\n"
 			"\t-S speed \t Simulated speed in m/s for simulated nav data\n"
 
@@ -975,6 +976,7 @@ int main(int argc,char *argv[])
     double ts_pos_lookahead = POS_PREFETCH_SEC;      //The lookahead defines how many sec of data pos should be ahead of other sources when reading in data. We want to be a bit in the future to be able to interpolate. With 1 sec lookahead, and 128 point buffer, we have data for about +/- 1 sec at 50Hz
 	double ts_sensor = 0;
 	double ts_min = 0;
+    float additional_roll_offset = 0.0;
 	/*Default CSV format*/ 
 	output_format[0] = x; output_format[1] = y; output_format[2] = z; output_format[3] = val; output_format[4] = none;
     
@@ -993,7 +995,7 @@ int main(int argc,char *argv[])
     lakibeam_set_sensor_offset(&sensor_offset);
 
 	/**** PARSING COMMAND LINE OPTIONS ****/
-        while ((c = getopt (argc, argv, "c:i:s:p:P:S:F:w:y:o:?hVxC75")) != -1) {
+        while ((c = getopt (argc, argv, "c:i:s:p:P:r:S:F:w:y:o:?hVxC75")) != -1) {
 		switch (c) {
 			case 'c':
 				if(read_config_from_file(optarg)){
@@ -1014,6 +1016,14 @@ int main(int argc,char *argv[])
 				pos_mode = atoi(optarg);
                 pos_mode = LIMIT(pos_mode,0,10);
 				break;
+			case 'r':
+                char *endptr;
+                additional_roll_offset = strtod(optarg, &endptr);
+                if (*endptr != '\0') {
+                    fprintf(stderr, "Invalid floating point value when reading in roll offset: %s\n", optarg);
+                    return -1;
+                }
+                break;
 			case 'S':
 				sensor_mode = atoi(optarg);
                 sensor_mode = LIMIT(sensor_mode,0,10);
@@ -1057,6 +1067,8 @@ int main(int argc,char *argv[])
 				return(0);
 		}
 	}
+    //Add the additional roll offset from the input arguments
+    sensor_offset.roll += additional_roll_offset*M_PI/180;
 
 	if (sv_file_name){
         int ret = 0;
