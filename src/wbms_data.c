@@ -173,7 +173,7 @@ int wbms_fetch_next_packet(char * data, int fd){
 int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* version){
     static int rcnt=0;
 	packet_header_t* wbms_packet_header;
-	snippet_data_packet_t* wbms_snippet_packet;
+	snippet_data_packet_v8_t* wbms_snippet_packet;
 	bath_data_packet_t* wbms_bath_packet;
     sbp_data_packet_t* wbms_sbp_packet;
     #ifdef FAKE_SBP_TIMESTAMP
@@ -228,7 +228,7 @@ int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* ve
 			if(verbose>2) fprintf(stderr,"Received WBMS watercol data, Discarding!\n");
 			return 0;
 		case PACKET_TYPE_SNIPPET_DATA: 
-			wbms_snippet_packet = (snippet_data_packet_t*) databuffer;
+			wbms_snippet_packet = (snippet_data_packet_v8_t*) databuffer;
             if (version){
                 *version = wbms_snippet_packet->header.version;
             }
@@ -898,14 +898,27 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 }
 
 
-uint32_t wbms_count_snippet_data(  snippet_data_packet_t* snippet_in,double *ts){
+uint32_t wbms_count_snippet_data(  snippet_data_packet_v8_t* snippet_in,double *ts){
     *ts = snippet_in->sub_header.time;
     
     count_stats_reg_freq_bw(snippet_in->sub_header.tx_freq, snippet_in->sub_header.tx_bw);
     return  snippet_in->sub_header.N;
 }
     
-uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
+uint32_t wbms_georef_snippet_data( snippet_data_packet_v8_t* snippet_in_v8, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version){
+    uint32_t bath_version =  snippet_in_v8->header.version;
+    static int first_run=1;
+    if (force_bath_version>0){
+        bath_version =  force_bath_version;
+    }
+    if (first_run){
+        fprintf(stderr, "snippet_version = %d\n",bath_version);
+        first_run = 0;
+    }
+
+    snippet_data_packet_v7_t* snippet_in_v7 = (snippet_data_packet_v7_t*) snippet_in_v8;
+
+
     double* x = &(outbuf->x[0]);
     double* y = &(outbuf->y[0]);
     double* z = &(outbuf->z[0]);
@@ -937,6 +950,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     float ping_rate;
     float c;
     uint16_t Nin;
+    uint16_t Min;
     uint32_t ping_number;
     uint16_t multiping_index;
     uint16_t multifreq_index;
@@ -952,23 +966,61 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     float tx_bw;
     float tx_plen;
     float tx_voltage;
+    float vga_t0;
+    float vga_g0;
+    float vga_t1;
+    float vga_g1;
+    double time;
 
 
-    tx_freq = snippet_in->sub_header.tx_freq;
-    tx_bw = snippet_in->sub_header.tx_bw;
-    tx_plen = snippet_in->sub_header.tx_len;
-    tx_angle = snippet_in->sub_header.tx_angle;
-    tx_voltage = snippet_in->sub_header.tx_voltage;
+    if (bath_version==7){
+        time = snippet_in_v7->sub_header.time;
+        tx_freq = snippet_in_v7->sub_header.tx_freq;
+        tx_bw = snippet_in_v7->sub_header.tx_bw;
+        tx_plen = snippet_in_v7->sub_header.tx_len;
+        tx_angle = snippet_in_v7->sub_header.tx_angle;
+        tx_voltage = snippet_in_v7->sub_header.tx_voltage;
+        Fs = snippet_in_v7->sub_header.sample_rate;
+        gain_scaling = 1./snippet_in_v7->sub_header.gain;
+        outbuf->gain = snippet_in_v7->sub_header.gain;
+        vga_t0 = (float) snippet_in_v7->sub_header.vga_t0;
+        vga_g0 = snippet_in_v7->sub_header.vga_g0;
+        vga_t1 = (float) snippet_in_v7->sub_header.vga_t1;
+        vga_g1 = snippet_in_v7->sub_header.vga_g1;
+        c = snippet_in_v7->sub_header.snd_velocity+sensor_params->sv_offset;
+        Nin = snippet_in_v7->sub_header.N;  
+        Min = snippet_in_v7->sub_header.M;  
+        multifreq_index =snippet_in_v7->sub_header.multifreq_band_index;
+        ping_number =  snippet_in_v7->sub_header.ping_number;
+        multiping_index =  snippet_in_v7->sub_header.multiping_scan_index;
+        ping_rate =  snippet_in_v7->sub_header.ping_rate;
+    }
+    else{
+        time = snippet_in_v8->sub_header.time;
+        tx_freq = snippet_in_v8->sub_header.tx_freq;
+        tx_bw = snippet_in_v8->sub_header.tx_bw;
+        tx_plen = snippet_in_v8->sub_header.tx_len;
+        tx_angle = snippet_in_v8->sub_header.tx_angle;
+        tx_voltage = snippet_in_v8->sub_header.tx_voltage;
+        Fs = snippet_in_v8->sub_header.sample_rate;
+        gain_scaling = 1./snippet_in_v8->sub_header.gain;
+        outbuf->gain = snippet_in_v8->sub_header.gain;
+        vga_t0 = (float) snippet_in_v8->sub_header.vga_t0;
+        vga_g0 = snippet_in_v8->sub_header.vga_g0;
+        vga_t1 = (float) snippet_in_v8->sub_header.vga_t1;
+        vga_g1 = snippet_in_v8->sub_header.vga_g1;
+        c = snippet_in_v8->sub_header.snd_velocity+sensor_params->sv_offset;
+        Nin = snippet_in_v8->sub_header.N;  
+        Min = snippet_in_v8->sub_header.M;  
+        multifreq_index =snippet_in_v8->sub_header.multifreq_band_index;
+        ping_number =  snippet_in_v8->sub_header.ping_number;
+        multiping_index =  snippet_in_v8->sub_header.multiping_scan_index;
+        ping_rate =  snippet_in_v8->sub_header.ping_rate;
+    }
+
+
     tx_voltage = (tx_voltage==0)?100:tx_voltage;        //Default tx voltage to 100V if reported as 0
-    Fs = snippet_in->sub_header.sample_rate;
-    gain_scaling = 1./snippet_in->sub_header.gain;
-    outbuf->gain = snippet_in->sub_header.gain;
     float attenuation = calc_attenuation(tx_freq, sensor_params);
-
-    float vga_t0 = (float) snippet_in->sub_header.vga_t0;
-    float vga_g0 = snippet_in->sub_header.vga_g0;
-    float vga_t1 = (float) snippet_in->sub_header.vga_t1;
-    float vga_g1 = snippet_in->sub_header.vga_g1;
     float vga_dgdt = (vga_g1-vga_g0)/(vga_t1-vga_t0);
     
     float eff_plen = MIN(tx_plen, 2./tx_bw);
@@ -983,7 +1035,6 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
 
 
 
-    c = snippet_in->sub_header.snd_velocity+sensor_params->sv_offset;
     if (sensor_params->force_sv > 0){
         c = sensor_params->force_sv;
     }
@@ -991,11 +1042,6 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
         fprintf(stderr, "NaN sound velocity encountered in data");
     }
 
-    Nin = snippet_in->sub_header.N;  //TODO first we try to just generate one sounding per snippet
-    multifreq_index =snippet_in->sub_header.multifreq_band_index;
-    ping_number =  snippet_in->sub_header.ping_number;
-    multiping_index =  snippet_in->sub_header.multiping_scan_index;
-    ping_rate =  snippet_in->sub_header.ping_rate;
 
     *sv_out = c; 
 
@@ -1012,7 +1058,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     float c_div_2Fs = c/(2*Fs);
     /*
         fprintf(stderr, "Snippet data packet: header.size=%6d, sizeof(headers)=%6ld  \n",
-                snippet_in->header.size,
+                snippet_in_v8->header.size,
                 SIZEOF_WATERCOL_PACKET_V8_HEADER
                );
         fprintf(stderr,"ping_number=%9d, multiping= %d tx_angle=%5.1f multifreq_index=%d\n", ping_number, multiping_index,tx_angle*180/M_PI, multifreq_index);
@@ -1036,11 +1082,11 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     //To calculate angle-of insidence, we must sort beams on angle (Strictly only neccessary for ISS data)
     //Sort bath->dp[n] based on bath->dp[n].angle for n in 0-Nin
 
-    if (calc_interpolated_nav_data( posdata, pos_ix, snippet_in->sub_header.time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
-        if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",snippet_in->sub_header.time+sensor_offset->time_offset);
+    if (calc_interpolated_nav_data( posdata, pos_ix, time+sensor_offset->time_offset,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt)){ 
+        if(verbose) fprintf(stderr, "Could not find navigation data for WBMS bathy record at time %f\n",time+sensor_offset->time_offset);
         return 0;
     }
-    calc_interpolated_roll_and_z_vector(posdata, pos_ix, snippet_in->sub_header.time+sensor_offset->time_offset, (1.f/snippet_in->sub_header.ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
+    calc_interpolated_roll_and_z_vector(posdata, pos_ix, time+sensor_offset->time_offset, (1.f/ping_rate), ROLL_VECTOR_RATE, ROLL_VECTOR_LEN, /*output*/ roll_vector, z_vector);
 
     if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
         return 0;
@@ -1053,43 +1099,76 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
 
 
 
-    //Calculate sounding positions in sonar reference frame at tx instant
-    ix_out = 0;
     //printf("Nin=%d\n",Nin);
+    float *snippet_start_ix_float;
+    float *snippet_stop_ix_float;
+    float *snippet_detection_ix_float;
+    uint16_t *snippet_start_ix_int;
+    uint16_t *snippet_detection_ix_int;
+    float *snippet_angle;
+    uint16_t *snippet_intensity;
 
-    float *snippet_start_ix     =  (float*)     (snippet_in->payload+(0*4*Nin));
-    float *snippet_stop_ix      =  (float*)     (snippet_in->payload+(1*4*Nin));
-    float *snippet_detection_ix =  (float*)     (snippet_in->payload+(2*4*Nin));
-    float *snippet_angle        =  (float*)     (snippet_in->payload+(3*4*Nin));
-    //uint32_t *sippet_tbd      =  (float*)     (snippet_in->payload+(4*4*Nin));
-    uint16_t *snippet_intensity =  (uint16_t*)  (snippet_in->payload+(5*4*Nin));
+    if (bath_version==7){
+         snippet_intensity    =        (uint16_t*)  (snippet_in_v7->payload+(0));
+         snippet_angle        =        (float*)     (snippet_in_v7->payload+(Min*Nin*2));
+         snippet_start_ix_int =        (uint16_t*)  (snippet_in_v7->payload+(Min*Nin*2 + Nin*4));
+         snippet_detection_ix_int =    (uint16_t*)  (snippet_in_v7->payload+(Min*Nin*2 + Nin*4 + Nin*2));
+    }
+    else{
+         snippet_start_ix_float     =  (float*)     (snippet_in_v8->payload+(0*4*Nin));
+         snippet_stop_ix_float      =  (float*)     (snippet_in_v8->payload+(1*4*Nin));
+         snippet_detection_ix_float =  (float*)     (snippet_in_v8->payload+(2*4*Nin));
+         snippet_angle         =       (float*)     (snippet_in_v8->payload+(3*4*Nin));
+         snippet_intensity =           (uint16_t*)  (snippet_in_v8->payload+(5*4*Nin));
+    }
 
     //Index location of each snippet data section, This needs to be done on all, undecimated data as it is cumulative
     int32_t snippet_intensity_offset[MAX_DP]; 
     int32_t snippet_length[MAX_DP];
+    int32_t snp_acum_len;                              //Snippet intensity  start index, increments as we progress through all snippets
 
-    int32_t snp_acum_len = 0;                              //Snippet intensity  start index, increments as we progress through all snippets
-    for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
-        int32_t snippet_len = (int32_t) (roundf(snippet_stop_ix[ix_in] - snippet_start_ix[ix_in]))+1;
-        snippet_length[ix_in] = snippet_len;
-        snippet_intensity_offset[ix_in] = snp_acum_len;
-        snp_acum_len += snippet_len;
+    if (bath_version==7){
+        snp_acum_len = Nin*Min;
+        for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
+            snippet_length[ix_in] = Min;
+            snippet_intensity_offset[ix_in] = ix_in*Min;
+        }
+    }
+    else{
+        snp_acum_len = 0;
+        for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
+            int32_t snippet_len = (int32_t) (roundf(snippet_stop_ix_float[ix_in] - snippet_start_ix_float[ix_in]))+1;
+            snippet_length[ix_in] = snippet_len;
+            snippet_intensity_offset[ix_in] = snp_acum_len;
+            snp_acum_len += snippet_len;
+        }
     }
 
     //Test for packet length mismatch
     if(1){
-        uint32_t payload_length = 2*snp_acum_len+Nin*4*5;
-        uint32_t packet_length = payload_length + SIZEOF_WATERCOL_PACKET_V8_HEADER;
-        if (snippet_in->header.size != packet_length){
-            fprintf(stderr,"WARNING: Snippet Packet size mismatch ping_number=%9d, Reported in header = %8d bytes Actual = %8d Diff=%d\n", ping_number, snippet_in->header.size, packet_length, packet_length-snippet_in->header.size);
+        if (bath_version==7){
+            uint32_t payload_length = 2*snp_acum_len+Nin*(4+2+2);
+            uint32_t packet_length = payload_length + SIZEOF_WATERCOL_PACKET_V7_HEADER;
+            if (snippet_in_v7->header.size != packet_length){
+                fprintf(stderr,"WARNING: Snippet Packet v7 size mismatch ping_number=%9d, Reported in header = %8d bytes Actual = %8d Diff=%d\n", ping_number, snippet_in_v7->header.size, packet_length, packet_length-snippet_in_v7->header.size);
+            }
+        }
+        else{
+            uint32_t payload_length = 2*snp_acum_len+Nin*4*5;
+            uint32_t packet_length = payload_length + SIZEOF_WATERCOL_PACKET_V8_HEADER;
+            if (snippet_in_v8->header.size != packet_length){
+                fprintf(stderr,"WARNING: Snippet Packet v8 size mismatch ping_number=%9d, Reported in header = %8d bytes Actual = %8d Diff=%d\n", ping_number, snippet_in_v8->header.size, packet_length, packet_length-snippet_in_v8->header.size);
+            }
         }
     }
 
+    //Calculate sounding positions in sonar reference frame at tx instant
+    ix_out = 0;
 
     for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
         int32_t snippet_len = snippet_length[ix_in];
         if (ix_in%ix_in_stride==0 && snippet_len>1){
-            float sample_number = snippet_detection_ix[ix_in];
+            float sample_number = (bath_version==7)?((float)snippet_detection_ix_int[ix_in]):snippet_detection_ix_float[ix_in];
             float sensor_r   = sample_number*c_div_2Fs;	//Calculate range to each point en meters
             float sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
             float sensor_az  = snippet_angle[ix_in];
@@ -1178,9 +1257,10 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
     //Calculate corrected intensity on  Post-filtered data
 	// Populate r,az,el and t with data from bath data
 	for (ix_out=0;ix_out<Nout;ix_out++){
-        uint16_t ix_in = beam_number[ix_out]; //This is the index used in the original dataset, used to index: snippet_start_ix,snippet_stop_ix,snippet_detection_ix,snippet_angle,snippet_intensity,snippet_intensity_offset,snippet_length
-        float sample_number = snippet_detection_ix[ix_in];
-        int32_t detection_offset = (int32_t)(roundf(sample_number-snippet_start_ix[ix_in])); //Index of detection point in snippet
+        uint16_t ix_in = beam_number[ix_out]; //This is the index used in the original dataset, used to index: snippet_start_ix_float,snippet_stop_ix_float,snippet_detection_ix_float,snippet_angle,snippet_intensity,snippet_intensity_offset,snippet_length
+        float sample_number = (bath_version==7)?((float)snippet_detection_ix_int[ix_in]):snippet_detection_ix_float[ix_in];
+        float start_number = (bath_version==7)?((float)snippet_start_ix_int[ix_in]):snippet_start_ix_float[ix_in];
+        int32_t detection_offset = (int32_t)(roundf(sample_number-start_number)); //Index of detection point in snippet
 
         /*** Calculate intensity from snippet data ***/
         float inten;
@@ -1191,15 +1271,27 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
             case snippet_detection_value:
                 {
                     //Take intensity from detection sample
-                    inten = snippet_intensity[snippet_intensity_offset[ix_in]+detection_offset];       //Pick detection sample from snippet data
+                    if (bath_version==7){
+                        inten = snippet_intensity[ix_in+detection_offset*Nin];                              //Pick detection sample from snippet data
+                    }
+                    else{
+                        inten = snippet_intensity[snippet_intensity_offset[ix_in]+detection_offset];       //Pick detection sample from snippet data
+                    }
                 }
                 inten *= rx_Pa_per_LSB / tx_amp_Pa;
                 break;
             case snippet_max:
                 //Max snippet signal  
                 max_sig = 0;
-                for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
-                    max_sig = MAX(max_sig,snippet_intensity[snippet_intensity_offset[ix_in]+ix]);
+                if (bath_version==7){
+                    for (size_t ix = 0; ix<Min;ix++){
+                        max_sig = MAX(max_sig,snippet_intensity[ix_in+ix*Nin]);
+                    }
+                }
+                else{
+                    for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
+                        max_sig = MAX(max_sig,snippet_intensity[snippet_intensity_offset[ix_in]+ix]);
+                    }
                 }
                 inten = max_sig;
                 inten *= rx_Pa_per_LSB / tx_amp_Pa;
@@ -1207,8 +1299,15 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
             case snippet_mean_pow:
                 //Mean snippet power  (root-mean-square)
                 acum_pow = 0;
-                for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
-                    acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
+                if (bath_version==7){
+                    for (size_t ix = 0; ix<Min;ix++){
+                        acum_pow += powf((float)snippet_intensity[ix_in+ix*Nin],2);
+                    }
+                }
+                else{
+                    for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
+                        acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
+                    }
                 }
                 inten = sqrtf(acum_pow/snippet_length[ix_in]);
                 inten *= rx_Pa_per_LSB / tx_amp_Pa;
@@ -1216,8 +1315,15 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
             default:
             case snippet_sum_pow:
                 acum_pow = 0;
-                for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
-                    acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
+                if (bath_version==7){
+                    for (size_t ix = 0; ix<Min;ix++){
+                        acum_pow += powf((float)snippet_intensity[ix_in+ix*Nin],2);
+                    }
+                }
+                else{
+                    for (size_t ix = 0; ix<snippet_length[ix_in];ix++){
+                        acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
+                    }
                 }
                 acum_energy = acum_pow/Fs;
                 inten = sqrtf(acum_energy/tx_energy_Pa2s);
@@ -1233,8 +1339,16 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                     ix0=MAX(0,ix0);
                     ix1=MIN(ix1,snippet_length[ix_in]);
                     acum_pow = 0;
-                    for (size_t ix = ix0; ix<ix1;ix++){
-                        acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
+                    
+                    if (bath_version==7){
+                        for (size_t ix = ix0; ix<ix1;ix++){
+                            acum_pow += powf((float)snippet_intensity[ix_in+ix*Nin],2);
+                        }
+                    }
+                    else{
+                        for (size_t ix = ix0; ix<ix1;ix++){
+                            acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
+                        }
                     }
                     acum_energy = acum_pow/Fs;
                     inten = sqrtf(acum_energy/tx_energy_Pa2s);
@@ -1252,9 +1366,15 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t 
                     ix0=MAX(0,ix0);
                     ix1=MIN(ix1,snippet_length[ix_in]);
                     acum_pow = 0;
-                    for (size_t ix = ix0; ix<ix1;ix++){
-                        inten = (float)snippet_intensity[snippet_intensity_offset[ix_in]+ix];
-                        acum_pow += powf(inten,2);
+                    if (bath_version==7){
+                        for (size_t ix = ix0; ix<ix1;ix++){
+                            acum_pow += powf((float)snippet_intensity[ix_in+ix*Nin],2);
+                        }
+                    }
+                    else{
+                        for (size_t ix = ix0; ix<ix1;ix++){
+                            acum_pow += powf((float)snippet_intensity[snippet_intensity_offset[ix_in]+ix],2);
+                        }
                     }
                     inten = sqrtf(acum_pow/(ix1-ix0));
                     inten *= rx_Pa_per_LSB / tx_amp_Pa;

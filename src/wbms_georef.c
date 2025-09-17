@@ -1906,7 +1906,7 @@ int main(int argc,char *argv[])
                                             datapoints = wbms_georef_data( (bath_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf, force_bath_version);
                                         }
                                         else if (new_sensor_data == PACKET_TYPE_SNIPPET_DATA){
-                                            datapoints = wbms_georef_snippet_data( (snippet_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf, force_bath_version);
+                                            datapoints = wbms_georef_snippet_data( (snippet_data_packet_v8_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf, force_bath_version);
                                         }
                                         else if (new_sensor_data == PACKET_TYPE_SBP_DATA){
                                             datapoints = wbms_georef_sbp_data( (sbp_data_packet_t*) sensor_data_buffer, navdata, navdata_ix,  &sensor_params, outbuf);

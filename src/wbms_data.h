@@ -13,11 +13,11 @@ int wbms_fetch_next_packet(char * data, int fd);
 int wbms_identify_packet(char* databuffer, uint32_t len, double* ts_out, int* version);
 
 uint32_t wbms_georef_data( bath_data_packet_t* bath, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params, /*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version);
-uint32_t wbms_georef_snippet_data( snippet_data_packet_t* snippet_in, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version);
+uint32_t wbms_georef_snippet_data( snippet_data_packet_v8_t* snippet_in, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf,/*INPUT*/ uint32_t force_bath_version);
 uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NAVDATA_BUFFER_LEN],size_t pos_ix, sensor_params_t* sensor_params,/*OUTPUT*/ output_data_t* outbuf);
 
 uint32_t wbms_count_data( bath_data_packet_t* bath_in, int force_bath_version,double *ts);
-uint32_t wbms_count_snippet_data(  snippet_data_packet_t* snippet_in,double *ts);
+uint32_t wbms_count_snippet_data(  snippet_data_packet_v8_t* snippet_in,double *ts);
 uint32_t wbms_count_sbp_data(  sbp_data_packet_t* sbp_data,double *ts);
 sensor_count_stats_t* wbms_get_count_stats(void);
 

@@ -440,7 +440,7 @@ int main(int argc,char *argv[])
                                 cnt = wbms_count_data( (bath_data_packet_t*) sensor_data_buffer, force_bath_version,&ts_sensor);
                             }
                             else if (new_sensor_data == PACKET_TYPE_SNIPPET_DATA){
-                                cnt = wbms_count_snippet_data( (snippet_data_packet_t*) sensor_data_buffer, &ts_sensor);
+                                cnt = wbms_count_snippet_data( (snippet_data_packet_v8_t*) sensor_data_buffer, &ts_sensor);
                             }
                             else if (new_sensor_data == PACKET_TYPE_SBP_DATA){
                                 cnt = wbms_count_sbp_data( (sbp_data_packet_t*) sensor_data_buffer,&ts_sensor);

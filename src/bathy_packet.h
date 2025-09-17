@@ -473,7 +473,6 @@ typedef struct{
      // Dtype  watercol_data[M][N], 
      // float  watercol_angles[N] 
 }watercol_data_packet_v7t;
-#define SIZEOF_WATERCOL_PACKET_V7_HEADER (sizeof(packet_header_v7_t) + sizeof(backscatter_data_header_v7_t))
 
 typedef struct{
     float       snd_velocity;           /**< Filtered sanitized sound velocity in m/s*/
@@ -536,7 +535,19 @@ typedef struct{
 }watercol_data_packet_v8_t;
 
 
-/* TODO so far we have only implemented for version 8*/
+/* TODO so far we have only implemented for version 7 and 8*/
+/** SNIPPET PACKET, including common header, sub-header and payload */
+typedef struct{
+    packet_header_t                 header;                             /**< Common packet header */
+    backscatter_data_header_v7_t    sub_header;                         /**< Packet type sub-header, Snippet uses same sub header as watercoloumn*/
+    uint8_t                         payload[SNIPPET_MAX_PAYLOAD_SIZE];  /**< Snippet payload section. 2D intensity data, 1D angle array, 1D start index array, 1D detection index array*/
+        // Dtype        snippet_data[M][N]
+        // float        watercol_angles[N]
+        // uint16_t     snippet_start_sample[N]
+        // uint16_t     detection_sample[N]
+}snippet_data_packet_v7_t;
+#define SIZEOF_WATERCOL_PACKET_V7_HEADER (sizeof(packet_header_t) + sizeof(backscatter_data_header_v7_t))
+
 typedef struct{
     packet_header_t                 header;                             /**< Common packet header */
     backscatter_data_header_v8_t          sub_header;                         /**< Packet type sub-header*/
@@ -553,8 +564,7 @@ typedef struct{
             v for each snippet is snippet_stop - snippet_start
 
         */
-}snippet_data_packet_t;
-
+}snippet_data_packet_v8_t;
 #define SIZEOF_WATERCOL_PACKET_V8_HEADER (sizeof(packet_header_t) + sizeof(backscatter_data_header_v8_t))
 
 
