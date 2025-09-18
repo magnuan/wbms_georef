@@ -1285,12 +1285,15 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                     case snippet_10dB_footprint_sum_pow:
                         {
                             // Crop snippet to maximum the 10dB time domain footprint (Assuming a bell shaped responce, 10dB is 1.82x 3dB)
+                            // Crop snippet to maximum the 20dB time domain footprint (Assuming a bell shaped responce, 20dB is 2.60x 3dB)
                             int32_t snippet_10dB_length=roundf(1.82f*outbuf->footprint_time[ix_bath]*Fs);
                             snippet_10dB_length=MAX(snippet_10dB_length,1);
+                    
                             int32_t ix0 = detection_offset-snippet_10dB_length/2;
+                            ix0=LIMIT(ix0,0,len);
                             int32_t ix1 = ix0+snippet_10dB_length;
-                            ix0=MAX(0,ix0);
-                            ix1=MIN(ix1,len);
+                            ix1=LIMIT(ix1,ix0,len);
+                    
                             acum_pow = 0;
                             
                             if(sample_size==4){
@@ -1324,9 +1327,10 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                             int32_t snippet_3dB_length=roundf(outbuf->footprint_time[ix_bath]*Fs);
                             snippet_3dB_length=MAX(snippet_3dB_length,1);
                             int32_t ix0 = detection_offset-snippet_3dB_length/2;
+                            ix0=LIMIT(ix0,0,len);
                             int32_t ix1 = ix0+snippet_3dB_length;
-                            ix0=MAX(0,ix0);
-                            ix1=MIN(ix1,len);
+                            ix1=LIMIT(ix1,ix0,len);
+                            
                             acum_pow = 0;
 
 

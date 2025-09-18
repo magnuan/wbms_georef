@@ -1332,12 +1332,13 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_v8_t* snippet_in_v8, navd
             case snippet_10dB_footprint_sum_pow:
                 {
                     // Crop snippet to maximum the 10dB time domain footprint (Assuming a bell shaped responce, 10dB is 1.82x 3dB)
+                    // Crop snippet to maximum the 20dB time domain footprint (Assuming a bell shaped responce, 20dB is 2.60x 3dB)
                     int32_t snippet_10dB_length=roundf(1.82f*footprint_time[ix_out]*Fs);
                     snippet_10dB_length=MAX(snippet_10dB_length,1);
                     int32_t ix0 = detection_offset-snippet_10dB_length/2;
+                    ix0=LIMIT(ix0,0,snippet_length[ix_in]);
                     int32_t ix1 = ix0+snippet_10dB_length;
-                    ix0=MAX(0,ix0);
-                    ix1=MIN(ix1,snippet_length[ix_in]);
+                    ix1=LIMIT(ix1,ix0,snippet_length[ix_in]);
                     acum_pow = 0;
                     
                     if (bath_version==7){
@@ -1362,9 +1363,9 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_v8_t* snippet_in_v8, navd
                     int32_t snippet_3dB_length=roundf(footprint_time[ix_out]*Fs);
                     snippet_3dB_length=MAX(snippet_3dB_length,1);
                     int32_t ix0 = detection_offset-snippet_3dB_length/2;
+                    ix0=LIMIT(ix0,0,snippet_length[ix_in]);
                     int32_t ix1 = ix0+snippet_3dB_length;
-                    ix0=MAX(0,ix0);
-                    ix1=MIN(ix1,snippet_length[ix_in]);
+                    ix1=LIMIT(ix1,ix0,snippet_length[ix_in]);
                     acum_pow = 0;
                     if (bath_version==7){
                         for (size_t ix = ix0; ix<ix1;ix++){
