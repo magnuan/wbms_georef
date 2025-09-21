@@ -127,8 +127,9 @@ int main(int argc,char *argv[])
 
 
     double ts_svp;
+    double lat_svp, lon_svp;
     size_t svp_datapoints;
-    svp_mode_e svp_mode = svp_test_file(input_file_string, &ts_svp, &svp_datapoints);
+    svp_mode_e svp_mode = svp_test_file(input_file_string, &ts_svp, &lat_svp, &lon_svp,&svp_datapoints);
 	
     #if 1 //Additional Check for data sanity
     sv_meas_t* sv_meas = malloc(MAX_SV_MEAS*sizeof(sv_meas_t));
@@ -158,7 +159,12 @@ int main(int argc,char *argv[])
         file_stats->has_svp = 1;
         file_stats->datapoints = svp_datapoints;
         file_stats->datasets = 1;
-
+        if (lat_svp || lon_svp){
+            //file_stats->has_navigation = 1;
+            //file_stats->navigation_points = 1;
+            file_stats->latitude = lat_svp;     
+            file_stats->longitude = lon_svp;    
+        }
         file_stats->start_time = ts_svp;
         file_stats->duration = 0;
 

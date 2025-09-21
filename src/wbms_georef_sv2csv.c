@@ -74,8 +74,9 @@ int main(int argc,char *argv[])
 
 
     double ts_svp;
+    double lat_svp, lon_svp;
     size_t svp_datapoints;
-    svp_mode_e svp_mode = svp_test_file(input_file_string, &ts_svp, &svp_datapoints);
+    svp_mode_e svp_mode = svp_test_file(input_file_string, &ts_svp, &lat_svp, &lon_svp,&svp_datapoints);
     if (svp_mode==0) return -1;
     if (svp_datapoints==0) return -1;
 	
