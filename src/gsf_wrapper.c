@@ -194,12 +194,21 @@ int gsf_process_nav_packet(char* databuffer, uint32_t len, double* ts_out, doubl
     navdata->ts = *ts_out;
     navdata->lon = nav_records->mb_ping.longitude*M_PI/180.;
     navdata->lat = nav_records->mb_ping.latitude*M_PI/180.;
-    navdata->alt = nav_records->mb_ping.height;
+    navdata->alt = nav_records->mb_ping.height;             //TODO why is this reported to 9999.99m ?
     navdata->heave = nav_records->mb_ping.heave;
     navdata->roll = nav_records->mb_ping.roll*M_PI/180.;
     navdata->pitch = nav_records->mb_ping.pitch*M_PI/180.;
     navdata->yaw = nav_records->mb_ping.heading*M_PI/180.;
     aux_navdata->geoid_separation = nav_records->mb_ping.sep;
+
+    if (navdata->alt == GSF_NULL_HEIGHT){
+        static uint8_t x=0;
+        if (x==0){ 
+            fprintf(stderr,"!! WARNING !! NULL HEIGHT in GSF, altitude set to 0m\n");
+            x+=1;
+        }
+        navdata->alt=0;
+    }
     //fprintf(stderr, "gsf_process_nav_packet ts=%lf  Lat=%f Lon=%f Height=%f Yaw=%f Pitch=%f Roll=%f Heave=%f\n",
     //        *ts_out,navdata->lat*180/M_PI, navdata->lon*180/M_PI, navdata->alt, navdata->yaw*180/M_PI, navdata->pitch*180/M_PI, navdata->roll*180/M_PI, navdata->heave );
 
