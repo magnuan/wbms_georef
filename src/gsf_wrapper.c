@@ -309,7 +309,7 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
     
     static uint32_t pingcounter=0;
     
-    if (pingcounter++<1){
+    if (pingcounter<1){
         fprintf(stderr,"Sonar type %s  id=%d \n", gsfGetSonarTextName(&(sensor_records->mb_ping)), sensor_records->mb_ping.sensor_id );
 
     }
@@ -350,6 +350,7 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
     }
     //fprintf(stderr, "Sector = %d of %d\n", sector, num_sectors);
     if (sector >= num_sectors) return -1;   //Indicate that there is no more sectors in this dataset
+    pingcounter++;
 
     prev_ts = ts;
     prev_ping_number = ping_number;
