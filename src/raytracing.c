@@ -18,7 +18,7 @@ typedef SSIZE_T ssize_t;
 #endif
 
 #define INTERPOL_COR_TABLE
-#define PYTHON_PRINTOUT
+//#define PYTHON_PRINTOUT
 
 // Sometimes the SV cast might not contain data deep enough to cover the entire depth of the data.
 // The workaround is to just extrapolate the sv profile to the maximum depth of the data 
@@ -40,10 +40,23 @@ int get_ray_bend_invalid(void){
     return ray_bend_invalid;
 }
 
+#if 0
+#define FLOATTYPE float
+#define SQRT sqrtf
+#define FABS fabsf
+#define LOG  logf
+#define ATAN2 atan2f
+#else
+#define FLOATTYPE double
+#define SQRT sqrt
+#define FABS fabs
+#define LOG  log
+#define ATAN2 atan2
+#endif
 
-static int calc_dr_dt_rev_hovem(double xi,double c0,double c1,double dz,float* dr, float* dt){
-	double si0,si1;
-    double g,a,b,h;
+static int calc_dr_dt_rev_hovem(FLOATTYPE xi,FLOATTYPE c0,FLOATTYPE c1,FLOATTYPE dz,float* dr, float* dt){
+	FLOATTYPE si0,si1;
+    FLOATTYPE g,a,b,h;
 
 	if(xi==0) return 1;					// Zero ray parameter case,initial beam horizontal, soundings with this, should be scrapped
 	si0 = (1- (xi*xi*c0*c0 )); 				// = (1-cos2(teta0)) = sin2(teta0)  +: beam goes vertically down through the layer, 0: beam goes parallell with layer, -: beam can not exist in layer
@@ -57,33 +70,32 @@ static int calc_dr_dt_rev_hovem(double xi,double c0,double c1,double dz,float* d
 		b=sqrtf(1-(a*a));	//sin(teta)
 		h = dz / (b/a);	
 		*dr = h;			//dr = dz/tan(teta)
-		*dt = (double)(sqrt( dz*dz + h*h))/c0;
+		*dt = (FLOATTYPE)(SQRT( dz*dz + h*h))/c0;
 		return 0;
 	}
 	//Since we now have checked out cases where si0 or si1 is zero or negative, we can do this, to get sin(teta0) and sin(teta1), sin of beam angle entering and exiting layer
-	si0 = sqrt(si0);
-	si1 = sqrt(si1);
+	si0 = SQRT(si0);
+	si1 = SQRT(si1);
 	//Here is the calulation of dr for a beam passing through the layer, assumning a constant radius curve
-	*dr = (double)(si0 - si1) / (xi*g);
+	*dr = (FLOATTYPE)(si0 - si1) / (xi*g);
 	//Here is the calulation of dt for a beam passing through the layer, assumning a constant radius curve
-	*dt = (double)fabs(log((double)(c1/c0)* ((1+si0)/(1+si1))) / (double)g);
+	*dt = (FLOATTYPE)FABS(LOG((FLOATTYPE)(c1/c0)* ((1+si0)/(1+si1))) / (FLOATTYPE)g);
 	return 0;
 }
 
-
+//TODO set MINIMUM_C,NC,DC based on SV values actually in source file
+//TODO set NZ and DZ  based on max depth in source file
 //Resolution and length of depth axis of correction table
-// TODO dynamically calculate DZ based on sv table range
-//#define DZ 0.25f				
 static float DZ = 0.25f;
-#define NZ 400
+#define NZ 512
 //Resolution and length of start-angle axis of correction table
 // angle is 0 defined deg for horizontal and 90 deg for nadir
 //#define DANGLE (1.*M_PI/180)
-#define NANGLE 180
+#define NANGLE 128
 #define DANGLE (0.5f*M_PI/NANGLE)
 //Resolution, length and starting point of start-sound-velocity axis of correction table
 #define DC 2.0f
-#define NC 90
+#define NC 128
 #define MINIMUM_C 1400.f
 
 /*Calculate horizontal distance and propagation time for: 
@@ -144,7 +156,7 @@ static void dilate_invalid_table_for_interpolation(void){
 
 }
 
-int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8_t generate_lut){
+int generate_ray_bending_table_from_sv_file(const char* fname,float sonar_depth, uint8_t generate_lut,float c_min, float c_max){
 	sv_meas_t* sv_meas;
 	sv_meas_t* sv_meas_filtered;
 	float depth,sv,ddepth,dsv;
@@ -205,7 +217,7 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
 		max_depth = max_depth > sv_meas[ii].depth ? max_depth:sv_meas[ii].depth;
 	}
 	fprintf(stderr, "Max depth in SV profile file = %f\n", max_depth);
-    DZ = 1.5*max_depth/NZ; // Extrapolating SV profile to 150% of measured data
+    DZ = max_depth/NZ; 
 
 
 	fprintf(stderr, "Resample sv readings to sv table 0 - %fm dz=%f\n", NZ*DZ,DZ);
@@ -247,9 +259,9 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
         //Index of initial sound velocity, initial angle and true depth in table
         int cix, aix, zix ; 
         //Value of initial/observed sound velocity and angle in table
-        double c,a_obs;
+        FLOATTYPE c,a_obs;
         //Value of ray parameter
-        double xi;
+        FLOATTYPE xi;
         //dr (horizontal distance) per depth layer 
         float dr[NZ];
         //dt (propagation time) per depth layer 
@@ -257,10 +269,25 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
         //Mark if respective dr and/or dt is invalid
         int	invalid[NZ];
 
+        //Default values if set to 0
+        c_min = c_min? c_min - DC: MINIMUM_C ;
+        c_max = c_max? c_max + DC: (MINIMUM_C + (NC*DC)) ;
+        
+        //Start by setting all invalid
         for(cix = 0;cix<NC;cix++){
-            c = MINIMUM_C+ (double)cix*DC;
             for(aix = 0;aix<NANGLE;aix++){
-                a_obs = (double)aix*DANGLE;
+                for(zix = 1;zix<NZ;zix++){    
+                    corr_invalid[cix][aix][zix] = 1;
+                }
+            }
+        }
+
+        for(cix = 0;cix<NC;cix++){
+            c = MINIMUM_C+ (FLOATTYPE)cix*DC;
+            if ((c < c_min) || (c > c_max)) continue;  // Skip for c-values outside the defined range
+
+            for(aix = 0;aix<NANGLE;aix++){
+                a_obs = (FLOATTYPE)aix*DANGLE;
                 xi = cos(a_obs)/c;				//Ray parameter for beam, based on initial pointing angle and sound velocity
                 //First we calculate dr and dt for every z-layer for given beam
                 for(zix = 0;zix<(NZ-1);zix++)
@@ -270,23 +297,23 @@ int generate_ray_bending_table_from_sv_file(char* fname,float sonar_depth, uint8
                 corr_range[cix][aix][0] = 0;
                 corr_angle[cix][aix][0] = 0;
                 // r_true (true horizontal distance for a sounding, bouncing of at true depth given by index
-                double r_true = 0;
+                FLOATTYPE r_true = 0;
                 // t_obs (observed time delay for a sounding, bouncing of at true depth given by index 
-                double t_obs = 0;
+                FLOATTYPE t_obs = 0;
                 int prev_zobs_ix = 0;
                 for(zix = 1;zix<NZ;zix++){      //Iterate over true depth 
                     //Accumulate dr to get true horizontal range
                     r_true += dr[zix-1];
                     //Accumulate dt to get observed one way travel time
                     t_obs += dt[zix-1];
-                    double z_true = zix*DZ;
+                    FLOATTYPE z_true = zix*DZ;
                     // d_true, a_true (true distance and angle for a sounding, bouncing of at true depth given by index
-                    double d_true = sqrt(r_true*r_true + z_true*z_true);
-                    double a_true = atan2(z_true,r_true);
+                    FLOATTYPE d_true = SQRT(r_true*r_true + z_true*z_true);
+                    FLOATTYPE a_true = ATAN2(z_true,r_true);
                     // d_obs, observed distance to sounding, based on observed sound velocity, and observed travel time
-                    double d_obs = c * t_obs;
+                    FLOATTYPE d_obs = c * t_obs;
                     // z_obs, obseved depth of sounding
-                    double z_obs = d_obs*sin(a_obs);
+                    FLOATTYPE z_obs = d_obs*sin(a_obs);
                     //zix, is index of true z value, while what we are going to do lookup with, is observed z value. So we need reindex 
                     int zobs_ix = (int) round(z_obs/DZ);
                     zobs_ix = LIMIT(zobs_ix,0,NZ-1);
@@ -501,9 +528,10 @@ void apply_ray_bending(float* X,float* Y,float* Z,int N, float c){
 		y = Y[n];
 		z = Z[n];
 		
-		r = sqrt(x*x+y*y);					//Calculate observed horizontal distance
-		d = sqrt(x*x+y*y+z*z);				//Calculate observed total distance
-		a = atan2(z,r);						//Calculate observed beam angle (relative to horizontal)
+		float r2 = (x*x+y*y);			    //Calculate observed horizontal distance
+        r = sqrtf(r2);
+		d = sqrtf(r2+z*z);				    //Calculate observed total distance
+		a = atan2f(z,r);				    //Calculate observed beam angle (relative to horizontal)
 		aix = roundf(a/DANGLE); 		    //Index along angle axis in correction table
 		zix = roundf(z/DZ);				    //Index	along depth axis in correction table
 		
@@ -552,8 +580,9 @@ void apply_ray_bending(float* X,float* Y,float* Z,int N, float c){
 		y = Y[n];
 		z = Z[n];
 		
-		r = sqrtf(x*x+y*y);					//Calculate observed horizontal distance
-		d = sqrtf(x*x+y*y+z*z);				//Calculate observed total distance
+		float r2 = (x*x+y*y);			    //Calculate observed horizontal distance
+        r = sqrtf(r2);
+		d = sqrtf(r2+z*z);				    //Calculate observed total distance
 		a = atan2f(z,r);						//Calculate observed beam angle (relative to horizontal)
 	
 		faix1 = a/DANGLE; 	

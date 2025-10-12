@@ -1070,28 +1070,6 @@ int main(int argc,char *argv[])
     //Add the additional roll offset from the input arguments
     sensor_offset.roll += additional_roll_offset*M_PI/180;
 
-	if (sv_file_name){
-        int ret = 0;
-        switch(sensor_params.ray_tracing_mode){
-            case ray_trace_fixed_depth_lut: //Fixed depth LUT
-                ret = generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 1); //In LUT mode, we asume that the sonar draft is fixed, and generate the table with respect to this
-                break;
-            case ray_trace_fixed_depth_direct: //Fixed depth, direct
-                ret = generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 0); //In direct raytracing, wixed depth, we generate the table with respect to sonar
-                break;
-            case ray_trace_var_depth: //Variable depth, direct
-                ret= generate_ray_bending_table_from_sv_file(sv_file_name, 0., 0); //In direct raytracing, we generate the table with respect to water surface, and input sonar position wrt. this when doing raytracing
-                break;
-            case ray_trace_none:
-                break;
-        }
-        if (ret<0){
-            exit(-1);
-        }
-    }
-    else{
-        sensor_params.ray_tracing_mode=ray_trace_none;
-    }
 	
     if (angle_intensity_file_name){
         if (read_intensity_angle_corr_from_file(angle_intensity_file_name,INTENSITY_ANGLE_STEP,INTENSITY_ANGLE_MAX_VALUES, /*output*/ intenity_angle_corr_table)>0){
@@ -1398,6 +1376,7 @@ int main(int argc,char *argv[])
 			}
 		}
 	}
+    
 	
 	/**** Choosing and initiating output drain ****/
 	if (strcmp(output_string,"-")==0){
@@ -1555,6 +1534,42 @@ int main(int argc,char *argv[])
             case o_tcp:     set_r7k_output_parameters(0, 1, 0); break;          //Output to tcp, S7K should be marked as live data, with network frame, no packet size limit
             case o_udp:     set_r7k_output_parameters(0, 1, 65536); break;      //Output to file, S7K should be marked as live data, with network frame, 64k packet size limit
         }
+    }
+	
+
+    if (sv_file_name){
+        int ret = 0;
+        float min_sv = 0.; //0,0 means default range
+        float max_sv = 0.;
+        switch(sensor_params.ray_tracing_mode){
+            case ray_trace_fixed_depth_lut: //Fixed depth LUT
+                if (input_sensor_source == i_file){
+                    sensor_get_sv_range(input_sensor_fd,sensor_mode, &min_sv, &max_sv);
+                    // Rewind file after reading out sv
+                    if (sensor_mode == sensor_mode_gsf){
+                        gsf_rewind(fileno(input_sensor_fileptr)); 
+                    }
+                    else{
+                        fseek(input_sensor_fileptr, 0, SEEK_SET); //Rewind
+                    }
+                }
+                ret = generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 1,min_sv, max_sv); //In LUT mode, we asume that the sonar draft is fixed, and generate the table with respect to this
+                break;
+            case ray_trace_fixed_depth_direct: //Fixed depth, direct
+                ret = generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 0,0,0); //In direct raytracing, wixed depth, we generate the table with respect to sonar
+                break;
+            case ray_trace_var_depth: //Variable depth, direct
+                ret= generate_ray_bending_table_from_sv_file(sv_file_name, 0., 0,0,0); //In direct raytracing, we generate the table with respect to water surface, and input sonar position wrt. this when doing raytracing
+                break;
+            case ray_trace_none:
+                break;
+        }
+        if (ret<0){
+            exit(-1);
+        }
+    }
+    else{
+        sensor_params.ray_tracing_mode=ray_trace_none;
     }
 
     //Fetch and process a few pos datasets to guess correct UTM zone and finding offset values for Northing and Easting

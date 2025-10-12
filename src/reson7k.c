@@ -108,6 +108,46 @@ void r7k_set_sensor_offset(offset_t* s){
     sensor_offset = s;
 }
 
+void r7k_get_sv_range(int fd, float* min_sv, float *max_sv){
+    char* data = malloc(MAX_S7K_PACKET_SIZE);
+    if (data==NULL) return ;
+
+    float max = 0.;
+    float min = 10000.;
+    float val;
+    int cnt=0;
+    while (1) {
+        if (r7k_fetch_next_packet(data, fd) ==0) break;
+	    
+        r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) data;
+	    union r7k_RecordTypeHeader rth;
+	    rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (data+4+(drf->offset));
+        
+        if (drf->record_id == 7000){
+            val = rth.r7000->sound_velocity;
+            cnt++;
+        }
+        else if (drf->record_id == 7006){
+            val = rth.r7006->sound_velocity;
+            cnt++;
+        }
+        else if (drf->record_id == 10018){
+            val = rth.r10018->sound_velocity;
+            cnt++;
+        }
+        else{
+            continue;
+        }
+        max = MAX(max,val);
+        min = MIN(min,val);
+    }
+    if (cnt){
+        fprintf(stderr, "S7K sv range = %.2f to %.2f m/s (%d pings)\n",min,max,cnt);
+        *max_sv = max;
+        *min_sv = min;
+    }
+    free(data);
+}
 
 uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types){
     uint8_t pass=0;

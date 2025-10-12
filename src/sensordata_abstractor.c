@@ -76,6 +76,33 @@ char *sensor_mode_short_names[] = {
     "unknown"
 };
 
+void sensor_get_sv_range(int fd, sensor_mode_e mode, float* min_sv, float* max_sv){
+    *min_sv = 0.;
+    *max_sv = 0.;
+    switch (mode){
+        case  sensor_mode_wbms: case sensor_mode_wbms_v5:
+            break;
+        case  sensor_mode_sim:
+            break;
+        case sensor_mode_lakibeam:
+            break;
+        case sensor_mode_velodyne:
+            break;
+        case sensor_mode_s7k:	
+            r7k_get_sv_range(fd, min_sv, max_sv);
+            break;
+        case sensor_mode_gsf:	
+            break;
+        case sensor_mode_3dss_stream:	
+            break;
+        default:
+        case sensor_mode_autodetect: //TODO fix this
+        case sensor_mode_unknown:
+            break;
+    }
+    return;
+}
+
 uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version){
     if(version){
         *version = -1;
