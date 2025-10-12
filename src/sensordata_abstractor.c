@@ -81,12 +81,7 @@ void sensor_get_sv_range(int fd, sensor_mode_e mode, float* min_sv, float* max_s
     *max_sv = 0.;
     switch (mode){
         case  sensor_mode_wbms: case sensor_mode_wbms_v5:
-            break;
-        case  sensor_mode_sim:
-            break;
-        case sensor_mode_lakibeam:
-            break;
-        case sensor_mode_velodyne:
+            wbms_get_sv_range(fd, min_sv, max_sv);
             break;
         case sensor_mode_s7k:	
             r7k_get_sv_range(fd, min_sv, max_sv);
@@ -96,8 +91,13 @@ void sensor_get_sv_range(int fd, sensor_mode_e mode, float* min_sv, float* max_s
         case sensor_mode_3dss_stream:	
             break;
         default:
-        case sensor_mode_autodetect: //TODO fix this
+        case sensor_mode_lakibeam:
+        case sensor_mode_velodyne:
+        case sensor_mode_autodetect: 
         case sensor_mode_unknown:
+        case  sensor_mode_sim:
+            *min_sv=1500.;
+            *max_sv=1500.;
             break;
     }
     return;

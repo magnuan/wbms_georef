@@ -48,6 +48,45 @@ void wbms_init(void){
     }
 }
 
+void wbms_get_sv_range(int fd, float* min_sv, float *max_sv){
+    char* data = malloc(MAX_WBMS_PACKET_SIZE);
+    if (data==NULL) return;
+    
+    float max = 0.;
+    float min = 10000.;
+    float val;
+    int cnt=0;
+    while (1) {
+        if (wbms_fetch_next_packet(data, fd) ==0) break;
+	
+        packet_header_t* wbms_packet_header = (packet_header_t*) data;
+
+        if (wbms_packet_header->type ==PACKET_TYPE_BATH_DATA){
+            bath_data_packet_t* wbms_bath_packet = (bath_data_packet_t*) data;
+            val = wbms_bath_packet->sub_header.snd_velocity;
+            cnt++;
+        }
+        else if (wbms_packet_header->type == PACKET_TYPE_SNIPPET_DATA){
+            snippet_data_packet_v8_t* wbms_snippet_packet = (snippet_data_packet_v8_t*) data;
+            val = wbms_snippet_packet->sub_header.snd_velocity;
+            cnt++;
+        }
+        else{
+            continue;
+        }
+
+        if(val>1400 && val<1600){ //Basic data value sanitizing
+            max = MAX(max,val);
+            min = MIN(min,val);
+        }
+    }
+    if (cnt){
+        fprintf(stderr, "WBMS data Sound velocity range = %.2f to %.2f m/s (%d pings)\n",min,max,cnt);
+        *max_sv = max;
+        *min_sv = min;
+    }
+    free(data);
+}
 /* Read some data from file, and verify if it is a valid file type.
    return 1 if file is a valid wbms bathy file
    return 0 if file is not a valid wbms bathy file
