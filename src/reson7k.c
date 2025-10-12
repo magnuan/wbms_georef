@@ -122,7 +122,7 @@ void r7k_get_sv_range(int fd, float* min_sv, float *max_sv){
         r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) data;
 	    union r7k_RecordTypeHeader rth;
 	    rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (data+4+(drf->offset));
-        
+        val=0; 
         if (drf->record_id == 7000){
             val = rth.r7000->sound_velocity;
             cnt++;
@@ -138,11 +138,13 @@ void r7k_get_sv_range(int fd, float* min_sv, float *max_sv){
         else{
             continue;
         }
-        max = MAX(max,val);
-        min = MIN(min,val);
+        if(val>1400 && val<1600){ //Basic data value sanitizing
+            max = MAX(max,val);
+            min = MIN(min,val);
+        }
     }
     if (cnt){
-        fprintf(stderr, "S7K sv range = %.2f to %.2f m/s (%d pings)\n",min,max,cnt);
+        fprintf(stderr, "S7K Sound velocity range = %.2f to %.2f m/s (%d pings)\n",min,max,cnt);
         *max_sv = max;
         *min_sv = min;
     }
