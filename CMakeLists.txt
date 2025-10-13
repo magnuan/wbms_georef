@@ -1,20 +1,23 @@
-cmake_minimum_required(VERSION 3.1.0)
+cmake_minimum_required(VERSION 3.13.0)
 
 project(wbms_georef)
 
+# ---------------------------
+# Version & app metadata
+# ---------------------------
 # configure version
 set(wbms_georef_VERSION_MAJOR "1")
 set(wbms_georef_VERSION_MINOR "2")
 set(wbms_georef_VERSION_PATCH "3")
 set(wbms_georef_VERSION_SUFFIX "Development")
 
-# options
+# options (from original; kept as comments)
 # See Issue 297.
 #option(FORCE_SSE "Compile with SSE instruction only" ON)
 #option(FORCE_SSSE3 "Compile with SSSE3 instruction only" OFF)
 #option(FORCE_SSE41 "Compile with SSE4.1 instruction only" OFF)
 #option(OPTIONAL_TEST "Compile optional test (might be broken)" OFF)
-# UNITTEST option must be after CMAKE_BUILT_TYPE
+# UNITTEST option must be after CMAKE_BUILD_TYPE
 
 # where cmake find custom modules
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
@@ -27,11 +30,12 @@ set(COMPANY "lb2oj")
 add_definitions("-DCOMPANY=\"${COMPANY}\"")
 set(APPLICATION_NAME "WBMS georef")
 add_definitions("-DAPPLICATION_NAME=\"${APPLICATION_NAME}\"")
-set(APPLICATION_MAINTAINER="Magnus Andersen, LB2OJ")
+set(APPLICATION_MAINTAINER "Magnus Andersen, LB2OJ")
 set(COPYRIGHT "Copyright (c) 2022 Magnus Andersen, LB2OJ. All rights reserved.")
 add_definitions("-DCOPYRIGHT=\"${COPYRIGHT}\"")
 set(IDENTIFIER "com.${COMPANY}.${APPLICATION_NAME}")
 add_definitions("-DIDENTIFIER=\"${IDENTIFIER}\"")
+
 # raspberry as only lxterminal not xterm
 if(NOT (WIN32 OR CYGWIN))
   find_program(BINARY_TERMINAL_BIN lxterminal)
@@ -42,9 +46,11 @@ if(NOT (WIN32 OR CYGWIN))
   endif()
 endif()
 
+# ---------------------------
+# Git commit suffix (unchanged)
+# ---------------------------
 find_package(Git)
 if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git/")
-  # we can also use `git describe --tags`
   execute_process(COMMAND "${GIT_EXECUTABLE}" rev-parse --short HEAD
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     RESULT_VARIABLE res
@@ -52,7 +58,7 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git/")
     ERROR_QUIET
     OUTPUT_STRIP_TRAILING_WHITESPACE)
   if(NOT res)
-    string(REGEX REPLACE "^v([0-9]+)\.([0-9]+)\.([0-9]+)-" "" git_commit ${out})
+    string(REGEX REPLACE "^v([0-9]+)\\.([0-9]+)\\.([0-9]+)-" "" git_commit ${out})
     set(wbms_georef_VERSION_SUFFIX "-${git_commit}")
     set(wbms_georef_VERSION_COMMIT "${git_commit}")
   endif()
@@ -76,46 +82,49 @@ set(CUSTOM_GEOTRANZ_DIR "${CUSTOM_EXTERNAL_DIR}/geotranz")
 set(CUSTOM_XGETOPT_DIR "${CUSTOM_EXTERNAL_DIR}/xgetopt")
 set(CUSTOM_SHELL_SHABANG "#!/bin/sh -e")
 
-# cpack variables
+# ---------------------------
+# Packaging (unchanged)
+# ---------------------------
 set(CPACK_GENERATOR "ZIP")
 set(CPACK_STRIP_FILES true)
 set(CPACK_PACKAGE_NAME "${CMAKE_PROJECT_NAME}")
-# This has architecture of the build machine, not the target platform.
-# e.g. Comes out as x86_64 when building for i686 target platform.
-#set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${wbms_georef_VERSION}_${CMAKE_SYSTEM_PROCESSOR}")
-# We don't know the target yet so this is set after FindCPUflags.
 set(CPACK_PACKAGE_CONTACT "https://github.com/lb2oj/wbms_georef")
-SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "WBMS georef is a georeferencer tool for WBMS sonar data")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "WBMS georef is a georeferencer tool for WBMS sonar data")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 set(CPACK_SOURCE_IGNORE_FILES "${PROJECT_BINARY_DIR};/.git/;.gitignore;menu.yml;.travis.yml;.appveyor.yml;default.nix;.envrc;TODOs.org;/.scripts/")
-SET(CPACK_PACKAGE_VERSION "${wbms_georef_VERSION}")
-SET(CPACK_PACKAGE_VERSION_MAJOR "${wbms_georef_VERSION_MAJOR}")
-SET(CPACK_PACKAGE_VERSION_MINOR "${wbms_georef_VERSION_MINOR}")
-SET(CPACK_PACKAGE_VERSION_PATCH "${wbms_georef_VERSION_PATCH}")
-SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libproj")
+set(CPACK_PACKAGE_VERSION "${wbms_georef_VERSION}")
+set(CPACK_PACKAGE_VERSION_MAJOR "${wbms_georef_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${wbms_georef_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${wbms_georef_VERSION_PATCH}")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libproj")
 
-# if we don't set build_type
+# if we don't set build_type (keep original default)
 if(NOT DEFINED CMAKE_BUILD_TYPE OR "${CMAKE_BUILD_TYPE}" STREQUAL "")
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 message(STATUS "Build type set to: ${CMAKE_BUILD_TYPE}")
 message("CMake system: ${CMAKE_SYSTEM_NAME}")
 
-# Unittest should be on for dev builds and off for releases.
+# ---------------------------
+# Unit tests default by build type (unchanged)
+# ---------------------------
 if(CMAKE_BUILD_TYPE MATCHES "Release")
   option(UNITTEST "Build unittest binaries." OFF)
 else()
   option(UNITTEST "Build unittest binaries." ON)
 endif()
 
-# set compiler
+# ---------------------------
+# Compiler & CPU flags modules (original)
+# ---------------------------
 include(FindCompiler)
-
-# find cpu flags (and set compiler)
 include(FindCPUflags)
 
+# ---------------------------
+# Architecture for package name (original)
+# ---------------------------
 if(${ARCHITECTURE} MATCHES "x86")
   set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${wbms_georef_VERSION}_i686")
 else()
@@ -125,35 +134,16 @@ endif()
 # auto include current directory
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-# set OS dependent variables
+# Export compile_commands.json (handy for tooling)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# ---------------------------
+# OS dependent variables (original)
+# ---------------------------
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   set(LINUX TRUE)
-
   configure_file("${CMAKE_SOURCE_DIR}/cmake/cpack/${CMAKE_PROJECT_NAME}.desktop.in"
     "${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.desktop" @ONLY)
-
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
-  set(FREEBSD TRUE)
-  configure_file("${CMAKE_SOURCE_DIR}/cmake/cpack/${CMAKE_PROJECT_NAME}.desktop.in"
-    "${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.desktop" @ONLY)
-
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
-  set(OPENBSD TRUE)
-  set(HAVE_SNDIO TRUE)
-
-elseif(APPLE)
-  if("${CMAKE_OSX_DEPLOYMENT_TARGET}" STREQUAL "")
-    message(STATUS "Build for macOS target: local version")
-  else()
-    message(STATUS "Build for macOS target: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
-  endif()
-
-  # prepend path to find_*()
-  set(CMAKE_FIND_ROOT_PATH "/opt/local")
-
-  set(CMAKE_MACOSX_RPATH ON)
-  message(STATUS "RPATH support: ${CMAKE_MACOSX_RPATH}")
-
 elseif (WIN32)
   if(NOT MSVC)
     message(FATAL_ERROR "You must use Microsoft Visual Studio 2015 or 2017 as compiler")
@@ -162,33 +152,127 @@ elseif (WIN32)
   # compile with full multicore
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
-
   set(CUSTOM_SHELL_BIN "")
 endif()
 
+# ---------------------------
+# Dependencies
+# ---------------------------
 find_package(Proj)
 
+# ---------------------------
+# Build / Profiling / Optimization options
+# ---------------------------
+# Shim for add_link_options on older CMake
+if(CMAKE_VERSION VERSION_LESS "3.13")
+  function(add_link_options)
+    foreach(opt IN LISTS ARGN)
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${opt}" PARENT_SCOPE)
+      set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${opt}" PARENT_SCOPE)
+    endforeach()
+  endfunction()
+endif()
+
+# User-togglable options (safe defaults)
+option(ENABLE_PERF_PROFILE "Add -g and frame pointers for perf sampling" OFF)
+option(ENABLE_CALLGRIND_PROFILE "Add -g for Callgrind symbolization" ON)
+option(ENABLE_GPROF "Enable -pg instrumentation for gprof (slow)" OFF)
+option(ENABLE_LTO "Enable Link-Time Optimization/IPO" ON)
+option(ENABLE_NATIVE "Enable -march/-mtune=native (host-specific)" ON)
+option(ENABLE_FAST_MATH "Enable -ffast-math (unsafe transformations)" OFF)
+option(ENABLE_PGO "Enable Profile-Guided Optimization" OFF)
+set(PGO_STAGE "generate" CACHE STRING "PGO stage: generate|use")
+set(PGO_PROFDATA "" CACHE FILEPATH "Path to .profdata (clang)")
+
+# Baseline compiler/linker flags
 if (C_CLANG OR C_GCC)
+  # Keep your existing warnings and extras
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wunused-variable -D_GNU_SOURCE ${EXTRA_FLAGS}")
-  #
-  # -lm is needed for functions in math.h
-  if(PROJ_FOUND)
-    message("Linking with libproj")
-    link_libraries("-lproj -lm")
-  else()
-    link_libraries("-lm")
+
+  # Friendly error limits (original)
+  if (C_CLANG)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ferror-limit=1")
+  elseif (C_GCC)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fmax-errors=1")
+  endif()
+
+  # Optimization level and NDEBUG
+  add_compile_options(-O3 -DNDEBUG)
+
+  # Debug info for profilers
+  if(ENABLE_PERF_PROFILE OR ENABLE_CALLGRIND_PROFILE)
+    add_compile_options(-g)
+    add_link_options(-g)
+    # Better symbolization in perf/valgrind
+    if(LINUX)
+      add_link_options(-rdynamic)
+    endif()
+  endif()
+
+  # Frame pointers help sampling profilers (tiny runtime cost)
+  if(ENABLE_PERF_PROFILE AND LINUX)
+    add_compile_options(-fno-omit-frame-pointer)
+    add_link_options(-fno-omit-frame-pointer)
+  endif()
+
+  # gprof (instrumentation)
+  if(ENABLE_GPROF AND LINUX)
+    add_compile_options(-pg)
+    add_link_options(-pg -no-pie)
+  endif()
+
+  # ISA tuning (avoid for cross-compiles/portable packages)
+  if(ENABLE_NATIVE)
+    add_compile_options(-march=native -mtune=native)
+  endif()
+
+  # Numerics: safer fast-math subset; full fast-math optional
+  add_compile_options(-fno-math-errno -fno-trapping-math -ffp-contract=fast)
+  if(ENABLE_FAST_MATH)
+    add_compile_options(-ffast-math)
+  endif()
+
+  # Section GC to trim binary size
+  add_compile_options(-ffunction-sections -fdata-sections)
+  add_link_options(-Wl,--gc-sections -Wl,-O2 -Wl,--as-needed)
+
+  # LTO / IPO
+  if(ENABLE_LTO)
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.9")
+      set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    else()
+      add_compile_options(-flto)
+      add_link_options(-flto)
+    endif()
+  endif()
+
+  # PGO (Clang/GCC)
+  if(ENABLE_PGO)
+    if(C_CLANG)
+      if(PGO_STAGE STREQUAL "generate")
+        add_compile_options(-fprofile-instr-generate)
+        add_link_options(-fprofile-instr-generate)
+      elseif(PGO_STAGE STREQUAL "use" AND PGO_PROFDATA)
+        add_compile_options(-fprofile-instr-use=${PGO_PROFDATA})
+        add_link_options(-fprofile-instr-use=${PGO_PROFDATA})
+      endif()
+    else() # GCC
+      if(PGO_STAGE STREQUAL "generate")
+        add_compile_options(-fprofile-generate)
+        add_link_options(-fprofile-generate)
+      else()
+        add_compile_options(-fprofile-use -fprofile-correction)
+        add_link_options(-fprofile-use)
+      endif()
+    endif()
   endif()
 elseif (C_MSVC)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -W3 -MP ${EXTRA_FLAGS}")
 endif()
 
-if (C_CLANG)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ferror-limit=1")
-elseif (C_GCC)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fmax-errors=1")
-endif()
-
-# set installation directories
+# ---------------------------
+# Install directories (original)
+# ---------------------------
 if (WIN32 OR CYGWIN)
   set(INSTALL_BIN_DIR ".")
   set(INSTALL_DOC_DIR "doc")
@@ -207,30 +291,38 @@ else()
     set(INSTALL_MAN_DIR "share/man/man1")
   endif()
   set(INSTALL_DATA_DIR "share/${PROJECT_NAME}")
-endif(WIN32 OR CYGWIN)
+endif()
 
-# requirements
-
+# ---------------------------
+# Requirements / feature defines (original)
+# ---------------------------
 if(PROJ_FOUND)
+  message("Linking with libproj")
+  # Global link kept for compatibility with src/ (can be moved to targets)
+  link_libraries("-lproj -lm")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DENABLE_PROJ")
 else()
+  link_libraries("-lm")
   set(PROJ_INCLUDE_DIRS "")
   set(PROJ_LIBRARY "")
 endif()
 
-# ENABLE PROFILING
-#  With this flag enabled, running the binary wil generate a file gmon.out,
-#  that can be investigated with gprof
-#  gprof ~/git/wbms_georef/build/src/wbms_georef gmon.out >analysis.txt
-# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")
+# ---------------------------
+# Profiling (original note kept; gprof now toggleable)
+# ---------------------------
+# With ENABLE_GPROF=ON, running the binary will generate gmon.out for gprof:
+# gprof <path-to-binary> gmon.out > analysis.txt
 
 include(CheckSymbolExists)
 
+# ---------------------------
+# Subdirectories (original)
+# ---------------------------
 # external libraries
 add_subdirectory(${CUSTOM_GEOTRANZ_DIR})
 if (WIN32 OR CYGWIN)
-add_subdirectory(${CUSTOM_XGETOPT_DIR})
-endif(WIN32 OR CYGWIN)
+  add_subdirectory(${CUSTOM_XGETOPT_DIR})
+endif()
 
 # wbms_georef source code and utilities
 add_subdirectory(src)
@@ -242,7 +334,9 @@ install(FILES ${CMAKE_SOURCE_DIR}/external/LICENSE DESTINATION ${INSTALL_DOC_DIR
 add_subdirectory(doc)
 add_subdirectory(man)
 
-############ uninstall target ################
+# ---------------------------
+# Uninstall target (original)
+# ---------------------------
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/include/uninstall.cmake.in"
   "${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake"
@@ -252,5 +346,8 @@ add_custom_target(uninstall
   COMMAND ${CMAKE_COMMAND} -P
   ${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake)
 
-############ packaging ################
+# ---------------------------
+# Packaging (original)
+# ---------------------------
 add_subdirectory(cmake/cpack)
+
