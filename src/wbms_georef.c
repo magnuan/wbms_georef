@@ -1543,7 +1543,12 @@ int main(int argc,char *argv[])
         float max_sv = 0.;
         switch(sensor_params.ray_tracing_mode){
             case ray_trace_fixed_depth_lut: //Fixed depth LUT
-                if (input_sensor_source == i_file){
+                // Before we can create the LUT, we need to know the sound velocity range wee need to calculate it for
+                if (sensor_params.force_sv > 0){       //With a forced sensor sv it is just the forced value
+                    min_sv = sensor_params.force_sv;
+                    max_sv = sensor_params.force_sv;
+                }
+                else if (input_sensor_source == i_file){ // Otherwise, we need to go through the sensor file to read out the sv range
                     sensor_get_sv_range(input_sensor_fd,sensor_mode, &min_sv, &max_sv);
                     // Rewind file after reading out sv
                     if (sensor_mode == sensor_mode_gsf){

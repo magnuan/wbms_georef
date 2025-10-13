@@ -87,6 +87,7 @@ void sensor_get_sv_range(int fd, sensor_mode_e mode, float* min_sv, float* max_s
             r7k_get_sv_range(fd, min_sv, max_sv);
             break;
         case sensor_mode_gsf:	
+            gsf_get_sv_range(fd, min_sv, max_sv);
             break;
         case sensor_mode_3dss_stream:	
             break;

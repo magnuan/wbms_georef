@@ -2,11 +2,13 @@
 #define __GSF_WRAPPER_H__
 #include "proj_wrapper.h"
 #include "wbms_georef.h"
+#define GSF_FALLBACK_SV (1500.f)
 
 void gsf_init(void);
 void gsf_print_stats(void);
 
 void gsf_set_sensor_offset(offset_t* s);
+void gsf_get_sv_range(int fd, float* min_sv, float *max_sv);
 uint8_t gsf_test_nav_file(int fd);
 uint8_t gsf_test_bathy_file(int fd);
 int gsf_fetch_next_packet(char * data, int fd);

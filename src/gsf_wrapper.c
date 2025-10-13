@@ -107,6 +107,7 @@ void gsf_set_nav_filename(const char* fname){
 uint8_t gsf_rewind(int fd){
     if (fd == nav_fd) gsfSeek(nav_handle, GSF_REWIND);
     if (fd == sensor_fd)  gsfSeek(sensor_handle, GSF_REWIND); 
+    return 0;
 }
 
 uint8_t gsf_close(int fd){
@@ -121,6 +122,7 @@ uint8_t gsf_close(int fd){
         sensor_handle = 0;
         sensor_fd = -1;
     }
+    return 0;
 }
 
 uint8_t gsf_test_nav_file(int fd){
@@ -149,6 +151,37 @@ uint8_t gsf_test_bathy_file(int fd){
     if (ret) return 0;
     sensor_fd = fd;
 	return 1;
+}
+
+void gsf_get_sv_range(int fd, float* min_sv, float *max_sv){
+    float max = 0.;
+    float min = 10000.;
+    float val;
+    int cnt=0;
+    while (1) {
+        if (gsf_fetch_next_packet(NULL, fd) ==0) break;
+	    int data_type = sensor_dataID->recordID & 0x0FFF;
+        if  (data_type != GSF_RECORD_SWATH_BATHYMETRY_PING) continue;  // So far GSF_RECORD_SWATH_BATHYMETRY_PING is the only record we process
+        if (sensor_records->svp.number_points == 0) continue;
+        val =  sensor_records->svp.sound_speed[0];           
+        cnt++;
+
+        if(val>1400 && val<1600){ //Basic data value sanitizing
+            max = MAX(max,val);
+            min = MIN(min,val);
+        }
+    }
+    if (cnt){
+        fprintf(stderr, "GSF data Sound velocity range = %.2f to %.2f m/s (%d pings)\n",min,max,cnt);
+        fflush(stderr);
+        *max_sv = max;
+        *min_sv = min;
+    }
+    else{
+        *max_sv = GSF_FALLBACK_SV;
+        *min_sv = GSF_FALLBACK_SV;
+    }
+    
 }
 
 int gsf_fetch_next_packet(char * data, int fd){
@@ -358,7 +391,17 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
     
 
 
-    c = sensor_records->svp.sound_speed[0];             //TODO Here we just assume that the first entry is the surface SV 
+    if (sensor_records->svp.number_points>0){
+        c = sensor_records->svp.sound_speed[0];            
+    }
+    else{
+        static uint8_t x=0;
+        if (x==0){ 
+            fprintf(stderr,"!! WARNING !! Missing SV data in GSF, fallback to %f.0m/s\n",GSF_FALLBACK_SV);
+            x+=1;
+        }
+        c = GSF_FALLBACK_SV;
+    }
     //float c_depth = sensor_records->svp.depth[0];
     //fprintf(stderr, "Sound speed %f m/s  @ %f m\n",c, c_depth);
 
