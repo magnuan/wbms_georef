@@ -87,6 +87,18 @@ void wbms_get_sv_range(int fd, float* min_sv, float *max_sv){
     }
     free(data);
 }
+
+uint8_t contains_preammble(const char *buf, size_t len) {
+    if (len < 4) return 0;
+    size_t limit = len - 3;
+    for (size_t i = 0; i < limit; i++) {
+        uint32_t v;
+        memcpy(&v, buf + i, 4); // ensures no UB, allows compiler to optimize
+        if (v == 0xDEADBEEF) return 1;
+    }
+    return 0;
+}
+
 /* Read some data from file, and verify if it is a valid file type.
    return 1 if file is a valid wbms bathy file
    return 0 if file is not a valid wbms bathy file
@@ -98,6 +110,17 @@ uint8_t wbms_test_file(int fd, int* version){
     if (data==NULL){
         return 0;
     }
+    //Quicktest, just read out a big blob, and see if there are any preambles within it
+	if (1){
+        int n = read(fd,data,MAX_WBMS_PACKET_SIZE);
+        if (! contains_preammble(data,n)){
+            return 0;
+        }
+        FILE *fp = fdopen(fd, "r");
+        fseek(fp,0,SEEK_SET);
+    }
+    
+    //Proper test
     for(int test=0;test<10;test++){     //Test the first 10 packets, if none of them contains bathy data it is pobably not a valid data file
         int len; 
         len = wbms_fetch_next_packet(data, fd);
