@@ -38,8 +38,8 @@ Then on any flavor of Linux:
 	git clone https://www.github.com/magnuan/wbms_georef
 	cd wbms_georef
 	mkdir build && cd build
-	cmake ..
-	cmake --build .
+    cmake .. -DCMAKE_BUILD_TYPE=Release
+	cmake --build . -j
 	sudo cmake --install .
 
 
