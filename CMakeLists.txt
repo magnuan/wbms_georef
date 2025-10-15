@@ -178,7 +178,12 @@ option(ENABLE_PERF_PROFILE "Add -g and frame pointers for perf sampling" OFF)
 option(ENABLE_CALLGRIND_PROFILE "Add -g for Callgrind symbolization" ON)
 option(ENABLE_GPROF "Enable -pg instrumentation for gprof (slow)" OFF)
 option(ENABLE_LTO "Enable Link-Time Optimization/IPO" ON)
-option(ENABLE_NATIVE "Enable -march/-mtune=native (host-specific)" OFF)
+
+# This  breaks compiling in docker images, because the host at build time is not (neccessarilly) the same as at run time
+# The docker build instruction needs to compile with
+# cmake .. -DENABLE_NATIVE=OFF
+option(ENABLE_NATIVE "Enable -march/-mtune=native (host-specific)" ON)
+
 option(ENABLE_FAST_MATH "Enable -ffast-math (unsafe transformations)" OFF)
 option(ENABLE_PGO "Enable Profile-Guided Optimization" OFF)
 set(PGO_STAGE "generate" CACHE STRING "PGO stage: generate|use")
