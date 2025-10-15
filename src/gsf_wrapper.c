@@ -494,6 +494,7 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
         }
         flags = *(sensor_records->mb_ping.beam_flags + ix_in);
 
+        sensor_r  *= sensor_offset->r_scale;
         sensor_r  += sensor_offset->r_err;
 
 

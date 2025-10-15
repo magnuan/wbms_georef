@@ -279,6 +279,8 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"#### SENSOR ERROR COMPENSATION ####\n");
 	fprintf(fp,"# Add a fixed range adjustment to sonar data\n");
     fprintf(fp,"#sensor_r_error 0.0\n");
+	fprintf(fp,"# Add a range scaling adjustment to sonar data\n");
+    fprintf(fp,"#sensor_r_scaling 0.0\n");
 	fprintf(fp,"# Add a time offset to sensor data timestamp\n");
 	fprintf(fp,"#sensor_time_offset 0.0\n");
 	fprintf(fp,"# Add a correction value to sonar SV measurement\n");
@@ -626,6 +628,7 @@ int read_config_from_file(char* fname){
 	char * pstring_input = &input_projection_string[0];
 	offset_t * soff = &sensor_offset;
     float pos_sim_speed = 1.0;
+	
 
 	if (fp==NULL){
 		fprintf(stderr,"Could not open file %s for reading config\n",fname);
@@ -686,11 +689,12 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"sensor_x_offset",15)==0) soff->x = (float)atof(c+15);	// Reading in sensor x offset
 			if (strncmp(c,"sensor_y_offset",15)==0) soff->y = (float)atof(c+15);	// Reading in sensor y offset
 			if (strncmp(c,"sensor_z_offset",15)==0) soff->z = (float)atof(c+15);	// Reading in sensor z offset
-			if (strncmp(c,"sensor_r_error",14)==0) soff->r_err = (float)atof(c+15);		// Reading in sensor r error
+			if (strncmp(c,"sensor_r_error",14)==0) soff->r_err = (float)atof(c+14);		// Reading in sensor r error
 			if (strncmp(c,"sensor_yaw_offset",17)==0) soff->yaw = ((float)atof(c+17)* (float)M_PI/180);	// Reading in sensor yaw offset
 			if (strncmp(c,"sensor_pitch_offset",19)==0) soff->pitch = ((float)atof(c+19)* (float)M_PI/180);	// Reading in sensor pitch offset
 			if (strncmp(c,"sensor_roll_offset",18)==0) soff->roll = ((float)atof(c+18)* (float)M_PI/180);	// Reading in sensor roll offset
 			if (strncmp(c,"sensor_time_offset",18)==0)  soff->time_offset = (double)atof(c+18);
+			if (strncmp(c,"sensor_r_scaling",16)==0) soff->r_scale = (float)atof(c+16);		// Reading in sensor r scaling
 
 			if (strncmp(c,"sensor_min_quality_flag",23)==0) sensor_params.min_quality_flag = (atoi(c+23));	
 			if (strncmp(c,"sensor_max_quality_flag",23)==0) sensor_params.max_quality_flag = (atoi(c+23));	
@@ -986,6 +990,8 @@ int main(int argc,char *argv[])
     posmv_init();
 	
     sensor_params_default(&sensor_params);
+    //Default range scaling value is 1
+    sensor_offset.r_scale = 1.0;
     
     wbms_set_sensor_offset(&sensor_offset);
     r7k_set_sensor_offset(&sensor_offset);

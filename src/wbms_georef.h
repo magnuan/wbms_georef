@@ -89,6 +89,7 @@ typedef struct{
 	float pitch; //Right-hand pos around y (pos pitching up) [rad]
 	float roll; //Right-hand positive arount x (pos rolling clockwise) [rad]
 	float r_err; //Range error adjustment
+	float r_scale; //Range scale adjustment
     double time_offset; //Time offset in s (time ADDED to sensor time when aligning wiht navigation data)
 }offset_t;
 

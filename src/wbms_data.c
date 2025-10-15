@@ -802,6 +802,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
 
 
         priority_flags = ((flags)>>9) & (0x0F);
+        sensor_r  *= sensor_offset->r_scale;
+        sensor_ug  *= sensor_offset->r_scale;
+        sensor_lg  *= sensor_offset->r_scale;
         sensor_r  += sensor_offset->r_err;
         sensor_ug  += sensor_offset->r_err;
         sensor_lg  += sensor_offset->r_err;
@@ -1235,6 +1238,7 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_v8_t* snippet_in_v8, navd
             float sensor_t =  sample_number*div_Fs;		//Calculate tx to rx time for each point 
             float sensor_az  = snippet_angle[ix_in];
 
+            sensor_r  *= sensor_offset->r_scale;
             sensor_r  += sensor_offset->r_err;
 
             // Apply correctiom from beam corection polynom if defined
@@ -1650,6 +1654,7 @@ uint32_t wbms_georef_sbp_data( sbp_data_packet_t* sbp_data, navdata_t posdata[NA
         
         sensor_r   = sample_number*c_div_2Fs - tx_delay_range;	//Calculate range to each point en meters
         inten = sig[ix_in];
+        sensor_r  *= sensor_offset->r_scale;
         sensor_r  += sensor_offset->r_err;
         
         if (sensor_params->intensity_correction){

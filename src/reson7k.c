@@ -842,6 +842,8 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
             
             float sensor_r   = sample_number*c_div_2Fs - tx_delay_range;	//Calculate range to each point en meters
             inten = sig[ix_in];
+            
+            sensor_r  *= sensor_offset->r_scale;
             sensor_r  += sensor_offset->r_err;
             
             if (sensor_params->intensity_correction){
@@ -989,6 +991,9 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 sensor_ug   = rd->limit_min*c_div_2Fs;	//Calculate range to each point en meters
                 sensor_lg   = rd->limit_max*c_div_2Fs;	//Calculate range to each point en meters
             }
+            sensor_r  *= sensor_offset->r_scale;
+            sensor_ug  *= sensor_offset->r_scale;
+            sensor_lg  *= sensor_offset->r_scale;
             sensor_r  += sensor_offset->r_err;
             sensor_ug  += sensor_offset->r_err;
             sensor_lg  += sensor_offset->r_err;
