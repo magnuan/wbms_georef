@@ -155,6 +155,15 @@
 /* Get the required standard C library includes */
 #include <stdio.h>
 #include <stdint.h>
+
+#ifndef _POSIX_C_SOURCE
+#define HAVE_STRUCT_TIMESPEC
+#endif
+
+#define _POSIX_C_SOURCE 200809L /* ensures fseeko/ftello prototypes are visible */
+
+
+
 #include <time.h>
 
 /* Get the required system include files */
@@ -170,6 +179,16 @@
 #include <sys/types.h>
 #define OPTLK
 #endif
+
+#ifdef __linux__
+  #ifndef __GLIBC__
+    /* Not glibc (e.g. musl) – alias to normal stat */
+    #define stat64 stat
+    #define fstat64 fstat
+    #define lstat64 lstat
+  #endif
+#endif
+
 
 #ifdef __cplusplus
 extern          "C"

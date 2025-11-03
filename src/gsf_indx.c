@@ -114,10 +114,13 @@
 #define fseek(x, y, z) _fseeki64((x), (y), (z))
 #define ftell(x)   _ftelli64((x))
 #else  // Linux, MingW, MacOS
+#define _FILE_OFFSET_BITS 64   /* makes off_t 64-bit; fseeko/ftello use 64-bit offsets */
+/* This is done by defining _FILE_OFFSET_BITS 64  instead
 #undef fopen
 #define fopen(x, y)  fopen64((x), (y))
 #define fseek(x, y, z) fseeko64((x), (y), (z))
 #define ftell(x)   ftello64((x))
+*/
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
