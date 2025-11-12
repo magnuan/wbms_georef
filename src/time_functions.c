@@ -143,35 +143,61 @@ int sprintf_unix_time(char * str, double ts){
 	return sprintf(str,"Year = %d doy= %d %02d:%02d:%06.3f Unix_ts=%9.2f",t_year,t_doy,t_hour,t_min,t_sec,ts); 
 }
 
+static double try_patterns(const char *filename, const char *patterns[], int n_patterns, int date_only) {
+    size_t n = strlen(filename);
+
+    for (int p = 0; p < n_patterns; p++) {
+        for (size_t ii = 0; ii < n; ii++) {
+            struct tm tm_time;
+            memset(&tm_time, 0, sizeof(tm_time));  // ensure unset fields default to 0
+            tm_time.tm_isdst = 0;                  // time should be in UTC so no DST
+
+            if (strptime(filename + ii, patterns[p], &tm_time)){
+                // If we matched only a date, midnight is already implied by the memset.
+                // (For datetime patterns, strptime will have filled H/M/S.)
+                time_t t = mktime(&tm_time);
+                if (t != (time_t)-1) {
+                    double ts = (double)t;
+                    // Sanity check: must be in the 21st century
+                    if (ts > 946681200.0 && ts < 4102441200.0) {
+                        return ts;
+                    }
+                }
+            }
+        }
+    }
+    return 0.0;
+}
+
 double parse_timestamp_from_filename(const char *filename) {
-    // Zero the output
-    struct tm tm_time;
-    // Common patterns
-    const char *patterns[] = {
+    // Common datetime patterns (date + time)
+    static const char *datetime_patterns[] = {
         "%Y%m%d-%H%M%S",
         "%Y%m%d_%H%M%S",
         "%Y-%m-%d_%H-%M-%S",
         "%Y%m%d%H%M%S",
         "%Y-%m-%dT%H:%M:%S"
     };
-    int slen = strlen(filename) - 14;
-    //fprintf(stderr,"parse_timestamp_from_filename(%s) slen=%d\n",filename,slen);
-    // Try each pattern against all substrings
-    if (slen>0){
-        for (int p = 0; p < 5; p++) {
-            for (int ii = 0; ii < slen; ii++) {
-                if (strptime(filename+ii, patterns[p], &tm_time)) {
-                    double ts = (double) mktime(&tm_time);
-                    //Sanity check, ts must be in the 21st century
-                    if ( (ts>946681200) && (ts<4102441200)){
-                        return ts; 
-                    }
-                }
-            }
-        }
-    }
-    return 0; // no match
+
+    // Date-only fallbacks (assume 00:00:00 local time)
+    static const char *date_only_patterns[] = {
+        "%Y-%m-%d",
+        "%Y%m%d"
+    };
+
+    // First try full datetime patterns
+    double ts = try_patterns(filename, datetime_patterns,   (int)(sizeof(datetime_patterns)/sizeof(datetime_patterns[0])), 0);
+    if (ts != 0.0) return ts;
+
+    // Then try date-only patterns (midnight implied)
+    ts = try_patterns(filename, date_only_patterns, (int)(sizeof(date_only_patterns)/sizeof(date_only_patterns[0])), 1);
+    if (ts != 0.0) return ts;
+
+    return 0.0; // no match
 }
+
+
+
 	
 
 double os_time(void){
