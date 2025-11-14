@@ -18,6 +18,7 @@
 #include "georef_tools.h"
 #include "intensity_scaling.h"
 #include "cmath.h"
+#include "raytracing.h"
 #if defined(_MSC_VER)
 #include "non_posix.h"
 #include <io.h>
@@ -660,7 +661,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
        sv = rth.r7610->sv ;
        sv = sv + sensor_params->sv_offset;
        //fprintf(stderr, "Read in sound velocity from S7K 7610  sv=%f\n", sv);
-       if (sensor_params->force_sv==0) {
+       if ((sensor_params->force_sv==0) && (sensor_params->sv_from_table==0)) {
            if (sv != sv){
                fprintf(stderr, "NaN sound velocity encountered in s7k 7610 data\n");
            }
@@ -669,6 +670,10 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
            }
        }
        return 0;
+    }
+    
+    if (sensor_params->sv_from_table > 0){
+        sv = get_table_sv();
     }
     if (sensor_params->force_sv > 0){
         sv = sensor_params->force_sv;

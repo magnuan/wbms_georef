@@ -124,6 +124,7 @@ typedef struct{
 
     float sv_offset;
     float force_sv;
+    uint8_t sv_from_table;
     float mounting_depth;
     char intensity_correction; 
     float intensity_range_attenuation; 

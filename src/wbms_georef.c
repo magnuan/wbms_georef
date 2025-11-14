@@ -684,8 +684,8 @@ int read_config_from_file(char* fname){
 			if (strncmp(c,"keep_s7k_tvg",12)==0) sensor_params.keep_s7k_tvg = 1;	
 			if (strncmp(c,"keep_s7k_footprint",18)==0) sensor_params.keep_s7k_footprint_comp = 1;	
 
-            if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(1);
-            if (strncmp(c,"raytrace_use_table_sv",21)==0)  set_use_sonar_sv_for_initial_ray_parameter(0);
+            if (strncmp(c,"raytrace_use_sonar_sv",21)==0)  sensor_params.sv_from_table=0;
+            if (strncmp(c,"raytrace_use_table_sv",21)==0)  sensor_params.sv_from_table=1;
 			
 			if (strncmp(c,"sensor_x_offset",15)==0) soff->x = (float)atof(c+15);	// Reading in sensor x offset
 			if (strncmp(c,"sensor_y_offset",15)==0) soff->y = (float)atof(c+15);	// Reading in sensor y offset

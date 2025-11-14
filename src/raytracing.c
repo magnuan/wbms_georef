@@ -40,6 +40,7 @@ int get_ray_bend_invalid(void){
     return ray_bend_invalid;
 }
 
+
 #if 0
 #define FLOATTYPE float
 #define SQRT sqrtf
@@ -126,6 +127,11 @@ static float DZ = 0.25f;
 
 //Table of interpolated sound velocities per depth 
 static float sv_table[NZ];
+
+//Get table SV at sonar depth, the table is resampled to have its first value at sonar draft, so the first value is the one to return 
+float get_table_sv(void){
+    return  sv_table[0];
+}
 
 static int has_corr = 0;
 //Table of angle correction values indexed by initial sound velocity, initial/obseved direction and true depth (true-observed)
@@ -469,9 +475,6 @@ void apply_ray_bending_direct(float* X,float* Y,float* Z,int N, float c, float z
 		zix = roundf(z0/DZ);				//Start with sound velocity measured at depth equal to sonar depth
 		zix = LIMIT(zix, 0,NZ-1);
         //Find initial ray parameter
-        if (c==0){
-            c = sv_table[0];				//If input c is 0, use c from sv_table at sonar depth (always index 0) instead 
-        }
         xi = cosf(a_obs)/c;				//Ray parameter for beam, based on initial pointing angle and sound velocity
 		
         do{
@@ -517,9 +520,6 @@ void apply_ray_bending(float* X,float* Y,float* Z,int N, float c){
 	float xc,yc,zc,ac,rc,dc;
 	int cix,aix,zix;
 	if(has_corr==0) return;		//Dont do anything if correction table has not been calculated
-    if (c==0){
-        c = sv_table[0];				//If input c is 0, use c from sv_table at sonar depth (always index 0) instead 
-	}
 
     cix = roundf((c - MINIMUM_C)/DC); 	//Index along sound velocity axis in correction table
 	
@@ -568,12 +568,10 @@ void apply_ray_bending(float* X,float* Y,float* Z,int N, float c){
 	float fcix1, faix1, fzix1;
 	float c_angle, c_range;
 	if(has_corr==0) return;		//Dont do anything if correction table has not been calculated
-    if (c==0){
-        c = sv_table[0];				//If input c is 0, use c from sv_table at sonar depth (always index 0) instead 
-    }
-	
+
     fcix1 = (c - MINIMUM_C)/DC; 	//Index along sound velocity axis in correction table
 	cix = (int) floorf(fcix1); cix = LIMIT(cix,0,NC-2);fcix1 -= (float)cix; fcix0=1.f-fcix1;
+    fprintf(stderr,"c = %8.2f   fcix1=%.3f  cix=%d\n",c,fcix1,cix);
 	
 	for (n = 0;n<N;n++){
 		x = X[n];

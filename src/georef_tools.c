@@ -15,15 +15,11 @@
 
 static uint8_t verbose = 0;
 static float time_diff_limit = 0.2f;
-static uint8_t use_sonar_sv_for_initial_ray_parameter = 1;
 
 void set_time_diff_limit(float t){
     time_diff_limit = t;
 }
 
-void set_use_sonar_sv_for_initial_ray_parameter(uint8_t val){
-    use_sonar_sv_for_initial_ray_parameter = val;
-}
 	
 int attitude_test(sensor_params_t* sensor_params, float yaw,  float pitch,  float roll, float droll_dt, float dpitch_dt, float dyaw_dt){ 
     if (sensor_params->max_abs_yaw){
@@ -139,7 +135,6 @@ int georef_to_global_frame(
         rot_coordinates(&(offset->x),&(offset->y),&(offset->z),Rpg,1, &offset_xg,&offset_yg,&offset_zg);
         //Apply SV-profile ray-bending correction to POS-ref sonar sounding data, before we start translating and moving to global reference frame
         if (c>=0){
-            if (use_sonar_sv_for_initial_ray_parameter==0) c = 0;   //Set c=0 to force ray-tracing to use table sv instead of sonar sv for initial ray parameter
             switch(ray_tracing_mode){
                 case ray_trace_fixed_depth_lut: //LUT fixed depth
                     apply_ray_bending(xg,yg,zg,n,c);

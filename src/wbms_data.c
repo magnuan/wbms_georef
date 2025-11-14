@@ -19,6 +19,7 @@
 #include "wbms_data.h"
 #include "georef_tools.h"
 #include "intensity_scaling.h"
+#include "raytracing.h"
 #if defined(_MSC_VER)
 #include "non_posix.h"
 #include <corecrt_math_defines.h>
@@ -684,6 +685,9 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
     //For CW pulses, bandwidth is given by pulse length
     tx_bw = MAX(tx_bw,1/tx_plen);
     
+    if (sensor_params->sv_from_table > 0){
+        c = get_table_sv();
+    }
     if (sensor_params->force_sv > 0){
         c = sensor_params->force_sv;
     }
@@ -1100,6 +1104,9 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_v8_t* snippet_in_v8, navd
 
 
 
+    if (sensor_params->sv_from_table > 0){
+        c = get_table_sv();
+    }
     if (sensor_params->force_sv > 0){
         c = sensor_params->force_sv;
     }

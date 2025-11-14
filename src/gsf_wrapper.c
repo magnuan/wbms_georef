@@ -13,6 +13,7 @@
 #include "gsf_wrapper.h"
 #include "georef_tools.h"
 #include "intensity_scaling.h"
+#include "raytracing.h"
 #include "gsf.h"
 
 #define ROLL_VECTOR_LEN 512
@@ -411,6 +412,9 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
     //For CW pulses, bandwidth is given by pulse length
     tx_bw = MAX(tx_bw,1/tx_plen);
     
+    if (sensor_params->sv_from_table > 0){
+        c = get_table_sv();
+    }
     if (sensor_params->force_sv > 0){
         c = sensor_params->force_sv;
     }
