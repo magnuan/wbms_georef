@@ -17,6 +17,8 @@
 //#include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <stddef.h>
+#include <assert.h>
 /** @endcond */
 
 
@@ -75,6 +77,45 @@ uint8_t ceil_log2_abs(int32_t v){
     if (v&0xFFFFFFFF){w+=1;v>>=1;}
     return w;
 }
+
+
+
+float quadratic_interpolate(float x, const float* xs, const float* ys, size_t len) {
+    assert(len >= 2);
+
+    // Handle out-of-range x by clamping to endpoints (extrapolation optional)
+    if (x <= xs[0])       return ys[0];
+    if (x >= xs[len - 1]) return ys[len - 1];
+
+    // Find the interval [xs[i], xs[i+1]] that contains x
+    size_t i = 0;
+    while (i + 1 < len && x > xs[i + 1]) {
+        i++;
+    }
+
+    // Choose 3 points for quadratic interpolation:
+    // Prefer one on each side, but clamp safely at ends
+    size_t i0, i1, i2;
+    if (i == 0) {
+        i0 = 0; i1 = 1; i2 = 2;
+    } else if (i >= len - 2) {
+        i0 = len - 3; i1 = len - 2; i2 = len - 1;
+    } else {
+        i0 = i - 1; i1 = i; i2 = i + 1;
+    }
+
+    float x0 = xs[i0], y0 = ys[i0];
+    float x1 = xs[i1], y1 = ys[i1];
+    float x2 = xs[i2], y2 = ys[i2];
+
+    // Lagrange form of quadratic interpolation
+    float L0 = ((x - x1) * (x - x2)) / ((x0 - x1) * (x0 - x2));
+    float L1 = ((x - x0) * (x - x2)) / ((x1 - x0) * (x1 - x2));
+    float L2 = ((x - x0) * (x - x1)) / ((x2 - x0) * (x2 - x1));
+
+    return y0 * L0 + y1 * L1 + y2 * L2;
+}
+
 
 /***************************************************************************//**
 * @brief    Round up to nearest power of 2

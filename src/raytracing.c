@@ -571,7 +571,7 @@ void apply_ray_bending(float* X,float* Y,float* Z,int N, float c){
 
     fcix1 = (c - MINIMUM_C)/DC; 	//Index along sound velocity axis in correction table
 	cix = (int) floorf(fcix1); cix = LIMIT(cix,0,NC-2);fcix1 -= (float)cix; fcix0=1.f-fcix1;
-    fprintf(stderr,"c = %8.2f   fcix1=%.3f  cix=%d\n",c,fcix1,cix);
+    //fprintf(stderr,"c = %8.2f   fcix1=%.3f  cix=%d\n",c,fcix1,cix);
 	
 	for (n = 0;n<N;n++){
 		x = X[n];

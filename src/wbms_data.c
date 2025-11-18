@@ -819,10 +819,8 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
         sensor_az += calc_sonar_to_cp_corrections(sensor_az,sensor_el,sensor_elec_steer);
         #endif
        
-        // Apply correctiom from beam corection polynom if defined
-        if (sensor_params->beam_corr_poly_order){
-            sensor_az = apply_beam_correction_poly(sensor_az, sensor_params->beam_corr_poly, sensor_params->beam_corr_poly_order);
-        }
+        // Apply correctiom from beam correction table
+        sensor_az = apply_beam_adjust(sensor_az);
     
         //#define SHALLOW_ANGLE_SKEW_COR
         #ifdef SHALLOW_ANGLE_SKEW_COR
@@ -1248,10 +1246,8 @@ uint32_t wbms_georef_snippet_data( snippet_data_packet_v8_t* snippet_in_v8, navd
             sensor_r  *= sensor_offset->r_scale;
             sensor_r  += sensor_offset->r_err;
 
-            // Apply correctiom from beam corection polynom if defined
-            if (sensor_params->beam_corr_poly_order){
-                sensor_az = apply_beam_correction_poly(sensor_az, sensor_params->beam_corr_poly, sensor_params->beam_corr_poly_order);
-            }
+            // Apply correctiom from beam correction table
+            sensor_az = apply_beam_adjust(sensor_az);
 
 #ifdef SHALLOW_ANGLE_SKEW_COR
             sensor_az += calc_shallow_angle_skew_corrections(sensor_az,sensor_r, attenuation);

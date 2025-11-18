@@ -27,6 +27,7 @@ typedef enum  {none=0, t,c, x,y,z,z_var, z_stddev,range, teta,steer,beam,el,val,
 #define PROJ_STR_MAGIC_NUMBER (0x207274736a6f7270)
 
 #define MAX_BEAM_ANGLE_MODEL_ORDER 12
+#define MAX_BEAM_ANGLE_TABLE_LEN 1024
 #define MAX_SENSOR_PACKET_SIZE (8*1024*1024)
 #define MAX_NAVIGATION_PACKET_SIZE (8*1024*1024)
 
@@ -145,8 +146,6 @@ typedef struct{
     float sbp_bp_filter_start_freq;
     float sbp_bp_filter_stop_freq;
     float scale_tx_angle;
-    uint32_t beam_corr_poly_order;
-    float beam_corr_poly[MAX_BEAM_ANGLE_MODEL_ORDER];
     s7k_backscatter_source_e s7k_backscatter_source; //0=use from  
     uint8_t keep_s7k_tvg;
     uint8_t keep_s7k_footprint_comp;

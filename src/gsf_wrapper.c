@@ -501,13 +501,8 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
         sensor_r  *= sensor_offset->r_scale;
         sensor_r  += sensor_offset->r_err;
 
-
-        // Apply correctiom from beam corection polynom if defined
-        if (sensor_params->beam_corr_poly_order){
-            sensor_az = apply_beam_correction_poly(sensor_az, sensor_params->beam_corr_poly, sensor_params->beam_corr_poly_order);
-        }
-    
-            
+        // Apply correctiom from beam correction table
+        sensor_az = apply_beam_adjust(sensor_az);
         
         // Add correction for roll during tx2rx period for each beam individually
         sensor_az_tx2rx_corr = -roll_vector[(size_t) round(sensor_t*ROLL_VECTOR_RATE)]; //Roll is given in opposite angles than sonar azimuth

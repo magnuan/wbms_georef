@@ -16,6 +16,15 @@
 static uint8_t verbose = 0;
 static float time_diff_limit = 0.2f;
 
+#define PYTHON_PRINTOUT
+
+/* The beam_angle_adjust_table should contain angle correction values (that will be added to the measured angle
+ * They shoudl be unifotmly distributed for the range -pi/2 to pi/2 
+ */
+#define BEAM_ANGLE_ADJUST_TABLE_LEN 256
+static float beam_angle_adjust_table[BEAM_ANGLE_ADJUST_TABLE_LEN];
+static uint8_t beam_angle_adjust_table_set;
+
 void set_time_diff_limit(float t){
     time_diff_limit = t;
 }
@@ -43,20 +52,95 @@ int attitude_test(sensor_params_t* sensor_params, float yaw,  float pitch,  floa
     return 0;
 }
 
-
-/* Function to apply the beam correction polynom to a beam angle
-*  TODO consider to optimize using a LUT
-*/
-float apply_beam_correction_poly(float angle, float* poly, uint32_t order){
-    if (order){
-        float adj = poly[0];
-        for (uint32_t n = 1;n<order;n++){
-            adj += poly[n] * powf(angle,(float) n);
+void calculate_beam_corrections_from_table(float* angles, float* vals, size_t len){
+    // Basic validation
+    if (!angles || ! vals || len == 0) {
+        for (size_t ix = 0; ix < BEAM_ANGLE_ADJUST_TABLE_LEN; ++ix) {
+            beam_angle_adjust_table[ix] = 0.0f;
         }
-        return angle+adj;
+        beam_angle_adjust_table_set=0;
+        return;
     }
-    return angle;
+
+    const float a0  = - (float)M_PI * 0.5f;
+    const float step  = (float)M_PI / (float)(BEAM_ANGLE_ADJUST_TABLE_LEN - 1);
+    
+    for (size_t ix=0; ix<BEAM_ANGLE_ADJUST_TABLE_LEN; ix++){
+        float angle = a0 + ix*step;
+        float val = quadratic_interpolate(angle, angles, vals, len);
+        beam_angle_adjust_table[ix] = val;
+    }
+    beam_angle_adjust_table_set=1;
+    
+    #ifdef PYTHON_PRINTOUT
+    fprintf(stderr,"table=np.array([");
+    for (size_t ix=0; ix<BEAM_ANGLE_ADJUST_TABLE_LEN; ix++){
+        float angle = a0 + ix*step;
+        fprintf(stderr,"[%f, %f]",angle*180/M_PI, beam_angle_adjust_table[ix]*180/M_PI);
+        if (ix<(BEAM_ANGLE_ADJUST_TABLE_LEN-1)) fprintf(stderr,",");
+    }
+    fprintf(stderr,"])\n");
+    #endif
 }
+
+void calculate_beam_corrections_from_poly(float* poly, uint32_t order){
+
+    // Basic validation
+    if (!poly || order == 0) {
+        for (size_t ix = 0; ix < BEAM_ANGLE_ADJUST_TABLE_LEN; ++ix) {
+            beam_angle_adjust_table[ix] = 0.0f;
+        }
+        beam_angle_adjust_table_set=0;
+        return;
+    }
+
+    const float a0  = - (float)M_PI * 0.5f;
+    const float step  = (float)M_PI / (float)(BEAM_ANGLE_ADJUST_TABLE_LEN - 1);
+    
+    for (size_t ix=0; ix<BEAM_ANGLE_ADJUST_TABLE_LEN; ix++){
+        float angle = a0 + ix*step;
+        // Horner’s method:  adj = poly[0] + angle*(poly[1] + angle*(poly[2] + ... ))
+        float adj = poly[order - 1];
+        for (int k = (int)order - 2; k >= 0; --k) {
+            adj = fmaf(angle, adj, poly[k]);   // adj = angle*adj + poly[k]
+        }
+        beam_angle_adjust_table[ix] = adj;
+    }
+    beam_angle_adjust_table_set=1;
+
+    #ifdef PYTHON_PRINTOUT
+    fprintf(stderr,"table=np.array([");
+    for (size_t ix=0; ix<BEAM_ANGLE_ADJUST_TABLE_LEN; ix++){
+        float angle = a0 + ix*step;
+        fprintf(stderr,"[%f, %f]",angle*180/M_PI, beam_angle_adjust_table[ix]*180/M_PI);
+        if (ix<(BEAM_ANGLE_ADJUST_TABLE_LEN-1)) fprintf(stderr,",");
+    }
+    fprintf(stderr,"])\n");
+    #endif
+}
+
+
+float apply_beam_adjust(float angle){
+    if (!beam_angle_adjust_table_set) return angle;;
+    angle = LIMIT(angle, -M_PI/2, M_PI/2);
+    float ixf = (angle+(M_PI/2))*(BEAM_ANGLE_ADJUST_TABLE_LEN/M_PI);
+    float tmpf;
+    float fract = modff(ixf, &tmpf);
+    size_t ix = (size_t) tmpf;
+    float adj;
+    if (ix > (BEAM_ANGLE_ADJUST_TABLE_LEN-2)){
+        adj = beam_angle_adjust_table[BEAM_ANGLE_ADJUST_TABLE_LEN-1];
+    }
+    else{
+        // Linear interpolation: a + t*(b-a), fused when available
+        float a = beam_angle_adjust_table[ix];
+        float b = beam_angle_adjust_table[ix + 1];
+        adj = fmaf(fract, (b - a), a);        //a + fract*(b-a);
+    }
+    return angle + adj;
+}
+    
+
 
 
 /*

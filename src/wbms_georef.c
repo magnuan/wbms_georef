@@ -425,9 +425,15 @@ void generate_template_config_file(char* fname){
 	fprintf(fp,"# scale_tx_angle 1.0\n");
 
 			
-    fprintf(fp,"# Beam angle correction polynom. Model for beam angle correction as a Taylor series, comma separated in radians [rad, rad/rad, rad/rad^2, etc...] maximum %d parameters\n" , MAX_BEAM_ANGLE_MODEL_ORDER);        
+    fprintf(fp,"# Beam angle correction as polynom. Model for beam angle correction as a Taylor series, comma separated in radians [rad, rad/rad, rad/rad^2, etc...] maximum %d parameters\n" , MAX_BEAM_ANGLE_MODEL_ORDER);        
     fprintf(fp,"# Ex. beam_correction_poly 7.58391e-04, 2.25886e-03, -9.76763e-04, -1.99206e-03     for a 4th ordel model with the given parameters\n");
     fprintf(fp,"# beam_correction_poly \n");
+
+    fprintf(fp,"# Beam angle correction table. Beam angle corrections in degrees. Assumed to be for angles uniformly distributed from -90 to +90 degrees. maximum %d parameters\n", MAX_BEAM_ANGLE_TABLE_LEN);
+    fprintf(fp,"# Ex. beam_correction_table 0.10, 0.05, 0.00, 0.05, 0.10\n");
+    fprintf(fp,"# beam_correction_table \n");
+
+    fprintf(fp,"# NOTE: Only one beam correction poly or table can be defined. If multiple entries in config file, only the last will be used");
 	
 	fprintf(fp,"#### DATA SOURCE ####\n");
 	fprintf(fp,"# Normally given as input argument with -i or -p and -s, but can also be specified here\n");
@@ -567,7 +573,6 @@ static void sensor_params_default(sensor_params_t* s){
     s->sbp_bp_filter_start_freq = 0;
     s->sbp_bp_filter_stop_freq = 0;
     s->scale_tx_angle = 1.0;
-    s->beam_corr_poly_order=0;
     s->s7k_backscatter_source = s7k_backscatter_bathy;
     s->keep_s7k_tvg = 0;
     s->keep_s7k_footprint_comp = 0;
@@ -667,18 +672,41 @@ int read_config_from_file(char* fname){
             if (strncmp(c,"beam_correction_poly",20)==0){ 
                 char * token = strtok(c+20,",");
                 uint32_t pord = 0;
+                float * beam_corr_poly = (float*) calloc(MAX_BEAM_ANGLE_MODEL_ORDER, sizeof(float));
                 while ((token != NULL) && (pord<MAX_BEAM_ANGLE_MODEL_ORDER)) {
-                    fprintf(stderr, "token= %s\n",token);
-                    sensor_params.beam_corr_poly[pord] = atof(token);
+                    //fprintf(stderr, "token= %s\n",token);
+                    beam_corr_poly[pord] = atof(token);
                     token = strtok(NULL, ",");
                     pord++;
                 }
-                sensor_params.beam_corr_poly_order = pord;
-
-                for (uint32_t p=0 ; p<pord;p++){
-                    fprintf(stderr,"%f\n",  sensor_params.beam_corr_poly[p]);
-                }
+                calculate_beam_corrections_from_poly(beam_corr_poly,pord);
+                free(beam_corr_poly);
             }
+            
+            if (strncmp(c,"beam_correction_table",21)==0){ 
+                char * token = strtok(c+21,",");
+                uint32_t tlen = 0;
+                float * beam_corr_table = (float*) calloc(MAX_BEAM_ANGLE_TABLE_LEN, sizeof(float));
+                while ((token != NULL) && (tlen<MAX_BEAM_ANGLE_TABLE_LEN)) {
+                    //fprintf(stderr, "token= %s\n",token);
+                    beam_corr_table[tlen] = atof(token)*((float)M_PI/180); //Input is in degrees, but internally we always use radians
+                    token = strtok(NULL, ",");
+                    tlen++;
+                }
+                /* Create angle table, uniformly distributed from -90 to 90 degrees (in radians)*/
+                float * beam_corr_table_angles = (float*) calloc(tlen, sizeof(float));
+                const float a0  = - (float)M_PI * 0.5f;
+                const float step  = (float)M_PI / (float)(tlen - 1);
+                for(size_t ix=0; ix<tlen; ix++){
+                    beam_corr_table_angles[ix] = a0 + ix*step;
+                }
+
+                calculate_beam_corrections_from_table(beam_corr_table_angles,beam_corr_table,tlen);
+                free(beam_corr_table);
+                free(beam_corr_table_angles);
+            }
+            
+
 			if (strncmp(c,"s7k_backscatter_source",22)==0) sensor_params.s7k_backscatter_source = (atoi(c+22));	
 			if (strncmp(c,"snippet_processing_mode",23)==0) sensor_params.snippet_processing_mode = (atoi(c+23));	
 			if (strncmp(c,"keep_s7k_tvg",12)==0) sensor_params.keep_s7k_tvg = 1;	

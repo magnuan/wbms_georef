@@ -54,6 +54,7 @@ uint32_t upper_power_of_two(uint32_t v);
 float median(float *arr, uint32_t n);  
 
 
+float quadratic_interpolate(float x, const float* xs, const float* ys, size_t len);
 int med_filter(const float* in, float* med, const size_t flen, const size_t len);
 
 int non_uniform_1order_savgol(const float* x_in, const float* y_in, const size_t len_in, const float* x_out, float* y_out, const size_t len_out, const float flen);

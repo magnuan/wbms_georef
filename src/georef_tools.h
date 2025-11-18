@@ -13,7 +13,6 @@ int georef_to_global_frame(
 					/*sensor data arrays*/	double* x, double* y, double* z
 					);
 
-float apply_beam_correction_poly(float angle, float* poly, uint32_t order);
 int attitude_test(sensor_params_t* sensor_params, float yaw,  float pitch,  float roll, float droll_dt, float dpitch_dt, float dyaw_dt); 
 size_t find_closest_index_in_posdata(navdata_t posdata[NAVDATA_BUFFER_LEN],const size_t pos_ix, const double ts);
 int calc_interpolated_nav_data( navdata_t posdata[NAVDATA_BUFFER_LEN],const size_t pos_ix, const double ts,/*OUTPUT*/ double* nav_x, double* nav_y, double* nav_z, float* nav_yaw, float* nav_pitch, float* nav_roll, float* nav_dyaw_dt, float* nav_dpitch_dt, float* nav_droll_dt);
@@ -21,4 +20,8 @@ int calc_interpolated_roll_and_z_vector(navdata_t posdata[NAVDATA_BUFFER_LEN], c
 void set_time_diff_limit(float t);
 void calc_aoi(const float * range, const float * angle, size_t len, /*output*/ float * aoi);
 void variance_model(const float * range, const float * angle, const float * aoi, size_t len, float droll_dt, float dpitch_dt,/*output*/ float * z_var);
+
+void calculate_beam_corrections_from_table(float* angles, float* vals, size_t len);
+void calculate_beam_corrections_from_poly(float* poly, uint32_t order);
+float apply_beam_adjust(float angle);
 #endif
