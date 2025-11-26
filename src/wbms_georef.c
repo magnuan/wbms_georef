@@ -1599,6 +1599,8 @@ int main(int argc,char *argv[])
                 }
                 else if (input_sensor_source == i_file){ // Otherwise, we need to go through the sensor file to read out the sv range
                     sensor_get_sv_range(input_sensor_fd,sensor_mode, &min_sv, &max_sv);
+                    min_sv += sensor_params.sv_offset;
+                    max_sv += sensor_params.sv_offset;
                     // Rewind file after reading out sv
                     if (sensor_mode == sensor_mode_gsf){
                         gsf_rewind(fileno(input_sensor_fileptr)); 

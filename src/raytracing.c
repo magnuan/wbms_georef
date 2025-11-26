@@ -278,11 +278,16 @@ int generate_ray_bending_table_from_sv_file(const char* fname,float sonar_depth,
         //Default values if set to 0
         c_min = c_min? c_min - DC: MINIMUM_C ;
         c_max = c_max? c_max + DC: (MINIMUM_C + (NC*DC)) ;
+        //Expand range by +/- DC, but still within absolute limits
+        c_min = MAX(MINIMUM_C,(c_min-DC));
+        c_max = MIN(MINIMUM_C + (NC*DC), c_max+DC);
         
         //Start by setting all invalid
         for(cix = 0;cix<NC;cix++){
             for(aix = 0;aix<NANGLE;aix++){
                 for(zix = 1;zix<NZ;zix++){    
+                    corr_angle[cix][aix][zix] = 0;
+                    corr_range[cix][aix][zix] = 0;
                     corr_invalid[cix][aix][zix] = 1;
                 }
             }
@@ -352,7 +357,7 @@ int generate_ray_bending_table_from_sv_file(const char* fname,float sonar_depth,
         fprintf(ppfd,"import numpy as np\n");
         fprintf(ppfd,"import matplotlib.pyplot as plt\n");
         fprintf(ppfd,"c=np.asarray([");
-        int cix_sel = round( (1480.-MINIMUM_C)/DC);
+        int cix_sel = round( (((c_min+c_max)/2)-MINIMUM_C)/DC);
         for(int cix = cix_sel;cix<=cix_sel;cix++){
             fprintf(ppfd,"%6.2f,", MINIMUM_C+ (float)cix*DC);
         }
