@@ -18,6 +18,7 @@
 #include "georef_tools.h"
 #include "intensity_scaling.h"
 #include "cmath.h"
+#include "misc.h"
 #include "raytracing.h"
 #if defined(_MSC_VER)
 #include "non_posix.h"
@@ -152,13 +153,13 @@ void r7k_get_sv_range(int fd, float* min_sv, float *max_sv){
     free(data);
 }
 
-uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types){
+uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types, int attempts){
     uint8_t pass=0;
     char* data = malloc(MAX_S7K_PACKET_SIZE);
     if (data==NULL){
         return 0;
     }
-    for(int test=0;test<1000;test++){     //Test the first 1000 packets, if none of them contains requested data it is pobably not a valid data file
+    for(int test=0;test<attempts;test++){     //Test the first 1000 packets, if none of them contains requested data it is pobably not a valid data file
         int len; 
         len = r7k_fetch_next_packet(data, fd);
         //printf("r7k_test_file, %d len=%d test_cnt=%d\n",req_types[0],len,test);
@@ -168,6 +169,7 @@ uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types){
             //fprintf(stderr,"type = %d\n",type);fflush(stderr);
             for (size_t req_type_ix = 0; req_type_ix<n_req_types;req_type_ix++){
                 if (type==req_types[req_type_ix]){
+                    fprintf(stderr, "Found s7k type %d packet in %d attempts\n",  type, test+1);
                     pass=1;
                     break;
                 }
@@ -184,11 +186,11 @@ uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types){
 
 uint8_t r7k_test_nav_file(int fd){
     int req_types[] = {1003,1012,1013,1015,1016};
-    return r7k_test_file(fd,req_types,5);
+    return r7k_test_file(fd,req_types,5,1000);
 }
 uint8_t r7k_test_bathy_file(int fd){
     int req_types[] = {7027,7028,10018};
-    return r7k_test_file(fd,req_types,2);
+    return r7k_test_file(fd,req_types,2,5000);
 }
 
 void r7k_calc_checksum(r7k_DataRecordFrame_t* drf){
@@ -223,7 +225,7 @@ int r7k_seek_next_header(int fd, /*out*/ uint8_t* pre_sync){
 		n = read(fd,&v,1);                              //TODO: Speed this up, it takes too long time to read one and one byte
         read_bytes++;
 		if(n<0){ fprintf(stderr,"Got error from socket\n");return -1;}
-		if(n==0){ /*fprintf(stderr,"End of S7K stream\n");*/return -1;}
+		if(n==0){ fprintf(stderr,"End of S7K stream\n");return -1;}
 		if(n>0){
 			pre_sync_buffer[(psb_ix++)%8] = v;
 			dump += 1;
@@ -259,7 +261,11 @@ int r7k_fetch_next_packet(char * data, int fd){
 	n = read(fd, dp,4);dp +=4;                        //Read in four more bytes, containing packet size
 	uint32_t s7k_size = ((uint32_t*) data)[2];
     //fprintf(stderr, "s7k_size = %d \n",s7k_size);
-    if (s7k_size>MAX_S7K_PACKET_SIZE) return 0;
+    if (s7k_size>MAX_S7K_PACKET_SIZE) {
+        fprintf(stderr, "Oversized S7k packet, skipping.  %d bytes , max %d\n",s7k_size, MAX_S7K_PACKET_SIZE);
+        skip(fd, s7k_size-12);
+        return r7k_fetch_next_packet(data,fd);
+    }
 	
     
 	rem = s7k_size-12;                                //Remaining bytes - the 12 we allready have      

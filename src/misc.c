@@ -1,10 +1,20 @@
 /** @cond */
 #include <stdlib.h>
-//#include <unistd.h>
+#include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
 /** @endcond */
 
+
+void skip(int fd, size_t nbytes) {
+    char buf[4096];
+    while (nbytes > 0) {
+        size_t chunk = nbytes < sizeof(buf) ? nbytes : sizeof(buf);
+        ssize_t r = read(fd, buf, chunk);
+        if (r <= 0) break;   // error or EOF
+        nbytes -= r;
+    }
+}
 
 
 
