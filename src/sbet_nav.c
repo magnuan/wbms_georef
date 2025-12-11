@@ -49,17 +49,21 @@ void set_sbet_epoch(double ts){
 /***************** SECTION FOR BINARY FORMATED SBET DATA ***************************************/
 uint8_t sbet_test_file(int fd){
     uint8_t pass=0;
+    int good = 0;
     char* data = malloc(SBET_PACKET_SIZE);
     if (data==NULL){
         return 0;
     }
-    for(int test=0;test<20;test++){     //Test the first 20 packets, if none of them contains requested data it is pobably not a valid data file
+    for(int test=0;test<50;test++){     //Test the first 50 packets, at least 30 of them needs to be sane sbet data to qualify the file
         int len; 
         len = sbet_nav_fetch_next_packet(data, fd);
         //printf("len=%d\n",len);
         if (len > 0 ){
             double ts;
             if (sbet_nav_identify_packet(data, len, &ts)){
+                good++;
+            }
+            if (good>30){
                 pass=1;
                 break;
             }
@@ -102,7 +106,7 @@ int sbet_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out){
     double pitch = *(((double*)(dp)));dp+=8;
     double yaw = *(((double*)(dp)));dp+=8;
     double course = *(((double*)(dp)));dp+=8;
-    #if 0 
+    #if 1 
     fprintf(stderr, "SBET indentify ts=%f,lat=%f,lon=%f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,course=%5.2f\n",
             ts, lat*180/M_PI,lon*180/M_PI,alt,roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI,course*180/M_PI);
     #endif
