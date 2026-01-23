@@ -106,8 +106,8 @@ int sbet_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out){
     double pitch = *(((double*)(dp)));dp+=8;
     double yaw = *(((double*)(dp)));dp+=8;
     double course = *(((double*)(dp)));dp+=8;
-    #if 1 
-    fprintf(stderr, "SBET indentify ts=%f,lat=%f,lon=%f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,course=%5.2f\n",
+    #if 0 
+    fprintf(stderr, "SBET identify ts=%f,lat=%f,lon=%f,alt=%5.2f,roll=%5.2f,pitch=%5.2f,yaw=%5.2f,course=%5.2f\n",
             ts, lat*180/M_PI,lon*180/M_PI,alt,roll*180/M_PI,pitch*180/M_PI,yaw*180/M_PI,course*180/M_PI);
     #endif
     if ((ts<0.001) || (ts>(60.*60.*24.*7.))) return 0; //Time stamp is relative to beginning of week, so if it is more than 7 days, its bad, also do not allow 0, to prevent all 0 data from passing as good
