@@ -49,6 +49,60 @@ void wbms_init(void){
     }
 }
 
+bath_data_packet_vX_t* bath_convert_to_universal(bath_data_packet_t* bath_in, uint32_t force_bath_version);
+
+float  wbms_get_max_range(int fd){
+    char* data = malloc(MAX_WBMS_PACKET_SIZE);
+    if (data==NULL) return 0;
+    
+    float max = 0.;
+    float val;
+    int cnt=0;
+    uint32_t force_bath_version = 0;
+    while (1) {
+        if (wbms_fetch_next_packet(data, fd) ==0) break;
+	    val=0;
+        bath_data_packet_t* bath_packet = (bath_data_packet_t*) data;
+        if (bath_packet->header.type ==PACKET_TYPE_BATH_DATA){
+            bath_data_packet_vX_t* bath_vX = bath_convert_to_universal(bath_packet,force_bath_version);
+            
+            float Fs = bath_vX->sub_header.sample_rate;
+            float c =  bath_vX->sub_header.snd_velocity;
+	        float c_div_2Fs = c/(2*Fs);
+            uint16_t Nin = bath_vX->sub_header.N;
+
+	        int max_sn = 0;
+            for (uint16_t ix_in=0;ix_in<Nin;ix_in++){
+                int sn = bath_vX->dp[ix_in].sample_number;
+                max_sn = MAX(max_sn, sn);
+            }
+            val = max_sn*c_div_2Fs;
+            cnt++;
+        }
+        /** TODO also find max range from snippets packets
+        else if (bath_packet->header.type == PACKET_TYPE_SNIPPET_DATA){
+        }
+        */
+        else{
+            continue;
+        }
+
+        if(val>0 && val<20000){ //Basic data value sanitizing
+            max = MAX(max,val);
+        }
+    }
+    free(data);
+    if (cnt){
+        fprintf(stderr, "WBMS data max range = %.2f m (%d pings)\n",max,cnt);
+        return max;
+    }
+    else{
+        fprintf(stderr, "WBMS data max range could not be found\n");
+        return 0;
+    }
+}
+    
+
 void wbms_get_sv_range(int fd, float* min_sv, float *max_sv){
     char* data = malloc(MAX_WBMS_PACKET_SIZE);
     if (data==NULL) return;

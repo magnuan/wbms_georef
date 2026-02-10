@@ -589,5 +589,6 @@ uint32_t r7k_num_record_types(void);
 uint32_t r7k_get_record_count(record_count_t* records);
 const char * r7k_get_data_type(void);
 void r7k_get_sv_range(int fd, float* min_sv, float *max_sv);
+float r7k_get_max_range(int fd);
 
 #endif

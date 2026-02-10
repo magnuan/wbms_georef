@@ -110,6 +110,65 @@ void r7k_set_sensor_offset(offset_t* s){
     sensor_offset = s;
 }
 
+float r7k_get_max_range(int fd){
+    char* data = malloc(MAX_S7K_PACKET_SIZE);
+    if (data==NULL) return ;
+
+    float max = 0.;
+    float val;
+    int cnt=0;
+    float sv = 1500.;
+    while (1) {
+        if (r7k_fetch_next_packet(data, fd) ==0) break; 
+        val=0;
+        r7k_DataRecordFrame_t* drf = (r7k_DataRecordFrame_t*) data;
+	    union r7k_RecordTypeHeader rth;
+	    rth.dummy = (r7k_RecordTypeHeader_dummy_t*) (data+4+(drf->offset));
+        if (drf->record_id == 7000){
+            sv = rth.r7000->sound_velocity;
+        }
+        else if (drf->record_id == 7006){
+            sv = rth.r7006->sound_velocity;
+        }
+        
+	    else if (drf->record_id == 7027){
+            float Fs = rth.r7027->fs;
+            uint32_t Nin = rth.r7027->N;  //Number of beams
+            
+            float c_div_2Fs = sv/(2*Fs);
+            uint32_t dfs = rth.r7027->data_field_size;
+            uint8_t* rd_ptr = (((uint8_t*) rth.r7027) + sizeof(r7k_RecordTypeHeader_7027_t));
+
+            float max_sn = 0;
+            for (uint32_t ix_in = 0; ix_in<Nin; ix_in++){
+                r7k_RecordData_7027_t* rd = (r7k_RecordData_7027_t*)(rd_ptr+(ix_in*dfs));
+                max_sn   = MAX(max_sn,(rd->detection_point));
+            }
+            val = max_sn*c_div_2Fs;
+            cnt++;
+        }
+        /* TODO read max range from 10018 data as well
+        else if (drf->record_id == 10018){
+            sv = rth.r10018->sound_velocity;
+        }*/
+        else{
+            continue;
+        }
+        if(val>0 && val<20000){ //Basic data value sanitizing
+            max = MAX(max,val);
+        }
+    }
+    free(data);
+    if (cnt){
+        fprintf(stderr, "S7K data max range = %.2f m (%d pings)\n",max,cnt);
+        return max;
+    }
+    else{
+        fprintf(stderr, "S7K data max range could not be found\n");
+        return 0;
+    }
+}
+
 void r7k_get_sv_range(int fd, float* min_sv, float *max_sv){
     char* data = malloc(MAX_S7K_PACKET_SIZE);
     if (data==NULL) return ;

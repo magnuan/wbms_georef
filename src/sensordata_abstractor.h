@@ -9,6 +9,7 @@ sensor_mode_e sensor_autodetect_file(FILE* fp);
 int sensor_fetch_next_packet(char * data, int fd, sensor_mode_e mode);
 int sensor_identify_packet(char* databuffer, uint32_t len, double ts_in, double* ts_out, sensor_mode_e mode);
 void sensor_get_sv_range(int fd, sensor_mode_e mode, float* min_sv, float* max_sv);
+float sensor_get_max_range(int fd, sensor_mode_e mode);
 
 int sensor_num_record_types(sensor_mode_e mode);
 int sensor_get_record_count(sensor_mode_e mode, record_count_t* records);

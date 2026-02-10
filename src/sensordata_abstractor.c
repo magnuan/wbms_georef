@@ -76,6 +76,26 @@ char *sensor_mode_short_names[] = {
     "unknown"
 };
 
+// Get the maximum range fond in sensor data file
+// Returning 0, means that max range could not be computed
+float sensor_get_max_range(int fd, sensor_mode_e mode){
+    switch (mode){
+        case  sensor_mode_wbms: case sensor_mode_wbms_v5:
+            return wbms_get_max_range(fd);
+        case sensor_mode_s7k:	
+            return r7k_get_max_range(fd);
+        default:
+        case sensor_mode_gsf:	
+        case sensor_mode_3dss_stream:	
+        case sensor_mode_lakibeam:
+        case sensor_mode_velodyne:
+        case sensor_mode_autodetect: 
+        case sensor_mode_unknown:
+        case  sensor_mode_sim:
+            return 0.;
+    }
+}
+
 void sensor_get_sv_range(int fd, sensor_mode_e mode, float* min_sv, float* max_sv){
     *min_sv = 0.;
     *max_sv = 0.;

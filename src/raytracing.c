@@ -25,7 +25,7 @@ typedef SSIZE_T ssize_t;
 // Because we do not know the maximum data depth when the sv data is read in, we do not know exactly how deep we need to extrapolate.
 // Too short, and we might have to discard data due to lacking sv profile, too long means unneccessary run-time / memory use.
 // As a initial compromise we set it to 2, assuming the SV cast is at least half the maximum data depth
-#define EXTRAPOLATE_SV (4.0)
+#define EXTRAPOLATE_SV (10.0)
 
 
 static int ray_bend_valid=0;
@@ -84,8 +84,6 @@ static int calc_dr_dt_rev_hovem(FLOATTYPE xi,FLOATTYPE c0,FLOATTYPE c1,FLOATTYPE
 	return 0;
 }
 
-//TODO set MINIMUM_C,NC,DC based on SV values actually in source file
-//TODO set NZ and DZ  based on max depth in source file
 //Resolution and length of depth axis of correction table
 static float DZ = 0.25f;
 #define NZ 512
@@ -162,7 +160,7 @@ static void dilate_invalid_table_for_interpolation(void){
 
 }
 
-int generate_ray_bending_table_from_sv_file(const char* fname,float sonar_depth, uint8_t generate_lut,float c_min, float c_max){
+int generate_ray_bending_table_from_sv_file(const char* fname,float sonar_depth, uint8_t generate_lut,float c_min, float c_max, float depth_max){
 	sv_meas_t* sv_meas;
 	sv_meas_t* sv_meas_filtered;
 	float depth,sv,ddepth,dsv;
@@ -218,12 +216,19 @@ int generate_ray_bending_table_from_sv_file(const char* fname,float sonar_depth,
 		sv_meas[ii].depth -= sonar_depth;
 	}
 
-    float max_depth = 0;
+    float sv_depth_max = 0;
 	for (ii = 0;ii<sv_meas_len;ii++){
-		max_depth = max_depth > sv_meas[ii].depth ? max_depth:sv_meas[ii].depth;
+		sv_depth_max = sv_depth_max > sv_meas[ii].depth ? sv_depth_max:sv_meas[ii].depth;
 	}
-	fprintf(stderr, "Max depth in SV profile file = %f\n", max_depth);
-    DZ = max_depth/NZ; 
+	fprintf(stderr, "Max depth in SV profile file = %f\n", sv_depth_max);
+    if (depth_max==0){
+        depth_max = sv_depth_max;
+    }
+    else{
+	    fprintf(stderr, "Max depth in data file = %f\n", depth_max);
+        depth_max = MIN(depth_max,sv_depth_max);
+    }
+    DZ = depth_max/NZ; 
 
 
 	fprintf(stderr, "Resample sv readings to sv table 0 - %fm dz=%f\n", NZ*DZ,DZ);

@@ -16,7 +16,7 @@ typedef SSIZE_T ssize_t;
 #define MIN_SANE_SV 1350.f
 #define MAX_SANE_SV 1650.f
 #define MIN_SANE_DEPTH 0.f
-#define MAX_SANE_DEPTH 1000.f
+#define MAX_SANE_DEPTH 3000.f
 
 char *svp_mode_short_names[] = {
 	"-",

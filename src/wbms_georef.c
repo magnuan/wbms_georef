@@ -1590,6 +1590,7 @@ int main(int argc,char *argv[])
         int ret = 0;
         float min_sv = 0.; //0,0 means default range
         float max_sv = 0.;
+        float max_depth = 0.; //Maximum depth relative to sonar, 0 means use max depth from extrapolated sv-file
         switch(sensor_params.ray_tracing_mode){
             case ray_trace_fixed_depth_lut: //Fixed depth LUT
                 // Before we can create the LUT, we need to know the sound velocity range wee need to calculate it for
@@ -1598,10 +1599,20 @@ int main(int argc,char *argv[])
                     max_sv = sensor_params.force_sv;
                 }
                 else if (input_sensor_source == i_file){ // Otherwise, we need to go through the sensor file to read out the sv range
+                    // Read out SV-range for datafile
                     sensor_get_sv_range(input_sensor_fd,sensor_mode, &min_sv, &max_sv);
                     min_sv += sensor_params.sv_offset;
                     max_sv += sensor_params.sv_offset;
-                    // Rewind file after reading out sv
+                    // Rewind file 
+                    if (sensor_mode == sensor_mode_gsf){
+                        gsf_rewind(fileno(input_sensor_fileptr)); 
+                    }
+                    else{
+                        fseek(input_sensor_fileptr, 0, SEEK_SET); //Rewind
+                    }
+                    // Read out max range from datafile
+                    max_depth = sensor_get_max_range(input_sensor_fd,sensor_mode); //TODO Ideally we should use max depth here, but since we know that max_depth<max_range, this is safe, but is a bit suboptimal, as unneccessary long SV table needs to be calculated
+                    // Rewind file 
                     if (sensor_mode == sensor_mode_gsf){
                         gsf_rewind(fileno(input_sensor_fileptr)); 
                     }
@@ -1609,13 +1620,13 @@ int main(int argc,char *argv[])
                         fseek(input_sensor_fileptr, 0, SEEK_SET); //Rewind
                     }
                 }
-                ret = generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 1,min_sv, max_sv); //In LUT mode, we asume that the sonar draft is fixed, and generate the table with respect to this
+                ret = generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 1,min_sv, max_sv,max_depth); //In LUT mode, we asume that the sonar draft is fixed, and generate the table with respect to this
                 break;
             case ray_trace_fixed_depth_direct: //Fixed depth, direct
-                ret = generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 0,0,0); //In direct raytracing, wixed depth, we generate the table with respect to sonar
+                ret = generate_ray_bending_table_from_sv_file(sv_file_name, sensor_params.mounting_depth, 0,0,0,0); //In direct raytracing, wixed depth, we generate the table with respect to sonar
                 break;
             case ray_trace_var_depth: //Variable depth, direct
-                ret= generate_ray_bending_table_from_sv_file(sv_file_name, 0., 0,0,0); //In direct raytracing, we generate the table with respect to water surface, and input sonar position wrt. this when doing raytracing
+                ret= generate_ray_bending_table_from_sv_file(sv_file_name, 0., 0,0,0,0); //In direct raytracing, we generate the table with respect to water surface, and input sonar position wrt. this when doing raytracing
                 break;
             case ray_trace_none:
                 break;
