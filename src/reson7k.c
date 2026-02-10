@@ -245,11 +245,21 @@ uint8_t r7k_test_file(int fd,int req_types[], size_t n_req_types, int attempts){
 
 uint8_t r7k_test_nav_file(int fd){
     int req_types[] = {1003,1012,1013,1015,1016};
-    return r7k_test_file(fd,req_types,5,1000);
+    uint8_t ret = r7k_test_file(fd,req_types,5,1000);
+    lseek(fd,0,SEEK_SET);
+    return ret;
 }
 uint8_t r7k_test_bathy_file(int fd){
     int req_types[] = {7027,7028,10018};
-    return r7k_test_file(fd,req_types,2,5000);
+    uint8_t ret;
+    if (r7k_test_nav_file(fd) ){        //Nav data is typically much more frequent than sonar data, first thest this, and if so test much longer 
+        ret = r7k_test_file(fd,req_types,3,30000);
+    }
+    else{
+        ret = r7k_test_file(fd,req_types,3,1000);
+    }
+    lseek(fd,0,SEEK_SET);
+    return ret;
 }
 
 void r7k_calc_checksum(r7k_DataRecordFrame_t* drf){
