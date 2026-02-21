@@ -112,7 +112,7 @@ void r7k_set_sensor_offset(offset_t* s){
 
 float r7k_get_max_range(int fd){
     char* data = malloc(MAX_S7K_PACKET_SIZE);
-    if (data==NULL) return ;
+    if (data==NULL) return 0;
 
     float max = 0.;
     float val;
