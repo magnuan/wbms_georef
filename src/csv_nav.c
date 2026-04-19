@@ -28,7 +28,7 @@ uint8_t csv_test_file(int fd){
     for(int test=0;test<20;test++){     //Test the first 20 packets, if none of them contains requested data it is pobably not a valid data file
         int len; 
         len = csv_nav_fetch_next_packet(data, fd);
-        //printf("len=%d\n",len);
+        printf("len=%d\n",len);
         if (len > 0 ){
             double ts;
             if (csv_nav_identify_packet(data, len, &ts)){
@@ -71,7 +71,7 @@ int csv_nav_fetch_next_packet(char * data, int fd){
 
 int csv_nav_identify_packet(char* databuffer, uint32_t len, double* ts_out){
 	double ts, lat_deg, lon_deg, alt_m, roll_deg, pitch_deg, yaw_deg;
-    int ii = sscanf(databuffer,"%f,%f,%f,%f,%f,%f,%f",
+    int ii = sscanf(databuffer,"%lf,%lf,%lf,%lf,%lf,%lf,%lf",
                 &ts, &lat_deg, &lon_deg, &alt_m, &roll_deg, &pitch_deg, &yaw_deg);
     //Sanity tests
     if (ii<7) return 0; //Not enough fields in csv string
@@ -97,10 +97,11 @@ int csv_nav_process_packet(char* databuffer, uint32_t len, double* ts_out, doubl
 	double ts, lat_deg, lon_deg, alt_m, roll_deg, pitch_deg, yaw_deg;
     len = MIN(len,100); //CSV NAV line should be around 80 bytes, accept up to 100
     databuffer[len]=0;
-    int ii = sscanf(databuffer,"%f,%f,%f,%f,%f,%f,%f",
+    int ii = sscanf(databuffer,"%lf,%lf,%lf,%lf,%lf,%lf,%lf",
                 &ts, &lat_deg, &lon_deg, &alt_m, &roll_deg, &pitch_deg, &yaw_deg);
 
     if(ii>=7){
+        *ts_out = ts;
         navdata->ts = ts ;
         navdata->lon = lon_deg*M_PI/180;
         navdata->lat = lat_deg*M_PI/180;
@@ -114,7 +115,8 @@ int csv_nav_process_packet(char* databuffer, uint32_t len, double* ts_out, doubl
         navdata->course = navdata->yaw;
         navdata->heave = 0.;
         navdata->z += z_offset;
-        return 1;
+        //fprintf(stderr,"CSV_NAV ts=%f\n",ts);
+        return (proj?NAV_DATA_PROJECTED:NAV_DATA_GEO);
     }
     else{
         fprintf(stderr, "Invalid line in CSV NAV (only %d of 7 read): %s\n",ii,databuffer);
