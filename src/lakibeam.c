@@ -33,25 +33,28 @@ void lakibeam_set_sensor_offset(offset_t* s){
     sensor_offset = s;
 }
 
-uint8_t lakibeam_test_file(int fd){
+static uint8_t extended_format = 0;
+
+uint8_t lakibeam_test_file(int fd,int* version){
     uint8_t pass=0;
-    char* data = malloc(LAKIBEAM_LIDAR_PACKET_SIZE);
+    char* data = malloc(LAKIBEAM_EXTENDED_LIDAR_PACKET_SIZE);
     if (data==NULL){
         return 0;
     }
-    for(int test=0;test<10;test++){     //Test the first 10 packets, if none of them contains bathy data it is pobably not a valid data file
+    //TODO test both as extended and normal, pass if any of them passes and set the extended flag accordingly
+    for(int test=0;test<10;test++){     //Test the first 10 packets, if more than half has valid data we assume it is a valid data file
         int len; 
         len = lakibeam_fetch_next_packet(data, fd);
         if (len > 0 ){
             double ts;
             if (lakibeam_identify_packet(data, len, &ts,0.)){
-                pass=1;
-                break;
+                pass++;
             }
         }
     }
     free(data);
-    return pass;
+    *version = extended_format?2:1;
+    return pass>5;
 }
 
 int lakibeam_seek_next_header(int fd){
@@ -60,7 +63,8 @@ int lakibeam_seek_next_header(int fd){
 	int n;
 	int dump= 0;
     int read_bytes = 0;
-	while (read_bytes<(2*LAKIBEAM_LIDAR_PACKET_SIZE)){
+    static int switch_to_ext_cnt = 0;
+	while (read_bytes<(2*LAKIBEAM_EXTENDED_LIDAR_PACKET_SIZE)){
 		n = read(fd,&v,1);
         read_bytes++;
 		if(n<0){ fprintf(stderr,"Got error from socket\n");return -1;}
@@ -75,7 +79,17 @@ int lakibeam_seek_next_header(int fd){
 			}
 			if (state==4){
 				dump-=4;
-				if(dump) fprintf(stderr,"Lakibeam seek dump %d bytes\n",dump);
+				if(dump){
+                    fprintf(stderr,"Lakibeam seek dump %d bytes\n",dump);
+                    if (!extended_format){
+                        if(dump==4)                 switch_to_ext_cnt++;
+                        else                        switch_to_ext_cnt=0;
+                        if (switch_to_ext_cnt>5){    
+                            extended_format = 1;
+                            fprintf(stderr,"%d consecutive 4 byte dump, switching to extended mode\n",switch_to_ext_cnt);
+                        }
+                    }
+                }
 				return 0;	
 			}
 		}
@@ -89,57 +103,82 @@ int lakibeam_fetch_next_packet(char * data, int fd){
 
 	if(lakibeam_seek_next_header(fd)) return 0;
 	data[0] = 0xFF;data[1] = 0xEE;
-	rem = 1206-2-2; //Fetch packet header (minus the sync we allready have, and the 2 factory bytes)
+    int packet_size;
+    if (extended_format)
+	    packet_size = LAKIBEAM_EXTENDED_LIDAR_PACKET_SIZE;
+    else
+	    packet_size = LAKIBEAM_LIDAR_PACKET_SIZE;
+	rem = packet_size-2-2; //Fetch packet header (minus the sync we allready have, and the 2 factory bytes)
 	dp = &(data[2]);
 	//while (rem>0){ n= read(fd,dp,rem);rem -= n; dp+=n;}
 	while (rem>0){ n= read(fd,dp,rem);if (n<=0) return 0;rem -= n; dp+=n;} //Read neccessary data, abort if no data or failure occurs TODO: verify that this works with all stream types 
 	if(n<0){ fprintf(stderr,"Got error from socket\n");return 0;}
 	if(n==0){ /*fprintf(stderr,"End of stream\n");*/return 0;}
-	return 1206;;
+	return packet_size;
 }
 
 int lakibeam_identify_packet(char* databuffer, uint32_t len, double* ts_out, double ts_in){
-	uint16_t * vdata = (uint16_t*) databuffer;
 	uint32_t ii;
-	
-	double lidar_ts = 1e-6*(((uint32_t*)databuffer)[1200/4]); /* Time in seconds since startup */
-    lidar_ts += lakibeam_epoch;
-	*ts_out = lidar_ts; 
 
-	if (len != 1206){
+    double lidar_ts;
+    if (len == LAKIBEAM_LIDAR_PACKET_SIZE){
+        LakibeamFrame_t* frame = (LakibeamFrame_t*) databuffer;  
+        lidar_ts = 1e-6*(frame->timestamp_us); /* Time in seconds since startup */
+        lidar_ts += lakibeam_epoch;
+        *ts_out = lidar_ts; 
+        for (ii=0;ii<12;ii++){              //Each packet has 12 datablocks of 100 bytes, each starting with 0xeeff of 0xffff
+            if ( (frame->block[ii].header != (0xeeff)) && (frame->block[ii].header !=(0xffff))){
+                if(verbose) fprintf(stderr,"malformed lakibeam packet received, discarding\n");
+                fprintf(stderr,"malformed lakibeam packet received, discarding\n");
+                return 0;
+            }
+        }
+        return 1;
+    }
+    else if (len == LAKIBEAM_EXTENDED_LIDAR_PACKET_SIZE){
+        ExtendedLakibeamFrame_t* frame = (ExtendedLakibeamFrame_t*) databuffer;  
+        lidar_ts = 1e-6*(frame->timestamp_us); /* Time in UTC */
+        *ts_out = lidar_ts; 
+        for (ii=0;ii<LAKIBEAM_BLOCKS;ii++){              //Each packet has 12 datablocks of 100 bytes, each starting with 0xeeff of 0xffff
+            if ( (frame->block[ii].header !=(0xeeff)) && (frame->block[ii].header !=(0xffff))){
+                if(verbose) fprintf(stderr,"malformed lakibeam packet received, discarding\n");
+                fprintf(stderr,"malformed lakibeam packet received, discarding\n");
+                return 0;
+            }
+        }
+        return 1;
+    }
+	else{
 		fprintf(stderr,"odd sized lakibeam packet received, discarding, len=%d\n",len);
 		return 0;
 	}
-	for (ii=0;ii<12;ii++){              //Each packet has 12 datablocks of 100 bytes, each starting with 0xeeff of 0xffff
-		if ((vdata[ii*50])!=(0xeeff) && (vdata[ii*50])!=(0xffff)){
-			if(verbose) fprintf(stderr,"malformed lakibeam packet received, discarding\n");
-			fprintf(stderr,"malformed lakibeam packet received, discarding\n");
-			return 0;
-		}
-	}
-	return 1;
 }
 
 
-#define LIDAR_DP (16*2*12)
+#define LIDAR_DP (LAKIBEAM_POINT_PER_PACK*2)
 
 uint32_t  lakibeam_count_data( uint16_t * data,double *ts){
     uint32_t ix_out = 0;
-	*ts = 1e-6*(((uint32_t*)data)[1200]); /* Time in seconds since startup */
-    
-    for (uint16_t block=0;block<12;block++){
-		for (uint16_t set = 0;set<2;set++){ // [Strongest, Last]
-		    uint8_t* dp = (uint8_t*)(&(data[block*50+2])) + (set*3); //Set 1 os offset 3 bytes wrt set 0
-
-			for (uint16_t ch = 0; ch<16;ch++){
-				float sensor_r = (float)(((uint16_t)dp[0])+((uint16_t)dp[1])*256)*1e-3f;	//Lakibeam measures distance in units of 1mm 
-                if (sensor_r>0){       
-                    ix_out++;
-                }
-				dp+=6; // Each measuring result is 6 Bytes 
-			}
-		}
-	}
+    if (extended_format){
+        ExtendedLakibeamFrame_t* frame = (ExtendedLakibeamFrame_t*) data;  
+        *ts = 1e-6*(frame->timestamp_us); /* Time in UTC */
+        //fprintf(stderr,"Lakibeam extended ts=%f\n",*ts);
+    }
+    else{
+        LakibeamFrame_t* frame = (LakibeamFrame_t*) data;  
+        *ts = 1e-6*(frame->timestamp_us); /* Time in seconds since startup */
+        *ts += lakibeam_epoch;
+        //fprintf(stderr,"Lakibeam ts=%f\n",*ts);
+    }
+    {
+        LakibeamFrame_t* frame = (LakibeamFrame_t*) data; // Extended and non-extended share all the first 1200 bytes 
+        for (uint16_t block=0;block<LAKIBEAM_BLOCKS;block++){
+            for (uint16_t point = 0; point<LAKIBEAM_POINT_PER_BLOCK;point++){
+                if (frame->block[block].point[point].distance1>0) ix_out++;
+                if (frame->block[block].point[point].distance2>0) ix_out++;
+            }
+        }
+    }
 	return ix_out;
 }
 
@@ -173,65 +212,71 @@ uint32_t lakibeam_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
 	uint16_t Nout;
 	uint16_t ix_out;
 
-	double lidar_ts = 1e-6*(((uint32_t*)data)[1200/4]); /* Time in seconds since startup */
-    lidar_ts += lakibeam_epoch;
-
-    /*for (uint16_t ix=0;ix<128;ix++){
-        fprintf(stderr,"0x%02x, ", ((uint8_t*)(data))[ix]);
+	double lidar_ts; 
+    
+    if (extended_format){
+        ExtendedLakibeamFrame_t* frame = (ExtendedLakibeamFrame_t*) data;  
+        lidar_ts = 1e-6*(frame->timestamp_us); /* Time in UTC */
+        //fprintf(stderr,"Lakibeam extended ts=%f\n",lidar_ts);
     }
-    fprintf(stderr,"\n");*/
-
-    //fprintf(stderr,"Lakibeam ts=%f\n",lidar_ts); 
+    else{
+        LakibeamFrame_t* frame = (LakibeamFrame_t*) data;  
+        lidar_ts = 1e-6*(frame->timestamp_us); /* Time in seconds since startup */
+        lidar_ts += lakibeam_epoch;
+        //fprintf(stderr,"Lakibeam ts=%f\n",lidar_ts);
+    }
+    
+    
     if (calc_interpolated_nav_data( posdata, pos_ix, lidar_ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt )) return 0;
     if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
         return 0;
     }
 	
+    LakibeamFrame_t* frame = (LakibeamFrame_t*) data; // Extended and non-extended share all the first 1200 bytes 
+
+    uint16_t a0 = frame->block[0].angle;
+    uint16_t a1 = frame->block[1].angle;
 	float d_azimuth;
-	if (data[51] < data[1])
-		d_azimuth = ((float)(36000+data[51]-data[1]))*(100*M_PI/(16*100*180)); // Convert to radians from centidegrees
-	else
-		d_azimuth = ((float)(data[51]-data[1]))*(M_PI/(16*100*180)); // Convert to radians from centidegrees
+    if (a1 < a0)
+		d_azimuth = ((float)(36000+a1-a0))*(M_PI/(LAKIBEAM_POINT_PER_BLOCK*100*180)); // Convert to radians per samplefrom centidegrees per block
+    else
+		d_azimuth = ((float)(a1-a0))*(M_PI/(LAKIBEAM_POINT_PER_BLOCK*100*180)); // Convert to radians per sample from centidegrees per block
 
 	ix_out = 0;
     uint32_t ix_in = 0;
 	// Populate r,az,el with data from lidar
-	for (uint16_t block=0;block<12;block++){
-        if(data[block*50]!=(0xeeff)) continue;
-		float azimuth = (float)data[block*50+1]*(M_PI/(100*180)); //0 to 2pi (Angle for first data block)
-		//fprintf(stderr,"Az = %f deg\n ",azimuth*180/M_PI);
-		
-		for (uint16_t set = 0;set<2;set++){ // [Strongest, Last]
-		    uint8_t* dp = (uint8_t*)(&(data[block*50+2])) + (set*3); //Set 1 os offset 3 bytes wrt set 0
-
-			for (uint16_t ch = 0; ch<16;ch++){
-				sensor_r = (float)(((uint16_t)dp[0])+((uint16_t)dp[1])*256)*1e-3f;	//Lakibeam measures distance in units of 1mm 
-		        //fprintf(stderr,"Range = %f m\n ",sensor_r);
-				sensor_az = azimuth + d_azimuth*ch;
-				if (sensor_r>sensor_params->min_range && sensor_r<sensor_params->max_range){
-					if ( (sensor_az>sensor_params->min_azimuth && sensor_az<sensor_params->max_azimuth )){
+	for (uint16_t block=0;block<LAKIBEAM_BLOCKS;block++){
+        if (frame->block[block].header != (0xeeff)) continue;
+        float azimuth = ((float)(frame->block[block].angle))*(M_PI/(100*180)); //0 to 2pi (Angle for first sample in  block)   
+        for (uint16_t point = 0; point<LAKIBEAM_POINT_PER_BLOCK;point++){
+		    for (uint16_t set = 0;set<2;set++){ // [Distance1 Strongest, Distance2 Last] TODO use this to populate multidetect field
+                if(set)     sensor_r =  ((float)(frame->block[block].point[point].distance2))*1e-3;
+                else        sensor_r =  ((float)(frame->block[block].point[point].distance1))*1e-3;
+                sensor_az = azimuth + d_azimuth*point;
+                if (sensor_r>sensor_params->min_range && sensor_r<sensor_params->max_range){
+                    if ( (sensor_az>sensor_params->min_azimuth && sensor_az<sensor_params->max_azimuth )){
                         ix_in++;
                         if ((ix_in % ix_in_stride)==0){
                             xs[ix_out] = 0;
                             ys[ix_out] = -sensor_r * sinf(sensor_az); //Sign flipped compared to standard right hand system
                             zs[ix_out] = sensor_r * cosf(sensor_az);
-                            intensity[ix_out] = dp[2];
+                            if (set)    intensity[ix_out] = ((float)(frame->block[block].point[point].intensity2));
+                            else        intensity[ix_out] = ((float)(frame->block[block].point[point].intensity1));
                             range[ix_out] = sensor_r;
                             az_out[ix_out] = sensor_az;
                             el_out[ix_out] = 0;
                             ix_out++;
                         }
-					}
-				}
-				dp+=6; // Each measuring result is 6 Bytes 
-			}
-		}
-	}
+                    }
+                }
+            }
+        }
+    }
 	//fprintf(stderr,"\n");
 	Nout = ix_out;
 
 	georef_to_global_frame(sensor_offset, xs, ys, zs, Nout,0, nav_x, nav_y, nav_z, nav_yaw, nav_pitch,  nav_roll, ray_trace_none,  sensor_params->mounting_depth,/*OUTPUT*/ x,y,z);
-	//fprintf(stderr,"Georef lidar data\n");	
+	//fprintf(stderr,"Georef lidar data %d points\n",Nout);	
     outbuf->N = Nout;
 	return Nout;
 }

@@ -134,7 +134,7 @@ uint8_t sensor_test_file(int fd, sensor_mode_e mode, int* version){
         case  sensor_mode_sim:
             return 1;
         case sensor_mode_lakibeam:
-            return lakibeam_test_file(fd);
+            return lakibeam_test_file(fd,version);
         case sensor_mode_velodyne:
             return velodyne_test_file(fd);
         case sensor_mode_s7k:	
