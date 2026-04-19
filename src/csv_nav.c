@@ -28,7 +28,6 @@ uint8_t csv_test_file(int fd){
     for(int test=0;test<20;test++){     //Test the first 20 packets, if none of them contains requested data it is pobably not a valid data file
         int len; 
         len = csv_nav_fetch_next_packet(data, fd);
-        printf("len=%d\n",len);
         if (len > 0 ){
             double ts;
             if (csv_nav_identify_packet(data, len, &ts)){
