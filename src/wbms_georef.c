@@ -37,7 +37,7 @@
 #include "lakibeam.h"
 #include "gsf_wrapper.h"
 #include "posmv.h"
-#include "xtf_nav.h"
+#include "csv_nav.h"
 #include "sim_nav.h"
 #include "sbet_nav.h"
 #include "eelume_sbd_nav.h"
@@ -239,7 +239,7 @@ void showUsage(char *pgmname)
 			"\t-s source\t Sensor data source\n"  
 			"\t-S mode\t Sensor mode: 1=WBMS 2=WBMS_V5 3=Velodyne 4=SIM 5=S7K 10=Autodetect (default) \n"
 			"\t-p source\t Pos data source (PosMv:5602)\n"
-			"\t-P mode\t Pos mode: 0=POSMV 1=XTF_NAV 2=WBM_TOOL 3=SBET 4=SIM 5=S7K 10=Autodetect (default)\n"
+			"\t-P mode\t Pos mode: 0=POSMV 1=CSV_NAV 2=WBM_TOOL 3=SBET 4=SIM 5=S7K 10=Autodetect (default)\n"
 			"\t-r roll\t Roll offset in degrees(additional to config file offset)\n"
 			"\t-d draft\t Sonar draft in meters (overriding config file value)\n"
 			"\t-w source\t Sound velocity input file, for raybending correcting\n"
@@ -396,7 +396,7 @@ void generate_template_config_file(char* fname){
 
 	fprintf(fp,"#### NAVIGATION DATA FORMAT ####\n");
 	fprintf(fp,"# Nav input parameters \n");
-	fprintf(fp,"# Pos mode 0=POSMV 1=XTF_NAV 2=WBM_TOOL 3=SBET 4=SIM 5=S7K 6=PingDSP_stream 10=Autodetect (default)\n");
+	fprintf(fp,"# Pos mode 0=POSMV 1=CSV_NAV 2=WBM_TOOL 3=SBET 4=SIM 5=S7K 6=PingDSP_stream 10=Autodetect (default)\n");
 	fprintf(fp,"# pos_mode 10\n");
 	fprintf(fp,"# Set forward speed in m/s when using simulated navigation data \n");
 	fprintf(fp,"pos_sim_speed 1\n\n");
@@ -1682,7 +1682,7 @@ int main(int argc,char *argv[])
         default_projection(input_projection_string,first_lat,first_lon);
 		fprintf(stderr, "No input projection given, defaulting to %s\n",input_projection_string);
 	}
-    xtf_nav_set_params(input_timezone, input_projection_string);	
+    csv_nav_set_params(input_timezone, input_projection_string);	
             
     //Use first position as offset for coordinates (In SBF coordinates is given as 32-bit float, and need a 64-bit float for offset to avoid discretization issues
     double x_offset,y_offset,z_offset; 

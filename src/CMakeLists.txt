@@ -25,7 +25,7 @@ list(APPEND wbms_georef_SOURCES
     linalg.c
     raytracing.c
     posmv.c
-    xtf_nav.c
+    csv_nav.c
     wbm_tool_nav.c
     sim_nav.c
     sbet_nav.c
@@ -69,7 +69,7 @@ list(APPEND wbms_georef_identify_SOURCES
     linalg.c
     raytracing.c
     posmv.c
-    xtf_nav.c
+    csv_nav.c
     wbm_tool_nav.c
     sim_nav.c
     sbet_nav.c

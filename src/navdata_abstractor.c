@@ -19,7 +19,7 @@
 #include "reson7k.h"
 #include "gsf_wrapper.h"
 #include "posmv.h"
-#include "xtf_nav.h"
+#include "csv_nav.h"
 #include "sim_nav.h"
 #include "sbet_nav.h"
 #include "eelume_sbd_nav.h"
@@ -36,7 +36,7 @@ PJ *proj_latlon_to_output_utm;
 
 const char *pos_mode_names[] = {
 	"Posmv",
-	"XTF_nav",
+	"CSV_nav",
 	"wbm_tool dump",
     "SBET",
     "Simulator",
@@ -88,7 +88,7 @@ uint8_t navigation_test_file(int fd, pos_mode_e mode){
         case pos_mode_posmv:    return  posmv_test_file(fd);
         case pos_mode_sbet:     return  sbet_test_file(fd);
         case pos_mode_sbet_csv:     return  sbet_csv_test_file(fd);
-        case pos_mode_xtf:      return  xtf_test_file(fd);
+        case pos_mode_csv:      return  csv_test_file(fd);
         case pos_mode_wbm_tool: return  wbm_tool_nav_test_file(fd);
         case pos_mode_sim:      return 1;
         case pos_mode_s7k:      return  r7k_test_nav_file(fd);
@@ -128,7 +128,7 @@ int navigation_fetch_next_packet(char * data, int fd, pos_mode_e mode){
         case pos_mode_posmv:    len= posmv_fetch_next_packet(data,fd);break;
         case pos_mode_sbet:     len= sbet_nav_fetch_next_packet(data,fd);break;
         case pos_mode_sbet_csv:     len= sbet_csv_nav_fetch_next_packet(data,fd);break;
-        case pos_mode_xtf:      len= xtf_nav_fetch_next_packet(data,fd);break;
+        case pos_mode_csv:      len= csv_nav_fetch_next_packet(data,fd);break;
         case pos_mode_wbm_tool: len= wbm_tool_nav_fetch_next_packet(data,fd);break;
         case pos_mode_sim:      len= sim_nav_fetch_next_packet(data,fd);break;
         case pos_mode_s7k:      len= r7k_fetch_next_packet(data,fd);break;
@@ -155,7 +155,7 @@ int process_nav_data_packet(char* databuffer, uint32_t len, double ts_in, double
         case pos_mode_posmv:    ret= posmv_process_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_sbet:     ret= sbet_process_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_sbet_csv:     ret= sbet_csv_nav_process_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
-        case pos_mode_xtf:      ret = xtf_nav_process_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
+        case pos_mode_csv:      ret = csv_nav_process_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_wbm_tool: ret= wbm_tool_process_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_sim:      ret = sim_nav_process_packet(ts_in,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;
         case pos_mode_s7k:      ret = s7k_process_nav_packet(databuffer,len,ts_out,z_offset, navdata_alt_mode, proj_latlon_to_output_utm, &(navdata[next_navdata_ix]),&aux_navdata);break;

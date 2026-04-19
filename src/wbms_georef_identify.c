@@ -26,7 +26,7 @@
 #include "lakibeam.h"
 #include "gsf_wrapper.h"
 #include "posmv.h"
-#include "xtf_nav.h"
+#include "csv_nav.h"
 #include "sim_nav.h"
 #include "sbet_nav.h"
 #include "eelume_sbd_nav.h"
