@@ -28,7 +28,7 @@
 
 //#define FAKE_SBP_TIMESTAMP
 #define IGNORE_WBMS_CRC_FOR_SBP_DATA
-#define ROLL_VECTOR_LEN 512
+#define ROLL_VECTOR_LEN 2048
 #define ROLL_VECTOR_RATE 500.
 // To get an unique identifier from beam+pingnumber when using multiping, we add 10k*mf_index to the beamnumber
 #define ADD_10K_MFINDEX_TO_BEAMNUMBER

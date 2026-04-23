@@ -25,7 +25,7 @@
 #include <BaseTsd.h>
 typedef SSIZE_T ssize_t;
 #endif
-#define ROLL_VECTOR_LEN 512
+#define ROLL_VECTOR_LEN 2048
 #define ROLL_VECTOR_RATE 500.
 
 static uint8_t verbose = 1;

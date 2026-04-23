@@ -16,7 +16,7 @@
 #include "raytracing.h"
 #include "gsf.h"
 
-#define ROLL_VECTOR_LEN 512
+#define ROLL_VECTOR_LEN 2048
 #define ROLL_VECTOR_RATE 500.
 
 static const char* sensor_fname = NULL;

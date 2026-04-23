@@ -1017,7 +1017,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         
 
         //Calculate a high freq sampled vector for roll and Z, to be used for each detection it rx instant
-        #define ROLL_VECTOR_LEN 512
+        #define ROLL_VECTOR_LEN 2048
         #define ROLL_VECTOR_RATE 500.
         float roll_vector[ROLL_VECTOR_LEN];
         float z_vector[ROLL_VECTOR_LEN];
