@@ -52,6 +52,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
     float* z_var_val = &(data->z_var[0]);
     float* intensity_val = &(data->i[0]);
     float* quality_val = &(data->quality[0]);
+    float* uncertainty_val = &(data->uncertainty[0]);
     float* priority_val = &(data->priority[0]);
     float* strength_val = &(data->strength[0]);
     float* range_val = &(data->range[0]);
@@ -124,6 +125,7 @@ int write_csv_to_buffer(double ts, output_data_t* data,uint32_t n, navdata_t pos
                 case val: len += sprintf(&(outbuf[len]),"%17.8f",intensity_val[ii]);break;
                 case val_dB: len += sprintf(&(outbuf[len]),"%17.8f",20*log10f(intensity_val[ii]));break;
                 case quality: len += sprintf(&(outbuf[len]),"%11.3f",quality_val[ii]);break;
+                case uncertainty: len += sprintf(&(outbuf[len]),"%11.3f",uncertainty_val[ii]);break;
                 case classification: len += sprintf(&(outbuf[len]),"%11d",classification_val[ii]);break;
                 case priority: len += sprintf(&(outbuf[len]),"%11.3f",priority_val[ii]);break;
                 case strength: len += sprintf(&(outbuf[len]),"%11.3f",strength_val[ii]);break;

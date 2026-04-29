@@ -690,6 +690,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
     float* lower_gate_range = &(outbuf->low_gate[0]);
     float* quality = &(outbuf->quality[0]);
     int*   quality_flags = &(outbuf->quality_flags[0]);
+    float* uncertainty = &(outbuf->uncertainty[0]);
     float* priority = &(outbuf->priority[0]);
     float* tx_angle_out = &(outbuf->tx_angle);
     float* fs_out = &(outbuf->sample_rate);
@@ -1060,6 +1061,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
             float sensor_r   = (rd->detection_point)*c_div_2Fs;	//Calculate range to each point en meters
             float sensor_t   = (rd->detection_point)*div_Fs;		//Calculate tx to rx time for each point 
             uint32_t sensor_quality_flags = rd->quality;
+            float sensor_uncertainty  = rd->uncertainty;
             uint32_t flags = rd->flags;
             float inten = 0;
             float sensor_ug = 0;
@@ -1113,7 +1115,8 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                              
                 float sensor_az_tx2rx_corr = -roll_vector[roll_index]; //Roll is given in opposite angles than sonar azimuth
                 float sensor_z_tx2rx_corr = z_vector[roll_index/2]; // Z correction is for half tx to rx time
-                
+               
+                uncertainty[ix_out] = sensor_uncertainty;
                 quality[ix_out] = (float) sensor_quality_flags;
                 quality_flags[ix_out] = sensor_quality_flags;
                 classification_val[ix_out] = (sensor_quality_flags==3);  //Just calssify as Seafloor (=1) if Q=3 and Noise(=0) otherwise

@@ -490,6 +490,7 @@ void generate_template_config_file(char* fname){
     fprintf(fp,"#  detection swath y offset:  swath_y\n");
     fprintf(fp,"#  detection angle of incidence:  aoi\n");
     fprintf(fp,"#  detection quality:         quality\n");
+    fprintf(fp,"#  detection uncertainty:     uncertainty\n");
     fprintf(fp,"#  detection priority:         priority\n");
     fprintf(fp,"#  detection strength:        strength\n");
     fprintf(fp,"#  snippet length:            snp_len\t  #Snippet length in samples \n");
