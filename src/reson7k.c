@@ -996,6 +996,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         uint32_t dfs = rth.r7027->data_field_size;
         uint8_t* rd_ptr = (((uint8_t*) rth.r7027) + sizeof(r7k_RecordTypeHeader_7027_t));
         float attenuation = calc_attenuation(mbes_tx_freq, sensor_params);
+        outbuf->gain = mbes_gain;
         //fprintf(stderr, "GEOREF: Serial=%ld ping_nr=%d Nin=%d dfs=%d\n",rth.r7027->serial, rth.r7027->ping_nr,Nin,dfs);
 
         if ((sv==0) || (sv != sv)){
@@ -1292,6 +1293,7 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
         
         //Create pointer to beginning of first snippet sample data set
         uint8_t * snp_data_ptr = rd_ptr + sizeof(r7k_SnippetDescriptor_7028_t)*Nsnp;
+        outbuf->gain = mbes_gain;
         
         
         // This is the 10**(mbes_absorbtion*2*r/(20*1000))
