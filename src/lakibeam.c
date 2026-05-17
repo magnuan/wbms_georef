@@ -125,6 +125,7 @@ int lakibeam_identify_packet(char* databuffer, uint32_t len, double* ts_out, dou
         LakibeamFrame_t* frame = (LakibeamFrame_t*) databuffer;  
         lidar_ts = 1e-6*(frame->timestamp_us); /* Time in seconds since startup */
         lidar_ts += lakibeam_epoch;
+        lidar_ts += sensor_offset->time_offset;
         *ts_out = lidar_ts; 
         for (ii=0;ii<12;ii++){              //Each packet has 12 datablocks of 100 bytes, each starting with 0xeeff of 0xffff
             if ( (frame->block[ii].header != (0xeeff)) && (frame->block[ii].header !=(0xffff))){
@@ -138,6 +139,7 @@ int lakibeam_identify_packet(char* databuffer, uint32_t len, double* ts_out, dou
     else if (len == LAKIBEAM_EXTENDED_LIDAR_PACKET_SIZE){
         ExtendedLakibeamFrame_t* frame = (ExtendedLakibeamFrame_t*) databuffer;  
         lidar_ts = 1e-6*(frame->timestamp_us); /* Time in UTC */
+        lidar_ts += sensor_offset->time_offset;
         *ts_out = lidar_ts; 
         for (ii=0;ii<LAKIBEAM_BLOCKS;ii++){              //Each packet has 12 datablocks of 100 bytes, each starting with 0xeeff of 0xffff
             if ( (frame->block[ii].header !=(0xeeff)) && (frame->block[ii].header !=(0xffff))){
@@ -162,12 +164,14 @@ uint32_t  lakibeam_count_data( uint16_t * data,double *ts){
     if (extended_format){
         ExtendedLakibeamFrame_t* frame = (ExtendedLakibeamFrame_t*) data;  
         *ts = 1e-6*(frame->timestamp_us); /* Time in UTC */
+        *ts += sensor_offset->time_offset;
         //fprintf(stderr,"Lakibeam extended ts=%f\n",*ts);
     }
     else{
         LakibeamFrame_t* frame = (LakibeamFrame_t*) data;  
         *ts = 1e-6*(frame->timestamp_us); /* Time in seconds since startup */
         *ts += lakibeam_epoch;
+        *ts += sensor_offset->time_offset;
         //fprintf(stderr,"Lakibeam ts=%f\n",*ts);
     }
     {
@@ -225,7 +229,7 @@ uint32_t lakibeam_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
         lidar_ts += lakibeam_epoch;
         //fprintf(stderr,"Lakibeam ts=%f\n",lidar_ts);
     }
-    
+    lidar_ts += sensor_offset->time_offset;
     
     if (calc_interpolated_nav_data( posdata, pos_ix, lidar_ts,/*OUTPUT*/ &nav_x, &nav_y, &nav_z, &nav_yaw, &nav_pitch, &nav_roll, &nav_dyaw_dt, &nav_dpitch_dt, &nav_droll_dt )) return 0;
     if (attitude_test(sensor_params, nav_yaw,  nav_pitch,  nav_roll, nav_droll_dt, nav_dpitch_dt, nav_dyaw_dt)){ 
