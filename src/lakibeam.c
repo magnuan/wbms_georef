@@ -194,6 +194,8 @@ uint32_t lakibeam_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
     float* range = &(outbuf->range[0]);
     float* az_out = &(outbuf->teta[0]);
     float* el_out = &(outbuf->steer[0]);
+    int* ping_number_out = &(outbuf->ping_number);
+    float* aoi = &(outbuf->aoi[0]);
     
     static uint32_t ping_number = 0;
 
@@ -201,6 +203,7 @@ uint32_t lakibeam_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
     const uint32_t ping_number_stride = sensor_params->ping_decimate; 
 
     ping_number++;
+    *ping_number_out = ping_number;
     
     if ((ping_number%ping_number_stride) != 0) return 0;
 
@@ -280,6 +283,18 @@ uint32_t lakibeam_georef_data( uint16_t* data, navdata_t posdata[NAVDATA_BUFFER_
 	Nout = ix_out;
 
 	georef_to_global_frame(sensor_offset, xs, ys, zs, Nout,0, nav_x, nav_y, nav_z, nav_yaw, nav_pitch,  nav_roll, ray_trace_none,  sensor_params->mounting_depth,/*OUTPUT*/ x,y,z);
+    
+    #if 1
+    //Calculate AOI on  Post-filtered data
+    if (sensor_params->calc_aoi){
+        calc_aoi(range, az_out, Nout, /*output*/ aoi);
+    }
+    else{
+        for (ix_out=0;ix_out<Nout;ix_out++){
+            aoi[ix_out] = 0;
+        }
+    }
+    #endif
 	//fprintf(stderr,"Georef lidar data %d points\n",Nout);	
     outbuf->N = Nout;
 	return Nout;
