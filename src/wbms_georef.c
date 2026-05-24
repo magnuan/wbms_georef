@@ -1980,7 +1980,7 @@ int main(int argc,char *argv[])
                         ts_sensor = new_ts_sensor;
                         if (1){ //if((navdata_count > NAVDATA_BUFFER_LEN/4) || (pos_mode == pos_mode_sim)){ //Need a quarter buffer before we can start doing georeferencing
                             uint8_t more_data_to_process = 1;
-                            uint16_t sector = 0;                                          // GSF data contains data from multiple sectors (multifreq) in one dataset and needs multiple passes to process and output one sector at a time
+                            uint16_t sector = 0;                                          // GSF data can contains data from multiple sectors (multifreq) in one dataset and needs multiple passes to process and output one sector at a time
                             while(more_data_to_process){
                             
                                 switch (sensor_mode){

@@ -207,12 +207,48 @@ int gsf_fetch_next_packet(char * data, int fd){
 
 int gsf_identify_sensor_packet(char* databuffer, uint32_t len, double* ts_out){
     int data_type = sensor_dataID->recordID & 0x0FFF;
-    if  (data_type != GSF_RECORD_SWATH_BATHYMETRY_PING) return 0;  // So far GSF_RECORD_SWATH_BATHYMETRY_PING is the only record we know contains navigation data
-    //int registry = (sensor_dataID->recordID >>12) & 0x0FFF;
+    
+    int registry = (sensor_dataID->recordID >>12) & 0x0FFF;
     //fprintf(stderr, "gsf_identify_sensor_packet data_type=%d, registry=%d, cs_flag=%d, record_number=%d\n",data_type,registry,sensor_dataID->checksumFlag, sensor_dataID->record_number); 
 	
+    if  (data_type != GSF_RECORD_SWATH_BATHYMETRY_PING) return 0;  // So far GSF_RECORD_SWATH_BATHYMETRY_PING is the only record we know contains navigation data
     *ts_out = sensor_records->mb_ping.ping_time.tv_sec;
     *ts_out += (sensor_records->mb_ping.ping_time.tv_nsec)*1e-9;
+
+    #if 1
+        fprintf(stderr, "GSF bathy arrays: ");
+        if(sensor_records->mb_ping.depth            ) fprintf(stderr, "depth, "); 
+        if(sensor_records->mb_ping.nominal_depth    ) fprintf(stderr, "nominal_depth, "); 
+        if(sensor_records->mb_ping.across_track     ) fprintf(stderr, "across_track, "); 
+        if(sensor_records->mb_ping.along_track      ) fprintf(stderr, "along_track, "); 
+        if(sensor_records->mb_ping.travel_time      ) fprintf(stderr, "travel_time, "); 
+        if(sensor_records->mb_ping.beam_angle       ) fprintf(stderr, "beam_angle, "); 
+        if(sensor_records->mb_ping.mc_amplitude     ) fprintf(stderr, "mc_amplitude, "); 
+        if(sensor_records->mb_ping.mr_amplitude     ) fprintf(stderr, "mr_amplitude, "); 
+        if(sensor_records->mb_ping.echo_width       ) fprintf(stderr, "echo_width, "); 
+        if(sensor_records->mb_ping.quality_factor   ) fprintf(stderr, "quality_factor, "); 
+        if(sensor_records->mb_ping.receive_heave    ) fprintf(stderr, "receive_heave, "); 
+        if(sensor_records->mb_ping.depth_error      ) fprintf(stderr, "depth_error, "); 
+        if(sensor_records->mb_ping.across_track_error)fprintf(stderr, "across_track_error, ");
+        if(sensor_records->mb_ping.along_track_error) fprintf(stderr, "along_track_error, "); 
+        if(sensor_records->mb_ping.quality_flags    ) fprintf(stderr, "quality_flags, "); 
+        if(sensor_records->mb_ping.beam_flags       ) fprintf(stderr, "beam_flags, "); 
+        if(sensor_records->mb_ping.signal_to_noise  ) fprintf(stderr, "signal_to_noise, "); 
+        if(sensor_records->mb_ping.beam_angle_forward)fprintf(stderr, "beam_angle_forward, ");
+        if(sensor_records->mb_ping.vertical_error   ) fprintf(stderr, "vertical_error, "); 
+        if(sensor_records->mb_ping.horizontal_error ) fprintf(stderr, "horizontal_error, "); 
+        if(sensor_records->mb_ping.sector_number    ) fprintf(stderr, "sector_number, "); 
+        if(sensor_records->mb_ping.detection_info   ) fprintf(stderr, "detection_info, "); 
+        if(sensor_records->mb_ping.incident_beam_adj) fprintf(stderr, "incident_beam_adj, "); 
+        if(sensor_records->mb_ping.system_cleaning  ) fprintf(stderr, "system_cleaning, "); 
+        if(sensor_records->mb_ping.doppler_corr     ) fprintf(stderr, "doppler_corr, "); 
+        if(sensor_records->mb_ping.sonar_vert_uncert) fprintf(stderr, "sonar_vert_uncert, "); 
+        if(sensor_records->mb_ping.sonar_horz_uncert) fprintf(stderr, "sonar_horz_uncert, "); 
+        if(sensor_records->mb_ping.detection_window ) fprintf(stderr, "detection_window, "); 
+        if(sensor_records->mb_ping.mean_abs_coeff   ) fprintf(stderr, "mean_abs_coeff, "); 
+        if(sensor_records->mb_ping.TVG_dB           ) fprintf(stderr, "TVG_dB, "); 
+        fprintf(stderr, "\n");
+    #endif 
     return data_type;
 }
 
@@ -351,7 +387,7 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
     uint16_t num_sectors = 1; //By default we only assume one sector of data
 
     switch(sensor_records->mb_ping.sensor_id){
-        case 156: // Kongsberg EM712  TODO probably a lot more Kongsberg systems should use this
+        case GSF_SWATH_BATHY_SUBRECORD_KMALL_SPECIFIC: // Kongsberg EM712  TODO probably a lot more Kongsberg systems should use this
             num_sectors = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.numTxSectors;
             // Extract tx information from the specific sector
             tx_freq = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].centreFreq_Hz; 
@@ -359,14 +395,27 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
             tx_plen = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].totalSignalLength_sec;
             tx_angle = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].tiltAngleReTx_deg*M_PI/180;
             ts += sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].sectorTransmitDelay_sec;
-            //tx_voltage = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].txNominalSourceLevel_dB; // TODO this is dB not V
             tx_voltage = powf(10,sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.sector[sector].highVoltageLevel_dB / 20);
             multiping_index = 0;
             ping_number = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.pingCnt;
             if (ping_number < prev_ping_number) ping_number += 65536;                                           //Unwrap since it is only a short in kmall
             ping_rate = sensor_records->mb_ping.sensor_data.gsfKMALLSpecific.pingRate_Hz;
             Fs = 0;
+            outbuf->gain = 0;
             break;
+        case GSF_SWATH_BATHY_SUBRECORD_RESON_7125_SPECIFIC: // Reson seabat 7125 and Norbit systems  
+            tx_freq     = sensor_records->mb_ping.sensor_data.gsfReson7100Specific.frequency; 
+            tx_bw       = sensor_records->mb_ping.sensor_data.gsfReson7100Specific.receiver_bandwdth; 
+            tx_plen     = sensor_records->mb_ping.sensor_data.gsfReson7100Specific.tx_pulse_width;
+            tx_angle    = sensor_records->mb_ping.sensor_data.gsfReson7100Specific.projector_steer_angl_vert; // TODO or should this be projector_steer_angl_horz ?
+            ping_number = sensor_records->mb_ping.sensor_data.gsfReson7100Specific.ping_number;
+            ping_rate   = 1/(sensor_records->mb_ping.sensor_data.gsfReson7100Specific.ping_period);
+            Fs          = sensor_records->mb_ping.sensor_data.gsfReson7100Specific.sample_rate;
+            tx_voltage  = powf(10,sensor_records->mb_ping.sensor_data.gsfReson7100Specific.power / 20);     
+            outbuf->gain = sensor_records->mb_ping.sensor_data.gsfReson7100Specific.gain; 
+            multiping_index = 0;
+            break;
+
         default:
             //Some default parameters for unrecognized systems, 
             tx_freq = 400e3;
@@ -379,6 +428,7 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
             ping_rate =  1./(ts-prev_ts);
             ping_rate = LIMIT(ping_rate,0.1,100);
             Fs = 0; 
+            outbuf->gain = 0;
             break;
         
     }
@@ -477,7 +527,9 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
 
     uint8_t sensor_quality_flags;
     uint8_t priority_flags;
+    double sensor_quality_factor;
     uint16_t flags;
+    int8_t sensor_beam_flags;
 
     //Calculate sounding positions in sonar reference frame at tx instant
 	ix_out = 0;
@@ -490,12 +542,29 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
         sensor_r   = (sensor_t*c)/2;	                                            //Calculate range to each point en meters
         sensor_az  = *(sensor_records->mb_ping.beam_angle+ ix_in) * -M_PI/180.;     //Beam angle in GSF seems to be deifned in degrees from startboard-port
         sensor_elec_steer = sensor_az;
-        if(sensor_records->mb_ping.quality_flags){
+       
+        
+        if(sensor_records->mb_ping.quality_flags){ // If data has quality flags, we use this otherwise we just set quality to 3
             sensor_quality_flags = *(sensor_records->mb_ping.quality_flags +ix_in);
         }
         else{
             sensor_quality_flags = 3;
         }
+        
+        if(sensor_records->mb_ping.quality_factor){ // If data has quality factor, we use this otherwise we just set quality to 3
+            sensor_quality_factor = *(sensor_records->mb_ping.quality_factor +ix_in);
+        }
+        else{
+            sensor_quality_factor = -1;
+        }
+        
+        if(sensor_records->mb_ping.beam_flags){ // If data has beam_flags, we use this otherwise we just set to -1
+            sensor_beam_flags = (int16_t) *(sensor_records->mb_ping.beam_flags +ix_in);
+        }
+        else{
+            sensor_beam_flags = -1;
+        }
+
         flags = *(sensor_records->mb_ping.beam_flags + ix_in);
 
         sensor_r  *= sensor_offset->r_scale;
@@ -516,13 +585,14 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
             beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis
             beam_steer[ix_out] = sensor_elec_steer;
             beam_range[ix_out] = sensor_r;
-            quality[ix_out] = (float) sensor_quality_flags;
+            quality[ix_out] = (float) sensor_quality_factor;
             quality_flags[ix_out] = sensor_quality_flags;
-            classification_val[ix_out] = (sensor_quality_flags==3);  //Just calssify as Seafloor (=1) if Q=3 and Noise(=0) otherwise
+            classification_val[ix_out] = sensor_beam_flags; // Use cleaning val for this (TODO hope this is what Qimera uses to tag manual data cleaning)
             priority[ix_out] = (float) priority_flags;
             *tx_angle_out = sensor_el;
 			
             intensity[ix_out] = sensor_records->mb_ping.mr_amplitude[ix_in];
+            
 
 			#if 1       //TODO select cone-cone / cone-plane based on system
 			xs[ix_out] = sensor_r * sin(sensor_el);
