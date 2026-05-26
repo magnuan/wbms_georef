@@ -51,6 +51,7 @@ list(APPEND wbms_georef_SOURCES
     gsf_geo.c  
     gsf_indx.c  
     gsf_info.c
+    classification.c
   )
 
 # wbms_georef_identify
@@ -95,6 +96,7 @@ list(APPEND wbms_georef_identify_SOURCES
     gsf_geo.c  
     gsf_indx.c  
     gsf_info.c
+    classification.c
   )
 
 # sv2csv

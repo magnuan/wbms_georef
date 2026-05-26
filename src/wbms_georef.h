@@ -127,6 +127,7 @@ typedef struct{
     float force_sv;
     uint8_t sv_from_table;
     float mounting_depth;
+    uint8_t has_classification_data;
     char intensity_correction; 
     float intensity_range_attenuation; 
     ara_model_e ara_model;

@@ -37,6 +37,7 @@
 #include "navdata_abstractor.h"
 #include "sensordata_abstractor.h"
 #include "svpdata.h"
+#include "classification.h"
 
 #if defined(_MSC_VER)
 #include "non_posix.h"
@@ -124,8 +125,40 @@ int main(int argc,char *argv[])
 		    input_file_string = argv[optind++];
         }
     }
+    
+    fprintf(stderr,"Testing as classification file...");
+    uint32_t class_pings, class_beams, class_mp, class_rows;
+    if (classification_test_file(input_file_string, &class_pings,&class_beams,&class_mp,&class_rows)){
+        fprintf(stderr,"Success\n");
+        // File recognized as Classification data
+        /* Write file stats */
+        file_stats= calloc(1,sizeof(file_stats_t));
+
+        file_stats->file_type = "csv";     
+        file_stats->file_version = 0;  
+        file_stats->data_type = "classification";     
+        file_stats->sensor_type = "unknown";   
+        file_stats->num_record_types = 0;
+        file_stats->datapoints = class_rows;
+        file_stats->datasets = class_pings;
+        file_stats->start_time = 0;
+        file_stats->duration = 0;
+
+        /************ Generate JSON  ******************/
+
+        char* json_buf = malloc(2048);
+        write_stats_json_to_buffer(file_stats, /*OUTPUT*/json_buf);
+        fprintf(stdout,"%s",json_buf);
+        free(file_stats);
+        free(json_buf);
+
+        return(0);
+
+    }
 
 
+    fprintf(stderr,"Failed\n");
+    fprintf(stderr,"Testing as svp file...");
     double ts_svp;
     double lat_svp, lon_svp;
     size_t svp_datapoints;
@@ -144,6 +177,7 @@ int main(int argc,char *argv[])
 
 
     if (svp_mode>0){    //File recognized as SVP data
+        fprintf(stderr,"Success\n");
         int version = 0;
         if (svp_mode == svp_mode_caris_v2) version = 2;
         char ver_string[32];
@@ -178,6 +212,9 @@ int main(int argc,char *argv[])
 
         return(0);
     }
+    fprintf(stderr,"Failed\n");
+
+
 
     fprintf(stderr,"Reading sensor data from FILE: %s\n",input_file_string);
     input_fileptr = fopen(input_file_string,"rb");

@@ -20,6 +20,7 @@
 #include "cmath.h"
 #include "misc.h"
 #include "raytracing.h"
+#include "classification.h"
 #if defined(_MSC_VER)
 #include "non_posix.h"
 #include <io.h>
@@ -1120,7 +1121,12 @@ uint32_t s7k_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t po
                 uncertainty[ix_out] = sensor_uncertainty;
                 quality[ix_out] = (float) sensor_quality_flags;
                 quality_flags[ix_out] = sensor_quality_flags;
-                classification_val[ix_out] = (sensor_quality_flags==3);  //Just calssify as Seafloor (=1) if Q=3 and Noise(=0) otherwise
+                if (sensor_params->has_classification_data){ //Read from input classification table
+                    classification_val[ix_out] = classification_get_class(ping_number,ix_in,multifreq_index);
+                }
+                else{   // If no table, use quality flag for classification
+                    classification_val[ix_out] = (sensor_quality_flags==3);  //Just calssify as Seafloor (=1) if Q=3 and Noise(=0) otherwise
+                }
                 priority[ix_out] = (float) priority_flags;
                 beam_number[ix_out] = ix_in;
                 beam_angle[ix_out] =  sensor_az;  //Store raw beam angle from sonar for data analysis

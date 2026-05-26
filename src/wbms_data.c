@@ -20,6 +20,7 @@
 #include "georef_tools.h"
 #include "intensity_scaling.h"
 #include "raytracing.h"
+#include "classification.h"
 #if defined(_MSC_VER)
 #include "non_posix.h"
 #include <corecrt_math_defines.h>
@@ -917,7 +918,14 @@ uint32_t wbms_georef_data( bath_data_packet_t* bath_in, navdata_t posdata[NAVDAT
                 quality[ix_out] = (float) sensor_quality_flags;
             #endif
             quality_flags[ix_out] = sensor_quality_flags;
-            classification_val[ix_out] = (sensor_quality_flags==3);  //Just calssify as Seafloor (=1) if Q=3 and Noise(=0) otherwise
+            
+            if (sensor_params->has_classification_data){ //Read from input classification table
+                classification_val[ix_out] = classification_get_class(ping_number,beam_number[ix_out],multifreq_index);
+            }
+            else{   // If no table, use quality flag for classification
+                classification_val[ix_out] = (sensor_quality_flags==3);  //Just calssify as Seafloor (=1) if Q=3 and Noise(=0) otherwise
+            }
+            
             priority[ix_out] = (float) priority_flags;
             *tx_angle_out = sensor_el;
 			

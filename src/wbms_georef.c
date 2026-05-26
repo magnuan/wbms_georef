@@ -53,6 +53,7 @@
 #include "misc.h"
 #include "navdata_abstractor.h"
 #include "sensordata_abstractor.h"
+#include "classification.h"
 
 
 #if defined(_MSC_VER)
@@ -168,6 +169,7 @@ static char * input_sensor_source_string = NULL;
 static char * input_navigation_source_string = NULL;
 static char * sv_file_name = NULL;
 static char * angle_intensity_file_name = NULL;
+static char * classification_file_name = NULL;
 static char * output_string = NULL;
             
 
@@ -244,6 +246,7 @@ void showUsage(char *pgmname)
 			"\t-d draft\t Sonar draft in meters (overriding config file value)\n"
 			"\t-w source\t Sound velocity input file, for raybending correcting\n"
 			"\t-y source\t Angle intensity correction table\n"
+			"\t-l source\t Classification CSV file\n"
 			"\t-5 \t Force wbms bathy format version 5\n"
 			"\t-o file\t Output drain\n"
 			"\t-C \t Output in csv format\n"
@@ -551,6 +554,7 @@ static void sensor_params_default(sensor_params_t* s){
     s->sv_offset = 0.0;
     s->force_sv = 0.0;
     s->mounting_depth = 1.0;		//Mounting depth, only for raytracing, SV-profile compensation
+    s->has_classification_data = 0;
     s->intensity_correction = 0;
     s->intensity_range_attenuation = 0;
     s->ara_model = ara_model_none;
@@ -1033,7 +1037,7 @@ int main(int argc,char *argv[])
 
     char *endptr;
 	/**** PARSING COMMAND LINE OPTIONS ****/
-        while ((c = getopt (argc, argv, "c:i:s:p:P:r:d:S:F:w:y:o:?hVxC75")) != -1) {
+        while ((c = getopt (argc, argv, "c:i:s:p:P:r:d:S:F:w:y:l:o:?hVxC75")) != -1) {
 		switch (c) {
 			case 'c':
 				if(read_config_from_file(optarg)){
@@ -1081,6 +1085,9 @@ int main(int argc,char *argv[])
 			case 'y':
 				angle_intensity_file_name = optarg;
 				break;
+			case 'l':
+				classification_file_name = optarg;
+				break;
 			case 'o':
 				output_string= optarg;
 				break;
@@ -1116,11 +1123,19 @@ int main(int argc,char *argv[])
 
     //Override draft value from config file
     if (draft_override>-100){
-        fprintf(stderr,"Forcinf sonar mounting depth (draft) to %1.1fm\n",draft_override);
+        fprintf(stderr,"Forcing sonar mounting depth (draft) to %1.1fm\n",draft_override);
 	    sensor_params.mounting_depth = draft_override;
     }
 
-	
+    if (classification_file_name){
+        int ret = classification_read_from_file(classification_file_name);
+        if (ret<0){
+            fprintf(stderr,"Failed parsing %s for classification data\n",classification_file_name);
+            return (-1);
+        }
+        sensor_params.has_classification_data = 1;
+	}
+
     if (angle_intensity_file_name){
         if (read_intensity_angle_corr_from_file(angle_intensity_file_name,INTENSITY_ANGLE_STEP,INTENSITY_ANGLE_MAX_VALUES, /*output*/ intenity_angle_corr_table)>0){
             sensor_params.ara_model = ara_model_table;

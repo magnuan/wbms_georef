@@ -15,6 +15,7 @@
 #include "intensity_scaling.h"
 #include "raytracing.h"
 #include "gsf.h"
+#include "classification.h"
 
 #define ROLL_VECTOR_LEN 2048
 #define ROLL_VECTOR_RATE 500.
@@ -587,7 +588,13 @@ int32_t gsf_georef_data( char* databuffer,uint32_t databuffer_len, navdata_t pos
             beam_range[ix_out] = sensor_r;
             quality[ix_out] = (float) sensor_quality_factor;
             quality_flags[ix_out] = sensor_quality_flags;
-            classification_val[ix_out] = sensor_beam_flags; // Use cleaning val for this (TODO hope this is what Qimera uses to tag manual data cleaning)
+                
+            if (sensor_params->has_classification_data){ //Read from input classification table
+                classification_val[ix_out] = classification_get_class(ping_number,ix_in,multifreq_index);
+            }
+            else{   // If no table, use sensor_beam_flags. Qimera seems to be using this for its cleaning
+                classification_val[ix_out] = sensor_beam_flags; 
+            }
             priority[ix_out] = (float) priority_flags;
             *tx_angle_out = sensor_el;
 			
